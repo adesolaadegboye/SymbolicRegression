@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- WARNING: Eclipse auto-generated file.
+              Any modifications will be overwritten.
+              To include a user specific buildfile here, simply create one in the same
+              directory with the processing instruction <?eclipse.ant.import?>
+              as the first entry and export the buildfile again. --><project basedir="." default="build" name="dc">
+    <property environment="env"/>
+    <property name="debuglevel" value="source,lines,vars"/>
+    <property name="target" value="1.8"/>
+    <property name="source" value="1.8"/>
+    <path id="dc.classpath">
+        <pathelement location="bin"/>
+        <pathelement location="lib/supplement.jar"/>
+	<pathelement location="lib/joda-time-2.9.9.jar"/>
+	<pathelement location="lib/jfreechart-1.0.19.jar"/>
+        <pathelement location="lib/jcommon-1.0.23.jar"/>	
+	<pathelement location="lib/weka.jar"/>
+        <pathelement location="lib/SMOTE.jar"/>
+	<pathelement location="lib/autoweka.jar"/>
+    </path>
+    <target name="init">
+        <mkdir dir="bin"/>
+        <copy includeemptydirs="false" todir="bin">
+            <fileset dir="src">
+                <exclude name="**/*.launch"/>
+                <exclude name="**/*.java"/>
+            </fileset>
+        </copy>
+    </target>
+    <target name="clean">
+        <delete dir="bin"/>
+    </target>
+    <target depends="clean" name="cleanall"/>
+    <target depends="build-subprojects,build-project" name="build"/>
+    <target name="build-subprojects"/>
+    <target depends="init" name="build-project">
+        <echo message="${ant.project.name}: ${ant.file}"/>
+        <javac debug="true" debuglevel="${debuglevel}" destdir="bin" includeantruntime="false" source="${source}" target="${target}">
+            <src path="src"/>
+            <classpath refid="dc.classpath"/>
+        </javac>
+    </target>
+    <target description="Build all projects which reference this project. Useful to propagate changes." name="build-refprojects"/>
+    <target name="Ga+dc">
+        <java classname="dc.ga.GA" failonerror="true" fork="yes">
+            <arg line="fx-spot_GBP_JPY_hqtick_201308.txt:fx-spot_GBP_JPY_hqtick_201308:1:1:2:2:GP&#9;100 50 7 0.90 0.10 0.0025 5 100 500000 0.25 0.20 3 1 0.01"/>
+            <classpath refid="dc.classpath"/>
+        </java>
+    </target>
+	
+	 <target name="jar">
+        <mkdir dir="build/jar"/>
+        <jar destfile="build/jar/gpSymbolicRegression.jar" basedir="bin">
+            <manifest>
+                <attribute name="Main-Class" value="Misc.SymbolicRegression"/>
+            </manifest>
+        </jar>
+    </target>
+	
+</project>

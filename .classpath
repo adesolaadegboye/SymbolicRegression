@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="lib/supplement.jar"/>
+	<classpathentry kind="lib" path="C:/Users/atna3/workspace/dc/lib/joda-time-2.9.9.jar"/>
+	<classpathentry kind="lib" path="C:/Users/atna3/workspace/dc/lib/weka.jar"/>
+	<classpathentry kind="lib" path="C:/Users/atna3/workspace/dc/lib/SMOTE.jar"/>
+	<classpathentry kind="lib" path="C:/Users/atna3/workspace/dc/lib/autoweka.jar" sourcepath="lib/weka.jar"/>
+	<classpathentry kind="lib" path="C:/Users/atna3/workspace/dc/lib/ta4j.jar"/>
+	<classpathentry kind="lib" path="C:/Users/atna3/workspace/dc/lib/commons-math3-3.6.1.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
