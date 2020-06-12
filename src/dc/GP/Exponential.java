@@ -49,10 +49,28 @@ public class Exponential  extends AbstractNode implements Cloneable{
 	@Override
 	public double eval(double inVal) {
 		if (this.children.get(0) != null ){
-			double evalValue = Math.exp((this.children.get(0)).eval(inVal));
+			
+			double var1 = (this.children.get(0)).eval(inVal);
+//			if (Double.isInfinite(var1)){
+//				System.out.println(this.children.get(0).printAsInFixFunctionSimplify());
+//				System.out.println("Is infinity");
+			
+//			}
+			double evalValue = Math.exp(var1);
+//			if (Double.isInfinite(evalValue)){
+//				System.out.println(this.printAsInFixFunctionSimplify());
+//				System.out.println("Is infinity");
+//			}
 			//System.out.println( evalValue );
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
-					evalValue == Double.NEGATIVE_INFINITY || evalValue ==  Double.NaN)
+				  evalValue == Double.NEGATIVE_INFINITY || evalValue ==  Double.NaN ||
+						  Double.compare(evalValue, 0.0)  < 0  || Double.isInfinite(evalValue)  || Double.isNaN(evalValue) ||
+				  inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
+				  inVal == Double.NEGATIVE_INFINITY || inVal ==  Double.NaN ||
+				Double.compare(inVal, 0.0)  < 0  || Double.isInfinite(inVal)  || Double.isNaN(inVal) ||
+				  var1 == Double.MAX_VALUE || var1 == Double.NEGATIVE_INFINITY ||
+				  var1 == Double.NEGATIVE_INFINITY || var1 ==  Double.NaN ||
+				  Double.compare(var1, 0.0)  < 0  || Double.isInfinite(var1)  || Double.isNaN(var1))
 				return 1000000000.0;
 			else
 				return evalValue;

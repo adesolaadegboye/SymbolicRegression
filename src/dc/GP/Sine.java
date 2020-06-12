@@ -46,11 +46,26 @@ public class Sine extends AbstractNode implements Cloneable{
 
 	@Override
 	public double eval(double inVal) {
+		double childValue = 0.0;
 		if (this.children.get(0) != null ){
-			double evalValue = Math.sin((this.children.get(0)).eval(inVal));
+			 childValue = this.children.get(0).eval(inVal);
+			double evalValue = Math.sin(childValue);
+			
+//		if (Double.isNaN(evalValue)){	
+//				System.out.println("Is NAN");
+//			}
+//			if (Double.isInfinite(evalValue))
+//				System.out.println("Is infinity");
 		//	System.out.println( evalValue );
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
-					evalValue == Double.POSITIVE_INFINITY|| evalValue ==  Double.NaN)
+				  evalValue == Double.POSITIVE_INFINITY|| evalValue ==  Double.NaN ||
+				Double.compare(evalValue, 0.0)  < 0 || Double.isInfinite(evalValue) || Double.isNaN(evalValue) ||
+				 inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
+				  inVal == Double.NEGATIVE_INFINITY || inVal ==  Double.NaN ||
+				Double.compare(inVal, 0.0)  < 0  || Double.isInfinite(inVal)  || Double.isNaN(inVal) ||  
+				childValue == Double.MAX_VALUE || childValue == Double.NEGATIVE_INFINITY ||
+				 childValue == Double.POSITIVE_INFINITY || childValue ==  Double.NaN ||
+				 Double.compare(childValue, 0.0)  < 0  || Double.isInfinite(childValue) || Double.isNaN(childValue))
 				return 1000000000.0;
 			else
 				return evalValue;

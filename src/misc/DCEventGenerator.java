@@ -15,6 +15,9 @@ public class DCEventGenerator {
 	 String thresholdString = "";
 	 Event[] output;
 	 Event[] generatedEvents;
+	
+	 
+	 
 	/**
 	 * 
 	 * @param values
@@ -31,7 +34,7 @@ public class DCEventGenerator {
 		Event last = new Event(0, 0, Type.Upturn);
 		events.add(last);
 
-		String thresholdStr = String.format("%.8f", delta);
+		
 		output = new Event[values.length];
 		
 		double pHigh = 0;
@@ -40,11 +43,6 @@ public class DCEventGenerator {
 		int[] indexDC = new int[2]; // DC event indexes
 		int[] indexOS = new int[2]; // OS event indexes
 		int index = 1;
-
-		// getGPTreeForCurve(GPTreeFileName); // Adesola Get the best GP for
-		// this curve while reading GP from harddrive
-	
-	
 
 		for (double value : values) {
 			if (index == 1) {
@@ -111,9 +109,9 @@ public class DCEventGenerator {
 
 			index++;
 		}
-		System.out.println(" generateEvents completed for " + delta);
-		generatedEvents = events.toArray(new Event[events.size()]); //Ideally should be in child TODO move
-		 //Ideally should be in child TODO move
+	System.out.println(" generateEvents completed for " + delta);
+		generatedEvents = events.toArray(new Event[events.size()]); 
+		
 		//this.eventsClassifier = events.toArray(new Event[events.size()]);
 		
 	}
@@ -121,8 +119,10 @@ public class DCEventGenerator {
 	 public Event[] getEvents(){
 		return generatedEvents;
 	}
+	 
 	
 	
+
 	protected  Event detect2(Type type, int[] indexDC, int[] indexOS, double value) {
 		// overshoot event must have a start index lower that
 		// the DC event start index

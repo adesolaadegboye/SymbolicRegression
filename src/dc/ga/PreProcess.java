@@ -135,7 +135,7 @@ public class PreProcess {
 
 		// this.testEvents = events.toArray(new Event[events.size()]);
 
-		int lengthOfDataset = (lastTestingEvent.end + lastTrainingEvent.end + 1) == FReader.dataRecordInFileArray.size()
+		int lengthOfDataset = (lastTestingEvent.end + lastTrainingEvent.end+1) == FReader.dataRecordInFileArray.size()
 				? lastTestingEvent.end + lastTrainingEvent.end : lastTestingEvent.end + lastTrainingEvent.end + 1;
 		for (int testIt = lastTrainingEvent.end + 1; testIt < lengthOfDataset; testIt++) // we
 																							// only
@@ -164,13 +164,8 @@ public class PreProcess {
 
 		extractTestDCfeatures(copiedArray);
 		printTestFeatures(filename, thresholdString, copiedArray);
-
-		testEvents = new Event[processTestDataCount];
-		
-		// testEvents = Arrays.copyOf(copiedArray, processTestDataCount+1) ;
-		System.arraycopy(copiedArray, 0, testEvents, 0, processTestDataCount);
 		testEventArray = new Event[testEvents.length];
-		System.arraycopy(copiedArray,0 , testEventArray, 0 ,processTestDataCount);
+		System.arraycopy(copiedArray,0 , testEventArray, 0 ,copiedArray.length);
 
 	}
 
@@ -305,7 +300,7 @@ public class PreProcess {
 
 	public void extractTestDCfeatures(Event[] testEvents) {
 
-		for (int k = 0 /* testIndexStart */; k < testEvents.length - 1 /* testIndexEnd */; k++) {
+		for (int k = 0 /* testIndexStart */; k < testEvents.length  /* testIndexEnd */; k++) {
 
 			int start = testEvents[k].start;
 			int end = testEvents[k].end;
@@ -537,7 +532,8 @@ public class PreProcess {
 							/ (Double.parseDouble(precision) + Double.parseDouble(recall) ));
 				}
 			}
-			
+			if (autoWEKAClassifierList.isEmpty())
+				return;
 			if (autoWEKAClassifier == null) {
 				if (autoWEKAClassifier == null)
 					autoWEKAClassifier = new myAutoWeka();
@@ -643,7 +639,7 @@ public class PreProcess {
 	boolean autoClassifyTraining(int counter) {
 
 		File f = new File(filename);
-		boolean rtCode = true;
+		boolean rtCode = false;
 		String absolutePath = "";
 		try {
 			absolutePath = f.getCanonicalPath();
@@ -660,7 +656,8 @@ public class PreProcess {
 
 		Instances trainingInstancesAutoTemp = new Instances(trainingInstancesAuto, 0, trainingInstancesAuto.size());
 		trainingInstancesAutoTemp.setClassIndex(trainingInstancesAutoTemp.numAttributes() - 1);
-
+	//	if (trainingInstancesAutoTemp.size() <15)
+		//	return rtCode;
 		try {
 			
 			autoWEKAClassifierTemp.setParallelRuns(1);
@@ -669,8 +666,8 @@ public class PreProcess {
 			autoWEKAClassifierTemp.setTimeLimit(1);
 			autoWEKAClassifierTemp.setSeed(123);
 			 // Default K-fold =  10 . Sample size is smaller we set to sample size
-			  if (trainingInstancesAutoTemp.size() < 10) {
-				  autoWEKAClassifierTemp.setResamplingArgs(trainingInstancesAutoTemp.size()-1);
+			  if (trainingInstancesAutoTemp.size() < 3) {
+				  autoWEKAClassifierTemp.setResamplingArgs(trainingInstancesAutoTemp.size()-3);
 			  }
 			 
 			// System.out.println(autoWEKAClassifierTemp.getOptions().toString());
@@ -1336,7 +1333,10 @@ public class PreProcess {
 
 			Double clsLabel = 0.0;
 			try {
-				clsLabel = autoWEKAClassifier.classifyInstance(testInstances.instance(eventCount));
+				if (autoWEKAClassifier == null)
+					clsLabel =0.0;
+				else
+					clsLabel = autoWEKAClassifier.classifyInstance(testInstances.instance(eventCount));
 				// clsLabel =
 				// DCCurveClassifier[0].classifyInstance(testInstances.instance(eventCount));
 			} catch (Exception e) {
@@ -1355,6 +1355,11 @@ public class PreProcess {
 
 	public String printPreprocessClassificationTraining(Event[] trendEvent) {
 
+		if (autoWEKAClassifier == null)
+		{
+			System.out.print("classifier not generated");
+			return "";
+		}
 		int totalMissedOvershoot = 0;
 		double possibleovershootLength = 0.0;
 		double overshootLength = 0.0;
@@ -1549,7 +1554,11 @@ public class PreProcess {
 			// testInstances1.instance(eventCount).stringValue(testInstances.attribute(testInstances.numAttributes()
 			// - 1)) );
 		}
-
+		if (trendEvent.length != testInstances.size()){
+			System.out.println("Unable to print classification result. Event and test instance does not match");
+			System.exit(-1);
+		}
+			
 		for (int eventCount = 1; eventCount < testInstances.numInstances(); eventCount++) {
 			int os = 0;
 
@@ -1761,10 +1770,10 @@ public class PreProcess {
 			Date date = new Date();
 			System.out.println("starting run " + autoWekaCount + " autoweka for thresholdString" + thresholdString
 					+ "at:" + formatter.format(date));
-			boolean  classTraining= false;
-			while (!classTraining){
-				classTraining = autoClassifyTraining(autoWekaCount);
-			}
+			
+		
+			autoClassifyTraining(autoWekaCount);
+			
 				
 				
 			if (autoWekaCount > 3) {

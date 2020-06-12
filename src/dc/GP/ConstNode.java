@@ -24,6 +24,11 @@ public class ConstNode extends AbstractNode implements Cloneable{
 	
 	public ConstNode(double preSetVal){
 		numChildren = 0;
+		if (Double.isNaN(preSetVal))
+		{
+			int threshold = new Random().nextInt((Const.doubles.length - 1) - 0 + 1) + 0;
+			preSetVal = Const.doubles[threshold];
+		}
 		constVal = preSetVal;
 		String valeStr = "Const:" + constVal;
 		//System.out.println(valeStr);

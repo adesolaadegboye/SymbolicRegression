@@ -2,7 +2,6 @@ package misc;
 
 import dc.EventWriter;
 import dc.GP.TreeHelperClass;
-import dc.ga.GA.function_code;
 import dc.io.Logger;
 
 public class BestTreeInRun {

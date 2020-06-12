@@ -66,11 +66,18 @@ squareRoot.perfScore =  this.perfScore;
 	@Override
 	public double eval(double inVal) {
 		if (this.children.get(0) != null ){
+			double childValue = (this.children.get(0)).eval(inVal);
 			double evalValue = Math.sqrt((this.children.get(0)).eval(inVal));
 		//	System.out.println( evalValue );
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
-					evalValue == Double.POSITIVE_INFINITY|| evalValue ==  Double.NaN ||
-					evalValue  < 0.0)
+				  evalValue == Double.POSITIVE_INFINITY || evalValue ==  Double.NaN ||
+				Double.compare(evalValue, 0.0)  < 0  || Double.isInfinite(evalValue) || Double.isNaN(evalValue) ||
+				 childValue == Double.MAX_VALUE || childValue == Double.NEGATIVE_INFINITY ||
+				 childValue == Double.POSITIVE_INFINITY || childValue ==  Double.NaN ||
+						 Double.compare(childValue, 0.0)  < 0  || Double.isInfinite(childValue) || Double.isNaN(childValue)||
+				 inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
+			     inVal == Double.POSITIVE_INFINITY || inVal ==  Double.NaN ||
+			    Double.compare(inVal, 0.0)  < 0  || Double.isInfinite(inVal) || Double.isNaN(inVal))
 				return 1000000000.0;
 			else
 				return evalValue;
@@ -297,7 +304,7 @@ squareRoot.perfScore =  this.perfScore;
 		//	System.out.println( evalValue );
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
 					evalValue == Double.POSITIVE_INFINITY|| evalValue ==  Double.NaN ||
-					evalValue  < 0.0)
+					evalValue  < 0.0 || Double.isInfinite(evalValue) || Double.isNaN(evalValue))
 				return 1000000000.0;
 			else
 				return evalValue;

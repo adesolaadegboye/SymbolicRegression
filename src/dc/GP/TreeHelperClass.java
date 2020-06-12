@@ -5,8 +5,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -211,7 +213,7 @@ public class TreeHelperClass {
 		if (GA.LINEAR_FUNCTIONALITY_ONLY)
 			randomInt = rn.nextInt(5 - 2 + 1) + 2;
 		else
-			randomInt = rn.nextInt(12 - 2 + 1) + 2;
+			randomInt = rn.nextInt(10 - 2 + 1) + 2;
 
 		switch (randomInt) {
 		case 2: {
@@ -279,12 +281,12 @@ public class TreeHelperClass {
 			if (GA.LINEAR_FUNCTIONALITY_ONLY)
 				randomInt = rn.nextInt(5 - 2 + 1) + 2;
 			else
-				randomInt = rn.nextInt(12 - 2 + 1) + 2;
+				randomInt = rn.nextInt(10 - 2 + 1) + 2;
 		} else {
 			if (GA.LINEAR_FUNCTIONALITY_ONLY)
 				randomInt = rn.nextInt(5 - 0 + 1) + 0;
 			else
-				randomInt = rn.nextInt(12 - 0 + 1) + 0;
+				randomInt = rn.nextInt(10 - 0 + 1) + 0;
 		}
 		switch (randomInt) {
 		case 0: {
@@ -738,6 +740,18 @@ public class TreeHelperClass {
 			treeEvaluation = doubleObject.doubleValue();
 
 			err = os - treeEvaluation;
+			if (Double.isInfinite(treeEvaluation)){
+			//	System.out.println(TreeHelperClass.printTreeToString(tree, 0));
+			//	System.out.println(tree.printAsInFixFunction());
+			//	System.out.println(tree.toString());
+			//	System.out.println("In Nan");
+			
+			}
+			if (Double.isNaN(treeEvaluation)){
+			//	System.out.println(TreeHelperClass.printTreeToString(tree, 0));
+			//	System.out.println(tree.toString());
+			//	System.out.println("Is infinity");
+			}
 
 			double squareErr = err * err;
 			sumSquaredErr += squareErr;
@@ -754,7 +768,7 @@ public class TreeHelperClass {
 			// err = e.length() * GA.NEGATIVE_EXPRESSION_REPLACEMENT;
 
 		}
-		if (Double.compare(evalTotal, Double.valueOf(0.0)) > 0) {
+		if ( evalTotal != Double.NaN &&  !Double.isNaN(evalTotal) && !Double.isInfinite(evalTotal) && Double.compare(evalTotal, Double.valueOf(0.0)) > 0) {
 			return fitness;
 		} else {
 			return Double.MAX_VALUE;
@@ -856,6 +870,7 @@ public class TreeHelperClass {
 		Vector<AbstractNode> evolvedGpTrees = new Vector<AbstractNode>(size);
 		AbstractNode bestTree = null;
 		for (int gen = 0; gen < numberOfGenerations; gen++) {
+		//	System.out.println("Generation:" + gen );
 			if (gpTrees.get(gpTrees.size() - 1).perfScore == 0) {
 				System.out.println("Perfect match found.");
 				break;
@@ -869,6 +884,10 @@ public class TreeHelperClass {
 				copy.perfScore = gpTrees.get(counter).perfScore;
 				//System.out.println(printTreeToString(copy, 0));
 				//System.out.println("Best tree is score is :" + copy.perfScore + " depth " + getDepth(copy, 1) + " size " + getTreeSize(copy));
+				if (evolvedGpTrees.contains(gpTrees.get(counter))){
+					//System.out.println("has");
+					continue;
+				}
 				evolvedGpTrees.add(gpTrees.get(counter));
 				//System.out.println(printTreeToString(gpTrees.get(counter),0));
 			}
@@ -881,18 +900,19 @@ public class TreeHelperClass {
 				// tournament
 				double randomValue = rd.nextDouble();
 				if (randomValue < crossoverRatio) {
-					// crossover
-					AbstractNode selectedTree2 = tournament(gpTrees, Const.TOURNAMENT_SIZE, preservedElementsSize); // Already
-					// cloned
-					// in
-					// tournament
+					
 
 					double d = (double) Const.MAX_DEPTH; //
 					int max_node_count = ((int) Math.pow(2.0, d) - 1);
 					int number_of_tries = 0;
 					AbstractNode newTree = null;
-					while (number_of_tries <= 10) {
-
+					while (number_of_tries < 1000) {
+						number_of_tries = number_of_tries + 1;
+						// crossover
+						AbstractNode selectedTree2 = tournament(gpTrees, Const.TOURNAMENT_SIZE, preservedElementsSize); // Already
+						// cloned
+						// in
+						// tournament
 						String crossOverTreeString = TreeHelperClass.crossOverTree(selectedTree, selectedTree2);
 						crossOverTreeString = crossOverTreeString.replace(",", "");
 						// System.out.println("Crossover tree" +
@@ -903,15 +923,30 @@ public class TreeHelperClass {
 						TreeOperation treeOperation = new TreeOperation(crossOverTreeStringVector);
 						newTree = treeOperation.getTree();
 						int treeSize =  getTreeSize(newTree);
+						
 						if ( treeSize <= max_node_count) {
 							double score = evaluateRegressionTree(newTree, directionChangesLength);
 							newTree.perfScore = score;
-							break;
 						} else {
 							//System.out.println("Penalizing tree because size is " + treeSize + " while max tree size allowed is " + max_node_count);
 							newTree.perfScore = Double.MAX_VALUE;
 						}
-						number_of_tries = number_of_tries + 1;
+						
+						if (newTree.perfScore == Double.MAX_VALUE)
+							continue;
+						if (newTree.perfScore <0 )
+							continue;
+						if (Double.compare(newTree.perfScore, 100 )> 0 )
+							continue;
+						
+						
+						if (!evolvedGpTrees.contains(newTree)){
+							//System.out.println("has");
+							break;
+						}
+						else
+							continue;
+						
 					}
 
 					if (randomValue < 0.03) { // Crossover and mutate a few
@@ -926,7 +961,8 @@ public class TreeHelperClass {
 						AbstractNode newTree2 = treeOperation2.getTree();
 						double score2 = evaluateRegressionTree(newTree2, directionChangesLength);
 						newTree2.perfScore = score2;
-
+						
+						
 						evolvedGpTrees.add(newTree2);
 
 					} else {
@@ -942,196 +978,77 @@ public class TreeHelperClass {
 					TreeOperation treeOperation2 = new TreeOperation(mutateTreeStringVector);
 					AbstractNode newTree2 = treeOperation2.getTree();
 					double score2 = evaluateRegressionTree(newTree2, directionChangesLength);
-					newTree2.perfScore = score2;
-
-					// ADesola different implementation of mutation
-					// if (randomValue > 0.91)
-					// {
-					// AbstractNode bestMutateLeafTree = null;
-					// AbstractNode newTree3 =
-					// newTree2.cloneAndReplaceLeafNode();
-					// AbstractNode newTree4 =
-					// selectedTree.cloneAndReplaceLeafNode();
-					// String mutateTreeString1 = printTreeToString(newTree3,
-					// 0);
-					// System.out.println(mutateTreeString + " " +
-					// mutateTreeString1);
-					// newTree3.perfScore =
-					// TreeHelperClass.evaluateRegressionTree(newTree3,
-					// directionChangesLength);
-					// newTree4.perfScore =
-					// TreeHelperClass.evaluateRegressionTree(newTree4,
-					// directionChangesLength);
-					// AbstractNode newTree5 =
-					// cloneAndReplaceInnerNode(selectedTree);
-					// newTree5.perfScore =
-					// TreeHelperClass.evaluateRegressionTree(newTree5,
-					// directionChangesLength);
-					// AbstractNode newTree6 =
-					// newTree5.cloneAndReplaceLeafNode();
-					// newTree6.perfScore =
-					// TreeHelperClass.evaluateRegressionTree(newTree6,
-					// directionChangesLength);
-
-					// Vector<AbstractNode> muatateLeafTreeVector = new
-					// Vector<AbstractNode>(size);
-					// muatateLeafTreeVector.add(newTree6);
-					// muatateLeafTreeVector.add(newTree2);
-					// muatateLeafTreeVector.add(newTree3);
-					// muatateLeafTreeVector.add(newTree4);
-					// muatateLeafTreeVector.add(newTree5);
-					// Comparator<AbstractNode> comparator =
-					// Collections.reverseOrder();
-					// Collections.sort(muatateLeafTreeVector, comparator);
-
-					// bestMutateLeafTree =
-					// muatateLeafTreeVector.get(muatateLeafTreeVector.size() -
-					// 1).clone();
-
+					newTree2.perfScore = score2;					
 					evolvedGpTrees.add(newTree2);
-					/*
-					 * } else { evolvedGpTrees.add(newTree2); }
-					 */
-
+					
 				}
 			} // end of a generation
 			gpTrees.clear();
 			// System.out.println("After clearing random tree capacity is" +
 			// gpTrees.capacity());
 
-			/*AbstractNode add =  new Add();
-			AbstractNode add2 =  new Add();
-			AbstractNode power =  new Power();
-			AbstractNode sine1 = new Sine();
-			AbstractNode const1 = new ConstNode(2.0129323323657333);
-			AbstractNode const2 = new ConstNode(1.8499565003972767);
-			AbstractNode const3 = new ConstNode(2.301541736244614);
 			
-			AbstractNode variable = new InputNode(Const.NUMBER_OF_INPUTS);
-			AbstractNode log = new Log();
-			AbstractNode sine2 = new Sine();
+			removeDuplicates(evolvedGpTrees);
 			
+			int numberToComplete = evolvedGpTrees.size();
+			int numberOftries = 0;
+			while ( evolvedGpTrees.size() <= size ){
+				TreeCreation treeCreation = new TreeCreation(numberToComplete);
+
+				//AbstractNode randomTree = treeCreation.tree;
+				AbstractNode randomTree = treeCreation.tree;
+				
+				double score = evaluateRegressionTree(randomTree, directionChangesLength);
+				randomTree.perfScore = score;
+				
+				if(numberOftries > 100) {
+					
+					String mutateTreeString = TreeHelperClass.mutateTree(randomTree);
+					mutateTreeString = mutateTreeString.replace(",", "");
+					// System.out.println("mutated tree" +
+					// mutateTreeString);
+					String mutateTreeStringArray[] = mutateTreeString.split("\\r?\\n");
+					Vector<String> mutateTreeStringVector = new Vector<String>(
+							Arrays.asList(mutateTreeStringArray));
+					TreeOperation treeOperation2 = new TreeOperation(mutateTreeStringVector);
+					AbstractNode newTree2 = treeOperation2.getTree();
+					double score2 = evaluateRegressionTree(newTree2, directionChangesLength);
+					newTree2.perfScore = score2;
+					
+					evolvedGpTrees.add(newTree2);
+					numberOftries=0;
+					numberToComplete++;
+				}
+				
+				if (randomTree.perfScore == Double.MAX_VALUE)
+				{
+					numberOftries++;
+					continue;
+
+				}
+				if (randomTree.perfScore <0 )
+				{
+					numberOftries++;
+					continue;
+				}
+				
+				if (Double.compare(randomTree.perfScore, 100 )> 0 )
+				{
+					numberOftries++;
+					continue;
+				}
 			
+			//number_of_tries = number_of_tries + 1;
+				if (evolvedGpTrees.contains(randomTree)){
+					//System.out.println("has");
+					continue;
+				}
+				
+				evolvedGpTrees.add(randomTree);
+				numberToComplete++;
+				numberOftries=0;
+			}
 			
-			
-			const1.setNodeIndex(0);
-			const1.setParent(sine1);			
-			sine1.getChildren().add(const1);
-			
-			const2.setNodeIndex(0);
-			const2.setParent(sine2);
-			sine2.getChildren().add(const2);
-			
-			sine1.setNodeIndex(0);
-			sine1.setParent(power);
-			
-			sine2.setNodeIndex(1);
-			sine2.setParent(power);
-			
-			
-			power.getChildren().add(sine1);
-			power.getChildren().add(sine2);
-			
-			power.setNodeIndex(0);
-			power.setParent(add);
-			
-			add.getChildren().add(power);
-			
-			
-			variable.setNodeIndex(0);
-			variable.setParent(add2);
-			add2.getChildren().add(variable);
-			
-			
-			const3.setNodeIndex(1);
-			const3.setParent(add2);			
-			add2.getChildren().add(const3);
-			
-			add2.setNodeIndex(0);
-			add2.setParent(log);
-			log.getChildren().add(add2);
-			
-			log.setNodeIndex(1);
-			log.setParent(add);
-			
-			add.getChildren().add(log);
-			
-			System.out.println("A " + TreeHelperClass.printTreeToString(add,0));
-			add.pruneNode();
-			System.out.println("C " + TreeHelperClass.printTreeToString(add,0));*/
-			
-			
-		/*	AbstractNode add =  new Add();
-			AbstractNode add2 =  new Add();
-			AbstractNode multiply =  new  Multiply();
-			AbstractNode multiply2 =  new  Multiply();
-			AbstractNode variable = new InputNode(Const.NUMBER_OF_INPUTS);
-			AbstractNode variable2 = new InputNode(Const.NUMBER_OF_INPUTS);
-			AbstractNode variable3 = new InputNode(Const.NUMBER_OF_INPUTS);
-			AbstractNode log = new Log();
-			AbstractNode const1 = new ConstNode(1.9610791340444123);
-			AbstractNode const2 = new ConstNode(2.3802785401152917);
-			AbstractNode const3 = new ConstNode(2.0530080286467);
-			AbstractNode cosine = new Cosine();
-			AbstractNode divide = new Divide();
-			
-			
-			variable.setNodeIndex(0);
-			variable.setParent(add2);			
-			add2.getChildren().add(variable);
-			
-			variable2.setNodeIndex(1);
-			variable2.setParent(add2);			
-			add2.getChildren().add(variable2);
-			
-			add2.setNodeIndex(0);
-			add2.setParent(multiply);
-			multiply.getChildren().add(add2);
-			
-			const1.setNodeIndex(0);
-			const1.setParent(log);
-			log.getChildren().add(const1);
-			
-			log.setNodeIndex(1);
-			log.setParent(multiply);
-			multiply.getChildren().add(log);
-			
-			const2.setNodeIndex(0);
-			const2.setParent(divide);
-			divide.getChildren().add(const2);
-			
-			variable3.setNodeIndex(1);
-			variable3.setParent(divide);
-			divide.getChildren().add(variable3);
-			
-			divide.setNodeIndex(0);
-			divide.setParent(multiply2);
-			multiply2.getChildren().add(divide);
-			
-			const3.setNodeIndex(0);
-			const3.setParent(cosine);
-			cosine.getChildren().add(const3);
-			
-			cosine.setNodeIndex(1);
-			cosine.setParent(multiply2);
-			multiply2.getChildren().add(cosine);
-			
-			
-			multiply.setNodeIndex(0);
-			multiply.setParent(add);
-			
-			multiply2.setNodeIndex(1);
-			multiply2.setParent(add);
-			
-			add.getChildren().add(multiply);
-			add.getChildren().add(multiply2);
-			
-			
-			System.out.println("A " + TreeHelperClass.printTreeToString(add,0));
-			add.pruneNode();
-			System.out.println("C " + TreeHelperClass.printTreeToString(add,0));*/
-			
-	
 			for (int k=0 ; k< evolvedGpTrees.size() ; k++ )
 			{
 				//System.out.println("A " + TreeHelperClass.printTreeToString(evolvedGpTrees.get(k),0));
@@ -1149,49 +1066,82 @@ public class TreeHelperClass {
 
 				gpTrees.add(evolvedGpTrees.get(k));
 			}
+			
 			System.gc();
+			Comparator<AbstractNode> comparator = Collections.reverseOrder();
+			//Collections.sort(evolvedGpTrees, comparator);
 			evolvedGpTrees.clear();
 		
 			
 			
 		
 
-			Comparator comparator = Collections.reverseOrder();
+			//Comparator<AbstractNode> comparator = Collections.reverseOrder();
 			Collections.sort(gpTrees, comparator);
-			
 			
 			//Collections.sort(gpTrees2, comparator);
 			
 			TreeHelperClass.printTreeToString(gpTrees.get(0),0);
 			
-
-
-
-
-
-
-
-
-
-
-
-
 			evolvedGpTrees.clear();
-
-
-
-
 			
 		}
 
 		bestTree = gpTrees.get(gpTrees.size() - 1).clone();
-
+		
+		Calendar cal = Calendar.getInstance();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd  HH:mm:ss");
+        System.out.println( sdf.format(cal.getTime()) + " completed " );
+        
+        
+		
 
 
 		
 
 		return bestTree;
 	}
+	
+	 public static void removeDuplicates(Vector<AbstractNode>  v)
+	 {
+
+	        for(int i=0;i<v.size();i++)
+
+	        {
+
+	            for(int j=0;j<v.size();j++)
+
+	            {
+
+	                    if(i!=j)
+
+	                    {
+
+                        	try 
+	                        {
+		                        if(v.elementAt(i).equals(v.elementAt(j)))
+		                        {
+		                        	//   System.out.println(v.elementAt(i).printAsInFixFunction());
+		                        	//  System.out.println(v.elementAt(j).printAsInFixFunction());
+		                        	
+			                        	v.removeElementAt(j);
+			                       
+	
+		                        }
+	                        }
+	                        catch (ArrayIndexOutOfBoundsException  e) {
+	                        	System.out.println("ArrayIndexOutOfBoundsException handled" );
+	                        }
+
+	                    }
+
+	            }
+
+	        }
+
+	    }
+
+	 
 
 	public   void getBestTreesForThreshold(Event[] directionChangesLength, int NumberOfTrees, int numberOfRuns,
 			int numberOfGenerations, String thresholdStr) {
@@ -1329,7 +1279,7 @@ public class TreeHelperClass {
 
 		String[] oneOperandfunctionTypes;
 		oneOperandfunctionTypes = new String[] { "Cosine", "Exponential", "Log", "Sine", "SquareRoot", "Square" };
-
+		//oneOperandfunctionTypes = new String[] { "Cosine", "Exponential", "Log", "Sine" };
 		String lines[] = treeToStr.split("\\r?\\n");
 
 		long count = 0;

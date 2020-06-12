@@ -1,6 +1,7 @@
 package dc.GP;
 
 import java.util.ArrayList;
+import java.util.Map.Entry;
 
 public abstract class AbstractNode implements Cloneable,Comparable<AbstractNode>{
 
@@ -40,6 +41,30 @@ public abstract class AbstractNode implements Cloneable,Comparable<AbstractNode>
 	public abstract AbstractNode pruneNode();
 	
 	public abstract AbstractNode cloneAndReplaceLeafNode();
+	
+	
+	
+	@Override
+	public boolean equals(Object o)
+	 {
+		 // self check
+	    if (this == o)
+	        return true;
+	    // null check
+	    if (o == null)
+	        return false;
+	    // type check and cast
+	    if (getClass() != o.getClass())
+	        return false;
+	    
+	    // field comparison
+	    String oString = (String) ((AbstractNode)o).printAsInFixFunction();
+	    String thatString = this.printAsInFixFunction();
+	    return ((AbstractNode)o).perfScore == this.perfScore
+	            && oString.equals(thatString);
+	}
+	
+	
 
 	public int compareTo(AbstractNode that) {
 		final int BEFORE = -1;

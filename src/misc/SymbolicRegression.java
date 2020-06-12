@@ -42,7 +42,6 @@ import static dc.ga.DCCurve.Type.UpwardOvershoot;
 
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
-import dc.ga.GA.function_code;
 import dc.io.FReader;
 import dc.io.Logger;
 import eu.verdelhan.ta4j.BaseStrategy;

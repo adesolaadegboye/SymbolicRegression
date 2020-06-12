@@ -31,11 +31,13 @@ import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.GP.TreeHelperClass;
 import dc.ga.DCCurve.Event;
+import dc.ga.DCCurve.Type;
 import dc.io.FReader;
 
 
 
 import dc.io.FReader.FileMember2;
+import misc.DCEventGenerator;
 import misc.SimpleDrawDown;
 import weka.core.DenseInstance;
 import weka.core.Instance;
@@ -60,20 +62,23 @@ import weka.core.Instances;
 public class DCCurve {
 	Event[] events;
 
-	Event[] output;
-	double []GpUpwardoutput;
-	double[] GpDownwardoutput;
+	protected Event[] output;
+	protected double []GpUpwardoutput;
+	protected double[] GpDownwardoutput;
 
-	double[] gpprediction;
-	double[] gppredictionUpward;
-	double[] gppredictionDownward;
+	protected double[] gpprediction;
+	double[] predictionUpward;
+	double[] predictionDownward;
 	
 	int numberOfUpwardEvent;
 	int numberOfDownwardEvent;
 	int numberOfNegativeUpwardEventGP;
 	int numberOfNegativeDownwardEventGP;
 	
-	Event[] testingEvents;
+	double rmseResult = Double.MAX_VALUE;
+	
+	
+	
 	Event[] trainingEvents;
 	String upwardTrendTreeString = null;
 	String downwardTrendTreeString = null;
@@ -87,7 +92,7 @@ public class DCCurve {
 	AbstractNode bestclassifierBasedDownWardEventTree = null;
 	
 	protected double trainingOpeningPosition = 500000.00;
-	protected double[] trainingGpPrediction;
+	protected double[] trainingPrediction;
 
 	String upwardClassifierTrendTreeString = null;
 	String downwardClassifierTrendTreeString = null;
@@ -105,7 +110,6 @@ public class DCCurve {
 	Instances trainingInstance;
 	Instances outputTestInstance;
 	
-	
 	public String filename = "";
 	public double initialbudget = 0.0;
 	public double tradingBudget = 0.0;
@@ -115,12 +119,13 @@ public class DCCurve {
 	public int noOfTransactions = 0;
 	
 	public double tradingBudgetQuoteCCy = 0.0;
-	public double numberOfOpenPositions = 0;
+	public int numberOfOpenPositions = 0;
 	public double lastUpDCEndTraded = 0.0;
 	public double percentageOfBudgetTraded = 0.0;
 	public double maxNumberOfOpenPositions = 0;
 
 	String gpTreeInFixNotation = null;
+
 	/**
 	 * 0 = downward overshoot 1 = upward overshoot
 	 */
@@ -331,8 +336,16 @@ public class DCCurve {
 		// meanRatio[0] /= downturn;
 		// meanRatio[1] /= upturn;
 
-		meanRatio[0] = (meanDownwardOvershoot / downturn) / (meanDownturn / downturn);
-		meanRatio[1] = (meanUpwardOvershoot / upturn) / (meanUpturn / upturn);
+		if (Const.OsFunctionEnum == Const.function_code.eMichaelFernando){
+			meanRatio[0] = (meanDownwardOvershoot / downturn) / (meanDownturn / downturn);
+			meanRatio[1] = (meanUpwardOvershoot / upturn) / (meanUpturn / upturn);
+		}
+		
+		if (Const.OsFunctionEnum == Const.function_code.eOlsen){
+			meanRatio[0] = 2.0;
+			meanRatio[1] = 2.0;
+		}
+		
 		AverageDCEventLength[0] = meanDownturn/downturn;
 		AverageDCEventLength[1] = meanUpturn/upturn;
 		meanOvershoot[0] = (meanDownwardOvershoot + meanUpwardOvershoot) / meanUpturn + meanDownturn ;
@@ -438,47 +451,7 @@ public class DCCurve {
 			index++;
 		}
 
-		// fix start index of events
-		/*
-		 * ArrayList<Event> reverse = new ArrayList<Event>(events);
-		 * Collections.reverse(reverse);
-		 * 
-		 * Event last = null;
-		 * 
-		 * for (Event e : reverse) { if (last != null && e.start == last.start)
-		 * { last.start = e.end + 1; }
-		 * 
-		 * last = e; }
-		 */
-
-		// AbstractNode bestTree =
-		// treeHelperClass.getbestTreeForThreshold(output,700); //Already cloned
-		// in Treehelper.evolve method
-		// DecimalFormat df = new DecimalFormat("#");
-		// df.setMaximumFractionDigits(8);
-
-		// System.out.println(treeHelperClass.printTreeToString(bestTree,0) + "
-		// Performance" + df.format(bestTree.perfScore) );
-		// Uncomment above code if thread does not work.
-
-		/*
-		 * if refactor fails rollback to this if (GA.OsFunctionEnum ==
-		 * GA.function_code.eGP) {
-		 * 
-		 * for (int outputIndex = 0; outputIndex < output.length; outputIndex++
-		 * ) {
-		 * 
-		 * 
-		 * 
-		 * String foo = gpTreeInFixNotation;//"(Math.pow(40+(2),(5)))"; foo =
-		 * foo.replace("X0", Integer.toString(output[outputIndex].length()));
-		 * double eval = 0.0; try { Double javascriptValue =
-		 * (Double)engine.eval(foo); eval = javascriptValue.doubleValue(); //
-		 * System.out.println(eval); } catch (ScriptException e) { // TODO
-		 * Auto-generated catch block e.printStackTrace(); }
-		 * gpprediction[outputIndex] = eval; } }
-		 */
-		// copy from arraylist to array
+		
 		
 		//output = new Event[values.length];
 		this.events = events.toArray(new Event[events.size()]);
@@ -486,7 +459,7 @@ public class DCCurve {
 		
 
 		///Continue 
-		if (GA.OsFunctionEnum == GA.function_code.eGP) {
+		if (Const.OsFunctionEnum == Const.function_code.eGP) {
 			if (preprocess == null)
 				preprocess =  new PreProcess( delta, filename, "GP");
 			if (isTraining ){	
@@ -537,7 +510,7 @@ public class DCCurve {
 				preprocess.loadTestData(this.events);
 				
 				preprocess.classifyTestData();
-			//	if(GA.hasPrint){
+			//	if(GA.hasPrint){ TODO seperate upward classifier from down classifiers
 			//	String classificationResult = GPTreeFileName + "\t" + String.format("%.5f", delta) + "\t" + preprocess.printPreprocessClassification(this.events);
 			//	GA.log.save("ClassificationAnalysis.txt",classificationResult);
 			//	}
@@ -546,22 +519,8 @@ public class DCCurve {
 		}
 		
 		
-		//Add dummy overshoot event to DC trend without overshoot
-	/*	if ( Const.INCLUDE_ZERO_OS_ITEMS == false)
-		{
-			int eventCount = this.events.length-1;
-			while (eventCount> 0) {
-				if (this.events[eventCount].overshoot == null  ){
-		
-					Event _os = new Event(0, -1,this.events[eventCount].type);
-					this.events[eventCount].overshoot = _os;
-					//continue;
-				}
-				
-				eventCount--;
-			}
-		}*/
-		if (GA.OsFunctionEnum == GA.function_code.eGP) {
+	
+		if (Const.OsFunctionEnum == Const.function_code.eGP) {
 			if (Const.splitDatasetByTrendType) {
 				
 				//get upward dc first
@@ -1347,74 +1306,195 @@ public class DCCurve {
 		trainingInstance.setClassIndex(trainingInstance.numAttributes() - 1);
 	}
 	
-	void gppredictionOnly(){
-		gppredictionUpward =  new double[output.length];
-		gppredictionDownward =  new double[output.length];
-		for( int i = 0; i < output.length; i++){
+	void predictionOnly(){
+		predictionUpward =  new double[output.length];
+		predictionDownward =  new double[output.length];
+		for( int i = 0; i < output.length -1; i++){
 			
-			String foo = gpRatio[1];
-			foo = foo.replace("X0", Integer.toString(output[i].length()));
-			//System.out.println("Foo is " + foo);
+			
+			predictionUpward[i] = 0.0;
+			predictionDownward[i] = 0.0;
 			double eval = 0.0;
+			String foo = "";
 			Double javascriptValue = Double.MAX_VALUE;
-			try {
-				javascriptValue = (Double) engine.eval(foo);
-				eval = javascriptValue.doubleValue();
-			} catch (ScriptException e) {
-				eval = output[i].length();
-				;
-			} catch (ClassCastException e) {
-				eval = output[i].length();
-				;
-			}catch (Exception e) {
-				System.out.println(e.toString());
-			}
 			BigDecimal bd = null;
 			BigDecimal bd2 = null;
-			try {
-				bd = new BigDecimal(eval);
-				bd2 = new BigDecimal(Double.toString(eval));
-			} catch (NumberFormatException e) {
-				Integer integerObject = output[i].length();
-				eval = integerObject.doubleValue() * (double) GA_new.NEGATIVE_EXPRESSION_REPLACEMENT;
+			if (output[i].type == Type.Upturn){
+				if (Const.OsFunctionEnum == Const.function_code.eGP ){
+					foo = gpRatio[1];
+					foo = foo.replace("X0", Integer.toString(output[i].length()));
+					
+					try {
+						javascriptValue = (Double) engine.eval(foo);
+						eval = javascriptValue.doubleValue();
+						
+						if ( Double.isInfinite(eval) || Double.isNaN(eval))
+						{
+							System.out.println("I am here");
+						}
+					} catch (ScriptException e) {
+						eval = output[i].length();
+						;
+					} catch (ClassCastException e) {
+						eval = output[i].length();
+						;
+					}catch (Exception e) {
+						System.out.println(e.toString());
+					}
+					if  ( eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY ||
+							eval == Double.POSITIVE_INFINITY || eval ==  Double.NaN ||
+							Double.compare(eval, 0.0)  < 0  || Double.isInfinite(eval)  || Double.isNaN(eval)){
+						eval = ((Integer ) output[i].length()).doubleValue();
+					}
+							
+					try {
+						bd = new BigDecimal(eval);
+						bd2 = new BigDecimal(Double.toString(eval));
+					} catch (NumberFormatException e) {
+						Integer integerObject = output[i].length();
+						eval = integerObject.doubleValue() ;//* (double) GA_new.NEGATIVE_EXPRESSION_REPLACEMENT;
+						
+					}
+				}
+				 else if (Const.OsFunctionEnum == Const.function_code.eMichaelFernando ||
+						 Const.OsFunctionEnum == Const.function_code.eOlsen ){
+					 
+					 eval = meanRatio[1];
+				 }
+				 else{
+					 System.out.print("Invalid upward regression type");
+					 System.exit(-1);
+				 }
+				predictionUpward[i] = eval;
 			}
-			gppredictionUpward[i] = eval;
-			
-
-			foo = gpRatio[0];
-			foo = foo.replace("X0", Integer.toString(output[i].length()));
-			eval = 0.0;
-			javascriptValue = Double.MAX_VALUE;
-			try {
-				javascriptValue = (Double) engine.eval(foo);
-				eval = javascriptValue.doubleValue();
-			} catch (ScriptException e) {
-				eval = output[i].length();
-				;
-			} catch (ClassCastException e) {
-				eval = output[i].length();
-				;
+			else if (output[i].type == Type.Downturn){
+				if (Const.OsFunctionEnum == Const.function_code.eGP ){
+					foo = gpRatio[0];
+					foo = foo.replace("X0", Integer.toString(output[i].length()));
+					eval = 0.0;
+					javascriptValue = Double.MAX_VALUE;
+					try {
+						javascriptValue = (Double) engine.eval(foo);
+						eval = javascriptValue.doubleValue();
+						if  ( eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY ||
+								eval == Double.POSITIVE_INFINITY || eval ==  Double.NaN ||
+								Double.compare(eval, 0.0)  < 0  || Double.isInfinite(eval)  || Double.isNaN(eval)){
+							eval = ((Integer ) output[i].length()).doubleValue();
+						}
+					} catch (ScriptException e) {
+						eval = output[i].length();
+						if ( Double.isInfinite(eval) || Double.isNaN(eval))
+						{
+							System.out.println("I am here");
+						}
+					} catch (ClassCastException e) {
+						eval = output[i].length();
+						;
+					}
+					bd = null;
+					bd2 = null;
+					try {
+						bd = new BigDecimal(eval);
+						bd2 = new BigDecimal(Double.toString(eval));
+					} catch (NumberFormatException e) {
+						Integer integerObject = new Integer(output[i].length());
+						eval = integerObject.doubleValue() * (double) GA_new.NEGATIVE_EXPRESSION_REPLACEMENT;
+					}
+				}
+				else if (Const.OsFunctionEnum == Const.function_code.eMichaelFernando ||
+						 Const.OsFunctionEnum == Const.function_code.eOlsen ){
+					 eval = meanRatio[0];
+				 }
+				 else{
+					 System.out.print("Invalid downward regression type");
+					 System.exit(-1);
+				 }
+			predictionDownward[i] = eval;
 			}
-			bd = null;
-			bd2 = null;
-			try {
-				bd = new BigDecimal(eval);
-				bd2 = new BigDecimal(Double.toString(eval));
-			} catch (NumberFormatException e) {
-				Integer integerObject = new Integer(output[i].length());
-				eval = integerObject.doubleValue() * (double) GA_new.NEGATIVE_EXPRESSION_REPLACEMENT;
-			}
-
-			gppredictionDownward[i] = eval;
 
 		}
 	}
 	
-	/*public double  getUpwardPredicition(int i){
+
+	//RMSE without classification
+	public String calculateRMSE(Event[] trendEvent) {
 		
+		double rmse = 0.0;
+		double predictionRmse = 10.0;;
+		for (int eventCount = 1; eventCount < trendEvent.length; eventCount++) {
+			int os = 0;
+
+			if (trendEvent.length != predictionUpward.length ||
+					trendEvent.length != predictionDownward.length) {
+				System.out.println("Event and prediction not equal");
+				System.exit(0);
+			}
+
+			if (trendEvent[eventCount].overshoot != null) {
+				os = trendEvent[eventCount].overshoot.length();
+				// numberOfTestOvershoot = numberOfTestOvershoot + 1;
+			}
+			double prediction = 0.0;
+
+			// numberOfTestDC = trendEvent.length;
+			if (trendEvent[eventCount].type == Type.Upturn){
+			 prediction = predictionUpward[eventCount];
+			}
+			else if (trendEvent[eventCount].type == Type.Downturn){
+				prediction = predictionDownward[eventCount];
+			}
+
+			// System.out.println("DC:" + trendEvent[eventCount].length() + "
+			// OS:" + os + " prediction:" + prediction);
+			rmse = rmse + ((os - prediction) * (os - prediction));
+
+			if (rmse == Double.MAX_VALUE || rmse == Double.NEGATIVE_INFINITY || rmse == Double.NEGATIVE_INFINITY
+					|| rmse == Double.NaN || Double.isNaN(rmse) || Double.isInfinite(rmse)
+					|| rmse == Double.POSITIVE_INFINITY) {
+				System.out.println("Invalid RMSE: " + rmse + ". discarding ");
+				// predictionRmseClassifier= 10.0;
+				return Double.toString(predictionRmse);
+			}
+		}
+
+		predictionRmse = Math.sqrt(rmse / (trendEvent.length - 1));
+		BigDecimal bd = null;
+		BigDecimal bd2 = null;
+		try {
+			bd = new BigDecimal(predictionRmse);
+			bd2 = new BigDecimal(Double.toString(predictionRmse));
+			if (predictionRmse >= Double.MAX_VALUE)
+				return Double.toString(10.0);
+		} catch (NumberFormatException e) {
+			System.out.println("Invalid predictionRmseClassifier: " + predictionRmse + " discarding ");
+			predictionRmse = 10.0;
+		}
+		// System.out.println(predictionRmse);
+		return Double.toString(predictionRmse);
 	}
 
-	public double  getUpwardPredicition(int i){
+
+	public  String  reportClassificationResult(Event[] trendEvent){
+	
+		if (preprocess == null)
+			return "";
 		
-	}*/
+		String classificationResult = preprocess  
+				.printPreprocessClassification(trendEvent);
+		
+		
+		if (classificationResult == "" || classificationResult == null){
+			System.out.println("Classification string is empty");
+			return "";
+		}
+		
+		return classificationResult;
+	}
+
+	
+	protected void estimateTestRMSE() {
+		System.out.println("estimateRMSEs : This must never be called");
+		System.exit(-1);
+	}
+
 }

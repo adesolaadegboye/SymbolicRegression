@@ -13,7 +13,7 @@ public class TreeOperation {
 	static int  NUM_OF_INPUTS = 1;
 	File input;
 	double dcLength =0.0;
-	 Vector<String> v = new Vector<String>();
+	 Vector<String> popuationVector = new Vector<String>();
 	 int vectoriteration =0;
 	 AbstractNode retFtn = null;
 	
@@ -57,7 +57,7 @@ public class TreeOperation {
 	private TreeOperation(){}
 	
 	public TreeOperation(Vector<String> treeAsVector){
-		v.addAll(treeAsVector);
+		popuationVector.addAll(treeAsVector);
 	}
 	
 	public TreeOperation(String inputFileName, double currentDCLength ) throws FileNotFoundException{
@@ -69,7 +69,7 @@ public class TreeOperation {
 			throw new java.io.FileNotFoundException("ahhg");
  		}
  		
- 		v.clear();
+ 		popuationVector.clear();
  		/*
  		v.add("Add");
  		v.add("**Power");
@@ -103,7 +103,7 @@ public class TreeOperation {
 			String line;
 			
 			while ((line = reader.readLine()) != null) {
-				v.add(line);			
+				popuationVector.add(line);			
 			}
 
 			reader.close();
@@ -118,7 +118,7 @@ public class TreeOperation {
 	
 	public AbstractNode getTree(){
 		
-		if (v.size() == 0)
+		if (popuationVector.size() == 0)
 		{
 			System.out.println("Unable to load GP from file " + input.toString());
 			
@@ -130,7 +130,7 @@ public class TreeOperation {
 	
 	void stringToGP( int depth) {
 		//retFtn = createNode(v.get(0));
-		AbstractNode newChild = createNode(v.get(0));
+		AbstractNode newChild = createNode(popuationVector.get(0));
 		//treeVector.erase(treeVector.begin());
 		 vectoriteration = 1;
 		// String name = retFtn.getLabel();
@@ -203,14 +203,14 @@ public class TreeOperation {
 	{
 		AbstractNode rtnFtnChild = null;
 		int vCount = vectoriteration;
-		for (int i = vCount; i < v.size(); i++)
+		for (int i = vCount; i < popuationVector.size(); i++)
 		{
-			long count = v.get(i).codePoints().filter(ch -> ch =='*').count();
+			long count = popuationVector.get(i).codePoints().filter(ch -> ch =='*').count();
 			int toInt = java.lang.Math.toIntExact(count);
 			if (childDepth == toInt)
 			{
 				vectoriteration = vectoriteration + 1;
-				rtnFtnChild = createNode(v.get(i));
+				rtnFtnChild = createNode(popuationVector.get(i));
 				break;
 			}
 		}

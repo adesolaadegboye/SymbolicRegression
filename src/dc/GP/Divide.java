@@ -54,7 +54,15 @@ public class Divide extends AbstractNode implements Cloneable {
 			
 			
 			if  ( value3 == Double.MAX_VALUE || value3 == Double.NEGATIVE_INFINITY ||
-					value3 == Double.POSITIVE_INFINITY || value3 ==  Double.NaN)
+				value3 == Double.POSITIVE_INFINITY || value3 ==  Double.NaN ||
+				value3  < 0.0  || Double.isInfinite(value3) || Double.isNaN(value3) ||
+				value2 == Double.MAX_VALUE || value2 == Double.NEGATIVE_INFINITY ||
+				value2 == Double.POSITIVE_INFINITY || value2 ==  Double.NaN ||
+				value2  < 0.0  || Double.isInfinite(value2) || Double.isNaN(value2) ||
+				value1 == Double.MAX_VALUE || value1 == Double.NEGATIVE_INFINITY ||
+				value1 == Double.POSITIVE_INFINITY || value1 ==  Double.NaN ||
+						value1  < 0.0  || Double.isInfinite(value1) || Double.isNaN(value1)	
+									)
 				return 1000000000.0;
 			else
 				return  value3;

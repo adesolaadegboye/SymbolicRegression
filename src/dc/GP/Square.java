@@ -71,8 +71,8 @@ square.perfScore =  this.perfScore;
 			evalValue = evalValue * evalValue;
 		//	System.out.println( evalValue );
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
-					evalValue == Double.POSITIVE_INFINITY|| evalValue ==  Double.NaN ||
-					evalValue  < 0.0)
+					evalValue == Double.POSITIVE_INFINITY || evalValue ==  Double.NaN ||
+					evalValue  < 0.0  || Double.isInfinite(evalValue) || Double.isNaN(evalValue))
 				return 1000000000.0;
 			else
 				return evalValue;

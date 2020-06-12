@@ -21,10 +21,10 @@ public final class Const {
 	 public static int POP_SIZE = -1;
 	 public static int NUMBER_OF_THRESHOLDS = 100; //100;
 	 public static int MAX_GENERATIONS = 37;
-	 public static int TOURNAMENT_SIZE = 3;
+	 public static int TOURNAMENT_SIZE = 7;
 	 public static int NUM_OF_PROCESSORS = 5;
-	 public static double CROSSOVER_PROB = 0.0;
-	 public static int MAX_DEPTH = 3;
+	 public static double CROSSOVER_PROB = 0.9;
+	 public static int MAX_DEPTH = 5;
 	 public static final double EVOLUTION_RATIO = 0.8; 
 	 public static ArrayList<Double> threshold = new ArrayList<Double>();
 	 public static final double[] doubles = 
@@ -49,19 +49,27 @@ public final class Const {
 		}
 		
 	public enum function_code {
-		eGP, eMichaelFernando,
+		eGP, eMichaelFernando,eOlsen,
 	}
 
-	public static Const.function_code hashFunctionType(String inString) {
-		if (inString.contains("GP"))
-			return Const.function_code.eGP;
-		if (inString.contains("MichaelFernando"))
-			return Const.function_code.eMichaelFernando;
-
-		throw new IllegalArgumentException();
-		// return string_code.eNone;
+	public static function_code hashFunctionType(String inString) {
+		if (inString.contains("GP"))   return function_code.eGP;
+		if (inString.contains("MichaelFernando") ) return function_code.eMichaelFernando;
+		if (inString.contains("Olsen") ) return function_code.eOlsen;
+				
+		throw new IllegalArgumentException(); 
+		//return string_code.eNone;
 	}
 
+	public static String hashFunctionTypeToString(function_code enumCode) {
+		if (Const.OsFunctionEnum == Const.function_code.eGP)  return "GP";
+		if (Const.OsFunctionEnum == Const.function_code.eMichaelFernando)  return "MichaelFernando";
+		if (Const.OsFunctionEnum == Const.function_code.eOlsen)  return "Olsen";
+		
+				
+		throw new IllegalArgumentException(); 
+		//return string_code.eNone;
+	}
 	public	static Const.treeStructurePostcreate hashtreeStructurePostcreateType(String inString) {
 			if (inString.contains("PruneAndEqualERCAndExternalInputLeaf")) return Const.treeStructurePostcreate.ePruneAndEqualERCAndExternalInputLeaf;
 			if (inString.contains("Random"))   return Const.treeStructurePostcreate.eRandom;
