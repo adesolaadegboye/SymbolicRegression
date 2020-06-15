@@ -151,7 +151,7 @@ public class DCCurvePerfectForesightMF extends DCCurveRegression {
 						continue;
 					
 					upturn++;
-					meanRatio[1] += ratio;
+					meanMagnitudeRatio[1] += ratio;
 					upwardRatio.add(ratio);
 
 					meanUpturn += dcMagnitude;
@@ -162,7 +162,7 @@ public class DCCurvePerfectForesightMF extends DCCurveRegression {
 						continue;
 
 					downturn++;
-					meanRatio[0] += ratio;
+					meanMagnitudeRatio[0] += ratio;
 					downwardRatio.add(ratio);
 
 					meanDownturn += dcMagnitude;
@@ -414,7 +414,7 @@ public class DCCurvePerfectForesightMF extends DCCurveRegression {
 						}
 					}
 				} catch (ArrayIndexOutOfBoundsException exception) {
-					System.out.println(" DCCurveClassificationMF: Search for element "
+					System.out.println(" DCCurvePerfectForesightMF2: Search for element "
 							+ ((lastTrainingPrice - 1) + tradePoint) + " is beyond the size of price array  "
 							+ FReader.dataRecordInFileArray.size() + " . Trading ended");
 					break;

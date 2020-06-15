@@ -42,6 +42,7 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 	 * @param GPTreeFileName
 	 *            the name of the file where GP tree is stored
 	 */
+	
 	public void build(Double[] values, double delta, String GPTreeFileName, Event[] trainEvents,
 			PreProcess preprocess) {
 		String thresholdStr = String.format("%.8f", delta);
@@ -887,8 +888,8 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 					eval2 = Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[outputIndex].overshoot.end).askPrice);
 			
 			}
-			
-
+			if (eval < 0) 
+				eval = 0;
 			trainingGpPrediction[outputIndex] = eval;
 			trainingGpMagnitudePrediction[outputIndex] = eval2;
 		}

@@ -430,7 +430,7 @@ public abstract class DCCurveRegression {
 	}
 	
 	public double getUpwardTrendRatio(){
-		return  meanMagnitudeRatio[1];
+		return  meanRatio[1];
 	}
 	
 	public double getDownwardMagnitudeRatio(){

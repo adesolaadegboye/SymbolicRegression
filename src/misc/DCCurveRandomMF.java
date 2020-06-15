@@ -392,7 +392,7 @@ public class DCCurveRandomMF extends DCCurveRegression {
 						}
 					}
 				} catch (ArrayIndexOutOfBoundsException exception) {
-					System.out.println(" DCCurveClassificationMF: Search for element "
+					System.out.println(" DCCurveRandomMF: Search for element "
 							+ ((lastTrainingPrice - 1) + tradePoint) + " is beyond the size of price array  "
 							+ FReader.dataRecordInFileArray.size() + " . Trading ended");
 					break;

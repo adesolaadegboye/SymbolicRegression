@@ -13,10 +13,6 @@ import java.util.LinkedHashMap;
 import java.util.Random;
 import java.util.Vector;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
-
 import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.GP.TreeHelperClass;
@@ -280,8 +276,8 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 		testingEvents = Arrays.copyOf(testEvents, testEvents.length);
 		
 
-		ScriptEngineManager mgr = new ScriptEngineManager();
-		ScriptEngine engine = mgr.getEngineByName("JavaScript");
+		javax.script.ScriptEngineManager mgr = new javax.script.ScriptEngineManager();
+		javax.script.ScriptEngine engine = mgr.getEngineByName("JavaScript");
 
 		predictionWithClassifier = new double[testEvents.length];
 
@@ -320,7 +316,7 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 				try {
 					javascriptValue = (Double) engine.eval(foo);
 					eval = javascriptValue.doubleValue();
-				} catch (ScriptException e) {
+				} catch (javax.script.ScriptException e) {
 					e.printStackTrace();
 				} catch (ClassCastException e) {
 					e.printStackTrace();
@@ -765,8 +761,10 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 	@Override
 	void estimateTraining(PreProcess preprocess) {
 		trainingGpPrediction = new double[trainingEvents.length];
-		ScriptEngineManager mgr = new ScriptEngineManager();
-		ScriptEngine engine = mgr.getEngineByName("JavaScript");
+		javax.script.ScriptEngineManager mgr = new javax.script.ScriptEngineManager();
+	
+		@SuppressWarnings( "deprecation" )
+		javax.script.ScriptEngine engine = mgr.getEngineByName("JavaScript");
 
 		for (int outputIndex = 0; outputIndex < trainingEvents.length; outputIndex++) {
 			String foo = "";
@@ -805,7 +803,7 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 				try {
 					javascriptValue = (double) engine.eval(foo);
 					eval = javascriptValue.doubleValue();
-				} catch (ScriptException e) {
+				} catch (javax.script.ScriptException e) {
 					e.printStackTrace();
 				} catch (ClassCastException e) {
 					e.printStackTrace();

@@ -13,10 +13,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Vector;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
-
 import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.GP.TreeHelperClass;
@@ -237,8 +233,8 @@ public class DCCurveCifre extends DCCurveRegression {
 		testingEvents = Arrays.copyOf(testEvents, testEvents.length);
 		String thresholdStr = String.format("%.8f", delta);
 
-		ScriptEngineManager mgr = new ScriptEngineManager();
-		ScriptEngine engine = mgr.getEngineByName("JavaScript");
+		javax.script.ScriptEngineManager mgr = new javax.script.ScriptEngineManager();
+		javax.script.ScriptEngine engine = mgr.getEngineByName("JavaScript");
 
 		
 
@@ -282,7 +278,7 @@ public class DCCurveCifre extends DCCurveRegression {
 			try {
 				javascriptValue = (Double) engine.eval(foo);
 				eval = javascriptValue.doubleValue();
-			} catch (ScriptException e) {
+			} catch (javax.script.ScriptException e) {
 				e.printStackTrace();
 
 			} catch (ClassCastException e) {
@@ -738,8 +734,8 @@ public class DCCurveCifre extends DCCurveRegression {
 	@Override
 	void estimateTraining(PreProcess preprocess) {
 		trainingGpPrediction = new double[trainingEvents.length];
-		ScriptEngineManager mgr = new ScriptEngineManager();
-		ScriptEngine engine = mgr.getEngineByName("JavaScript");
+		javax.script.ScriptEngineManager mgr = new javax.script.ScriptEngineManager();
+		javax.script.ScriptEngine engine = mgr.getEngineByName("JavaScript");
 
 		for (int outputIndex = 0; outputIndex < trainingEvents.length; outputIndex++) {
 			String foo = "";
@@ -768,7 +764,7 @@ public class DCCurveCifre extends DCCurveRegression {
 			try {
 				javascriptValue = (Double) engine.eval(foo);
 				eval = javascriptValue.doubleValue();
-			} catch (ScriptException e) {
+			} catch (javax.script.ScriptException e) {
 				e.printStackTrace();
 
 			} catch (ClassCastException e) {

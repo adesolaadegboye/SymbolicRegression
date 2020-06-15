@@ -204,7 +204,7 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 							}
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						System.out.println(" DCCurveClassificationMF: Search for element "
+						System.out.println(" DCCurveDCCOnlyAndTrail: Search for element "
 								+ ((lastTrainingPrice - 1) + tradePointCointer) + " is beyond the size of price array  "
 								+ FReader.dataRecordInFileArray.size() + " . Trading ended");
 						break;

@@ -115,6 +115,11 @@ public class DCEventGenerator {
 		//this.eventsClassifier = events.toArray(new Event[events.size()]);
 		
 	}
+	 
+	 public Event[] getOutput(){
+		 return output;
+		 
+	 }
 
 	 public Event[] getEvents(){
 		return generatedEvents;

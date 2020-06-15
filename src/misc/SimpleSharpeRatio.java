@@ -100,8 +100,10 @@ public class SimpleSharpeRatio {
 
     }
     
-public double calulateSharpeRatio(){
-    	
+    public double calulateSharpeRatio(){
+    
+    	if (returnsList.size() < 2)
+    		return -5.0;
     	stats.clear();
     	for (int i =0; i < returnsList.size(); i++)
     	{
