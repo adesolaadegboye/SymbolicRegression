@@ -1330,7 +1330,7 @@ public class DCCurve {
 						
 						if ( Double.isInfinite(eval) || Double.isNaN(eval))
 						{
-							System.out.println("I am here");
+							;//System.out.println("I am here 1");
 						}
 					} catch (ScriptException e) {
 						eval = output[i].length();
@@ -1385,7 +1385,7 @@ public class DCCurve {
 						eval = output[i].length();
 						if ( Double.isInfinite(eval) || Double.isNaN(eval))
 						{
-							System.out.println("I am here");
+							;//System.out.println("I am here 2");
 						}
 					} catch (ClassCastException e) {
 						eval = output[i].length();

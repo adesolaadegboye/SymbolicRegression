@@ -151,7 +151,7 @@ public class HelperClass {
 			String gpFileName = gpFileNamePrefix + "_" + thresholdStr + ".txt";
 
 			dCEventGenerator.generateEvents(dataset, THRESHOLDS[i]);
-			copiedArray = Arrays.copyOf(dCEventGenerator.getEvents(), dCEventGenerator.getEvents().length);
+			copiedArray = Arrays.copyOf(dCEventGenerator.getOutput(), dCEventGenerator.getOutput().length);
 			trainingEventsMap.put(thresholdStr, copiedArray);
 			
 			perfectForesightDCCurve[i].filename = filename;
@@ -282,7 +282,7 @@ public class HelperClass {
 		
 		return selectedThresholdGPMap;
 	}*/
-	private static <K, V extends Comparable<? super V>> List<Entry<K, V>> findGreatest(Map<K, V> map, int n) {
+	public static <K, V extends Comparable<? super V>> List<Entry<K, V>> findGreatest(Map<K, V> map, int n) {
 		Comparator<? super Entry<K, V>> comparator = new Comparator<Entry<K, V>>() {
 			@Override
 			public int compare(Entry<K, V> e0, Entry<K, V> e1) {
@@ -329,7 +329,7 @@ public class HelperClass {
 																								// found
 	}
 	
-	private static <K, V extends Comparable<? super V>> List<Entry<K, V>> findLeast(Map<K, V> map, int n) {
+	public static <K, V extends Comparable<? super V>> List<Entry<K, V>> findLeast(Map<K, V> map, int n) {
 		Comparator<? super Entry<K, V>> comparator = new Comparator<Entry<K, V>>() {
 			@Override
 			public int compare(Entry<K, V> e0, Entry<K, V> e1) {
