@@ -691,12 +691,12 @@ public class DCCurve {
 							Double.isInfinite(eval) || eval == Double.POSITIVE_INFINITY)
 					{
 						 Integer integerObject = new Integer(output[outputIndex].length());
-						 eval = integerObject.doubleValue() * (double)GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+						 eval = integerObject.doubleValue() * (double)Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 					}
 					
 					if (eval < 0 ){
 						 Integer integerObject = new Integer(output[outputIndex].length());
-						 eval = integerObject.doubleValue() * (double)GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+						 eval = integerObject.doubleValue() * (double)Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 					}
 					
 					BigDecimal bd = null;
@@ -707,7 +707,7 @@ public class DCCurve {
 					}
 					catch(NumberFormatException e){
 						Integer integerObject = new Integer(output[outputIndex].length());
-						 eval = integerObject.doubleValue() * (double)GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+						 eval = integerObject.doubleValue() * (double)Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 					}
 					
 					
@@ -886,12 +886,12 @@ public class DCCurve {
 							Double.isInfinite(eval) || eval == Double.POSITIVE_INFINITY)
 					{
 						 Integer integerObject = new Integer(output[outputIndex].length());
-						 eval = integerObject.doubleValue() * (double)GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+						 eval = integerObject.doubleValue() * (double)Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 					}
 					
 					if (eval < 0 ){
 						 Integer integerObject = new Integer(output[outputIndex].length());
-						 eval = integerObject.doubleValue() * (double)GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+						 eval = integerObject.doubleValue() * (double)Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 					}
 					
 					BigDecimal bd = null;
@@ -902,7 +902,7 @@ public class DCCurve {
 					}
 					catch(NumberFormatException e){
 						Integer integerObject = new Integer(output[outputIndex].length());
-						 eval = integerObject.doubleValue() * (double)GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+						 eval = integerObject.doubleValue() * (double)Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 					}
 					
 					

@@ -34,8 +34,7 @@ public class GA {
 	protected static AbstractNode[] GP_TREES;
 	protected static String[] GP_TREES_STRING;
 	public static int NUM_OF_PROCESSORS=5;
-	public static boolean LINEAR_FUNCTIONALITY_ONLY=false;
-	public static int NEGATIVE_EXPRESSION_REPLACEMENT=2;
+	
 	public static boolean hasPrint = true;
 	double thresholdIncrement;
 	
@@ -1496,14 +1495,14 @@ public class GA {
 		}
 		
 		if (s[8].compareToIgnoreCase("TRUE")==0){
-			LINEAR_FUNCTIONALITY_ONLY=true;
+			Const.LINEAR_FUNCTIONALITY_ONLY=true;
 			System.out.println("LINEAR_FUNCTIONALITY_ONLY is TRUE");
 		}
 		else{
 			System.out.println("LINEAR_FUNCTIONALITY_ONLY is FALSE");
-			LINEAR_FUNCTIONALITY_ONLY = false;
+			Const.LINEAR_FUNCTIONALITY_ONLY = false;
 		}
-		NEGATIVE_EXPRESSION_REPLACEMENT=Integer.parseInt(s[9]);
+		Const.NEGATIVE_EXPRESSION_REPLACEMENT=Integer.parseInt(s[9]);
 		
 		try{
 			if(s[8] != null){

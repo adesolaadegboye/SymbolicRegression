@@ -413,7 +413,7 @@ public class PerfectForecastDCCurve extends DCCurve {
 					bd2 = new BigDecimal(Double.toString(eval));
 				} catch (NumberFormatException e) {
 					Integer integerObject = new Integer(trainingEvents[outputIndex].length());
-					eval = integerObject.doubleValue() * (double) GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+					eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 				}
 	
 				trainingPrediction[outputIndex] = eval;
