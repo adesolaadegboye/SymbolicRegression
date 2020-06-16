@@ -18,6 +18,8 @@ public final class Const {
 	 public static final String DISTANCE_NODE_LABEL = "InputVal:Y";
 	 public static final double MUTATION_THRESH = 0.1;
 	 public static final  int NUMBER_OF_SELECTED_THRESHOLDS = 5;
+	 public static int NEGATIVE_EXPRESSION_REPLACEMENT=2;
+	 public static boolean LINEAR_FUNCTIONALITY_ONLY=false;
 	 public static int POP_SIZE = -1;
 	 public static int NUMBER_OF_THRESHOLDS = 10; //100;
 	 public static int ELISTISM_COUNT = 5;

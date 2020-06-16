@@ -212,7 +212,7 @@ public class TreeHelperClass {
 
 		int randomInt = -1;
 
-		if (GA.LINEAR_FUNCTIONALITY_ONLY)
+		if (Const.LINEAR_FUNCTIONALITY_ONLY)
 			randomInt = rn.nextInt(5 - 2 + 1) + 2;
 		else
 			randomInt = rn.nextInt(10 - 2 + 1) + 2;
@@ -280,12 +280,12 @@ public class TreeHelperClass {
 		// rn.nextInt(max - min + 1) + min
 		int randomInt = -1;
 		if (isRoot) {
-			if (GA.LINEAR_FUNCTIONALITY_ONLY)
+			if (Const.LINEAR_FUNCTIONALITY_ONLY)
 				randomInt = rn.nextInt(5 - 2 + 1) + 2;
 			else
 				randomInt = rn.nextInt(10 - 2 + 1) + 2;
 		} else {
-			if (GA.LINEAR_FUNCTIONALITY_ONLY)
+			if (Const.LINEAR_FUNCTIONALITY_ONLY)
 				randomInt = rn.nextInt(5 - 0 + 1) + 0;
 			else
 				randomInt = rn.nextInt(10 - 0 + 1) + 0;
