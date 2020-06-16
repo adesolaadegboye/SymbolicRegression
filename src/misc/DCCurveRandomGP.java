@@ -16,7 +16,7 @@ import java.util.Vector;
 import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.GP.TreeHelperClass;
-import dc.ga.GA;
+
 import dc.ga.PreProcess;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
@@ -330,7 +330,7 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 				bd2 = new BigDecimal(Double.toString(eval));
 			} catch (NumberFormatException e) {
 				Integer integerObject = new Integer(testEvents[outputIndex].length());
-				eval = integerObject.doubleValue() * (double) GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+				eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 			}
 
 			predictionWithClassifier[outputIndex] = eval;
@@ -817,7 +817,7 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 				bd2 = new BigDecimal(Double.toString(eval));
 			} catch (NumberFormatException e) {
 				Integer integerObject = new Integer(trainingEvents[outputIndex].length());
-				eval = integerObject.doubleValue() * (double) GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+				eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 			}
 
 			trainingGpPrediction[outputIndex] = eval;

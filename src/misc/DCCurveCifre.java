@@ -17,7 +17,6 @@ import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.GP.TreeHelperClass;
 
-import dc.ga.GA;
 import dc.ga.PreProcess;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
@@ -289,7 +288,7 @@ public class DCCurveCifre extends DCCurveRegression {
 					|| eval == Double.NaN || Double.isNaN(eval) || Double.isInfinite(eval)
 					|| eval == Double.POSITIVE_INFINITY || eval < 0) {
 
-				eval = testEvents[outputIndex].length() * (double) GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+				eval = testEvents[outputIndex].length() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 
 			}
 
@@ -300,7 +299,7 @@ public class DCCurveCifre extends DCCurveRegression {
 				bd2 = new BigDecimal(Double.toString(eval));
 			} catch (NumberFormatException e) {
 				Integer integerObject = new Integer(testEvents[outputIndex].length());
-				eval = integerObject.doubleValue() * (double) GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+				eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 			}
 
 			gpprediction[outputIndex] = eval;
@@ -775,7 +774,7 @@ public class DCCurveCifre extends DCCurveRegression {
 					|| eval == Double.NaN || Double.isNaN(eval) || Double.isInfinite(eval)
 					|| eval == Double.POSITIVE_INFINITY || eval < 0) {
 
-				eval = trainingEvents[outputIndex].length() * (double) GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+				eval = trainingEvents[outputIndex].length() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 
 			}
 
@@ -786,7 +785,7 @@ public class DCCurveCifre extends DCCurveRegression {
 				bd2 = new BigDecimal(Double.toString(eval));
 			} catch (NumberFormatException e) {
 				Integer integerObject = new Integer(trainingEvents[outputIndex].length());
-				eval = integerObject.doubleValue() * (double) GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+				eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 			}
 
 			trainingGpPrediction[outputIndex] = eval;

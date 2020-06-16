@@ -741,14 +741,7 @@ public class SymbolicRegression {
 						+ 000000 + "\t" + curveRandomMFTrainingReturn + "\t"
 						+ curveClassificationNoRegressionMFTrainingReturn + "\t" + perfectForcastOlsenTrainingReturn
 						+ "\t" + curveOlsenTrainingReturn + "\t" + 000000 + "\t"
-						+ curveRandomOlsenTrainingReturn + "\t" + curveClassificationNoRegressionOlsenTrainingReturn
-						+ "\t" + 000000 + "\t" + 000000 + "\t"
-						+ 000000 + "\t" + 000000
-						+ "\t" + 000000 + "\t"
-						+ 000000 + "\t" + 000000 + "\t"
-						+ 000000 + "\t" + 000000 + "\t"
-						+ 000000 + "\t"
-						+ 000000;
+						+ curveRandomOlsenTrainingReturn + "\t" + curveClassificationNoRegressionOlsenTrainingReturn;
 				Const.log.save("SimpleTradingTraining.txt", SimpleTradingTraining);
 
 				// cleanup
@@ -1316,15 +1309,15 @@ public class SymbolicRegression {
 		}
 
 		if (s[8].compareToIgnoreCase("TRUE") == 0) {
-			GA.LINEAR_FUNCTIONALITY_ONLY = true;
+			Const.LINEAR_FUNCTIONALITY_ONLY = true;
 			Const.FUNCTION_NODE_DEFINITION = "LINEAR";
 			// System.out.println("LINEAR_FUNCTIONALITY_ONLY is TRUE");
 		} else {
 			// System.out.println("LINEAR_FUNCTIONALITY_ONLY is FALSE");
 			Const.FUNCTION_NODE_DEFINITION = "NON_LINEAR";
-			GA.LINEAR_FUNCTIONALITY_ONLY = false;
+			Const.LINEAR_FUNCTIONALITY_ONLY = false;
 		}
-		GA.NEGATIVE_EXPRESSION_REPLACEMENT = Integer.parseInt(s[9]);
+		Const.NEGATIVE_EXPRESSION_REPLACEMENT = Integer.parseInt(s[9]);
 
 		try {
 			if (s[10] != null) {
