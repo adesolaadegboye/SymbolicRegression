@@ -26,7 +26,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 
 import dc.GP.Const.treeStructurePostcreate;
 import dc.ga.DCCurve.Event;
@@ -36,7 +38,7 @@ import dc.io.FReader;
 import dc.io.Logger;
 import dc.io.FReader.FileMember2;
 import files.FWriter;
-import misc.SymbolicRegression;
+
 
 public class TreeHelperClass {
 
@@ -704,6 +706,24 @@ public class TreeHelperClass {
 		if (!hasConstant)
 			return Double.MAX_VALUE;
 		
+		String treeToString = tree.printAsInFixFunction();
+		ScriptEngineManager mgr = new ScriptEngineManager();
+		ScriptEngine engine = mgr.getEngineByName("JavaScript");
+		
+		treeToString = treeToString.replace("X0", Integer.toString(1));
+		Double javascriptValue = Double.MAX_VALUE;
+		double eval = 0.0;
+		try {
+			javascriptValue = (Double) engine.eval(treeToString);
+			eval = javascriptValue.doubleValue();
+			if (Double.compare(eval, 0) < 0)
+				return Double.MAX_VALUE;
+		} catch (ScriptException e) {
+			return Double.MAX_VALUE;
+		} catch (ClassCastException e) {
+			return Double.MAX_VALUE;
+		}
+		
 		FReader freader = new FReader();
 		FileMember2 fileMember3 = freader.new FileMember2();
 		for (Event e : directionChangesLength) {
@@ -1067,6 +1087,7 @@ public class TreeHelperClass {
 				gpTrees.add(evolvedGpTrees.get(k));
 			}
 			
+			
 			System.gc();
 			Comparator<AbstractNode> comparator = Collections.reverseOrder();
 			//Collections.sort(evolvedGpTrees, comparator);
@@ -1086,6 +1107,30 @@ public class TreeHelperClass {
 			evolvedGpTrees.clear();
 			
 		}
+		for (int k =  0 ; k< gpTrees.size(); k++){
+			String treeToString = gpTrees.get(k).printAsInFixFunction();
+			ScriptEngineManager mgr = new ScriptEngineManager();
+			ScriptEngine engine = mgr.getEngineByName("JavaScript");
+			
+			treeToString = treeToString.replace("X0", Integer.toString(1));
+			Double javascriptValue = Double.MAX_VALUE;
+			double eval = 0.0;
+			try {
+				javascriptValue = (Double) engine.eval(treeToString);
+				eval = javascriptValue.doubleValue();
+				if (Double.compare(eval, 0) < 0)
+					gpTrees.get(k).perfScore = Double.MAX_VALUE;
+			} catch (ScriptException e) {
+				gpTrees.get(k).perfScore = Double.MAX_VALUE;
+			} catch (ClassCastException e) {
+				gpTrees.get(k).perfScore = Double.MAX_VALUE;
+			}
+		}
+		
+		Comparator<AbstractNode> comparator = Collections.reverseOrder();
+		Collections.sort(gpTrees, comparator);
+		
+		//Collections.sort(gpTrees2, comparator);
 
 		bestTree = gpTrees.get(gpTrees.size() - 1).clone();
 		
@@ -1130,7 +1175,7 @@ public class TreeHelperClass {
 		                        }
 	                        }
 	                        catch (ArrayIndexOutOfBoundsException  e) {
-	                        	System.out.println("ArrayIndexOutOfBoundsException handled" );
+	                        	;//System.out.println("ArrayIndexOutOfBoundsException handled" );
 	                        }
 
 	                    }

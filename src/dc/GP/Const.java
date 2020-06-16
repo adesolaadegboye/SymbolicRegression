@@ -19,7 +19,8 @@ public final class Const {
 	 public static final double MUTATION_THRESH = 0.1;
 	 public static final  int NUMBER_OF_SELECTED_THRESHOLDS = 5;
 	 public static int POP_SIZE = -1;
-	 public static int NUMBER_OF_THRESHOLDS = 100; //100;
+	 public static int NUMBER_OF_THRESHOLDS = 10; //100;
+	 public static int ELISTISM_COUNT = 5;
 	 public static int MAX_GENERATIONS = 37;
 	 public static int TOURNAMENT_SIZE = 7;
 	 public static int NUM_OF_PROCESSORS = 5;

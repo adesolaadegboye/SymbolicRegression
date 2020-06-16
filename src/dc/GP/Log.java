@@ -51,11 +51,11 @@ public class Log  extends AbstractNode implements Cloneable{
 			childValue = this.children.get(0).eval(inVal);
 			if (childValue < 0)
 			{
-				System.out.println("");
+				;//System.out.println("");
 			}
 			if (inVal < 0)
 			{
-				System.out.println("");
+				;//System.out.println("");
 			}
 			
 			double var1 = Math.abs(childValue);  // Handle Nan
