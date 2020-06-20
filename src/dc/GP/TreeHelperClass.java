@@ -854,7 +854,10 @@ public class TreeHelperClass {
 			AbstractNode randomTree = treeCreation.tree;
 			
 			double score = evaluateRegressionTree(randomTree, directionChangesLength);
-			randomTree.perfScore = score;
+			if (Double.compare(score, 0.0)< 0)
+				randomTree.perfScore =Double.MAX_VALUE;
+			else
+				randomTree.perfScore = score;
 			
 			vector.add(randomTree);
 		}
@@ -899,22 +902,19 @@ public class TreeHelperClass {
 			// Adesola remove comment when not
 			// tunning//System.out.println("Threshold: " + thresholdStr + " Run:
 			// " + run + " Generation: " + generationCount);
+			System.out.println("The Best performing trees' scores generation "+  gen + " are: ");
 			for (int counter = size - 1; counter >= evolvedElementsSize; counter--) {
 				AbstractNode copy = gpTrees.get(counter).clone();
 				copy.perfScore = gpTrees.get(counter).perfScore;
-				//System.out.println(printTreeToString(copy, 0));
-				//System.out.println("Best tree is score is :" + copy.perfScore + " depth " + getDepth(copy, 1) + " size " + getTreeSize(copy));
-				if (evolvedGpTrees.contains(gpTrees.get(counter))){
-					//System.out.println("has");
-					continue;
-				}
+			//	System.out.println(printTreeToString(copy, 0));
+				System.out.println(copy.perfScore + " depth " + getDepth(copy, 1) + " size " + getTreeSize(copy));
 				evolvedGpTrees.add(gpTrees.get(counter));
 				//System.out.println(printTreeToString(gpTrees.get(counter),0));
 			}
 
 			for (int i = 0; i < evolvedElementsSize; i++) {
 
-				AbstractNode selectedTree = tournament(gpTrees, Const.TOURNAMENT_SIZE, evolvedElementsSize); // Already
+				AbstractNode selectedTree = tournament(gpTrees, Const.TOURNAMENT_SIZE, 0); // Already
 				// cloned
 				// in
 				// tournament
@@ -924,52 +924,38 @@ public class TreeHelperClass {
 
 					double d = (double) Const.MAX_DEPTH; //
 					int max_node_count = ((int) Math.pow(2.0, d) - 1);
-					int number_of_tries = 0;
+					
 					AbstractNode newTree = null;
-					while (number_of_tries < 1000) {
-						number_of_tries = number_of_tries + 1;
-						// crossover
-						AbstractNode selectedTree2 = tournament(gpTrees, Const.TOURNAMENT_SIZE, preservedElementsSize); // Already
-						// cloned
-						// in
-						// tournament
-						String crossOverTreeString = TreeHelperClass.crossOverTree(selectedTree, selectedTree2);
-						crossOverTreeString = crossOverTreeString.replace(",", "");
-						// System.out.println("Crossover tree" +
-						// crossOverTreeString);
-						String crossOverTreeStringArray[] = crossOverTreeString.split("\\r?\\n");
-						Vector<String> crossOverTreeStringVector = new Vector<String>(
-								Arrays.asList(crossOverTreeStringArray));
-						TreeOperation treeOperation = new TreeOperation(crossOverTreeStringVector);
-						newTree = treeOperation.getTree();
-						int treeSize =  getTreeSize(newTree);
-						
-						if ( treeSize <= max_node_count) {
-							double score = evaluateRegressionTree(newTree, directionChangesLength);
-							newTree.perfScore = score;
-						} else {
-							//System.out.println("Penalizing tree because size is " + treeSize + " while max tree size allowed is " + max_node_count);
-							newTree.perfScore = Double.MAX_VALUE;
-						}
-						
-						if (newTree.perfScore == Double.MAX_VALUE)
-							continue;
-						if (newTree.perfScore <0 )
-							continue;
-						if (Double.compare(newTree.perfScore, 100 )> 0 )
-							continue;
-						
-						
-						if (!evolvedGpTrees.contains(newTree)){
-							//System.out.println("has");
-							break;
-						}
-						else
-							continue;
-						
+					
+					// crossover
+					AbstractNode selectedTree2 = tournament(gpTrees, Const.TOURNAMENT_SIZE, preservedElementsSize); // Already
+					// cloned
+					// in
+					// tournament
+					String crossOverTreeString = TreeHelperClass.crossOverTree(selectedTree, selectedTree2);
+					crossOverTreeString = crossOverTreeString.replace(",", "");
+					// System.out.println("Crossover tree" +
+					// crossOverTreeString);
+					String crossOverTreeStringArray[] = crossOverTreeString.split("\\r?\\n");
+					Vector<String> crossOverTreeStringVector = new Vector<String>(
+							Arrays.asList(crossOverTreeStringArray));
+					TreeOperation treeOperation = new TreeOperation(crossOverTreeStringVector);
+					newTree = treeOperation.getTree();
+					int treeSize =  getTreeSize(newTree);
+					
+					if ( treeSize <= max_node_count) {
+						double score = evaluateRegressionTree(newTree, directionChangesLength);
+						newTree.perfScore = score;
+					} else {
+						//System.out.println("Penalizing tree because size is " + treeSize + " while max tree size allowed is " + max_node_count);
+						newTree.perfScore = Double.MAX_VALUE;
 					}
-
-					if (randomValue < 0.03) { // Crossover and mutate a few
+					
+					if (newTree.perfScore <0 )
+						newTree.perfScore = Double.MAX_VALUE;
+						
+					
+					if (newTree.perfScore == Double.MAX_VALUE || randomValue < 0.03) { // Crossover and mutate a few
 						String mutateTreeString = TreeHelperClass.mutateTree(newTree);
 						mutateTreeString = mutateTreeString.replace(",", "");
 						// System.out.println("mutated tree" +
@@ -1010,10 +996,9 @@ public class TreeHelperClass {
 			
 			removeDuplicates(evolvedGpTrees);
 			
-			int numberToComplete = evolvedGpTrees.size();
 			int numberOftries = 0;
 			while ( evolvedGpTrees.size() <= size ){
-				TreeCreation treeCreation = new TreeCreation(numberToComplete);
+				TreeCreation treeCreation = new TreeCreation(evolvedGpTrees.size());
 
 				//AbstractNode randomTree = treeCreation.tree;
 				AbstractNode randomTree = treeCreation.tree;
@@ -1021,7 +1006,13 @@ public class TreeHelperClass {
 				double score = evaluateRegressionTree(randomTree, directionChangesLength);
 				randomTree.perfScore = score;
 				
-				if(numberOftries > 100) {
+				if (randomTree.perfScore <0 )
+				{
+					randomTree.perfScore = Double.MAX_VALUE;
+					
+				}
+				
+				if(randomTree.perfScore == Double.MAX_VALUE) {
 					
 					String mutateTreeString = TreeHelperClass.mutateTree(randomTree);
 					mutateTreeString = mutateTreeString.replace(",", "");
@@ -1035,38 +1026,21 @@ public class TreeHelperClass {
 					double score2 = evaluateRegressionTree(newTree2, directionChangesLength);
 					newTree2.perfScore = score2;
 					
+					if (newTree2.perfScore <0 )
+					{
+						newTree2.perfScore = Double.MAX_VALUE;
+						
+					}
+					
 					evolvedGpTrees.add(newTree2);
 					numberOftries=0;
-					numberToComplete++;
+				}
+				else
+				{
+					evolvedGpTrees.add(randomTree);
 				}
 				
-				if (randomTree.perfScore == Double.MAX_VALUE)
-				{
-					numberOftries++;
-					continue;
-
-				}
-				if (randomTree.perfScore <0 )
-				{
-					numberOftries++;
-					continue;
-				}
 				
-				if (Double.compare(randomTree.perfScore, 100 )> 0 )
-				{
-					numberOftries++;
-					continue;
-				}
-			
-			//number_of_tries = number_of_tries + 1;
-				if (evolvedGpTrees.contains(randomTree)){
-					//System.out.println("has");
-					continue;
-				}
-				
-				evolvedGpTrees.add(randomTree);
-				numberToComplete++;
-				numberOftries=0;
 			}
 			
 			for (int k=0 ; k< evolvedGpTrees.size() ; k++ )
