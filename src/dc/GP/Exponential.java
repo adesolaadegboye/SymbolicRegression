@@ -56,6 +56,15 @@ public class Exponential  extends AbstractNode implements Cloneable{
 //				System.out.println("Is infinity");
 			
 //			}
+			
+			if  (   inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
+					  inVal == Double.NEGATIVE_INFINITY || inVal ==  Double.NaN ||
+					Double.isInfinite(inVal)  || Double.isNaN(inVal) ||
+					  var1 == Double.MAX_VALUE || var1 == Double.NEGATIVE_INFINITY ||
+					  var1 == Double.NEGATIVE_INFINITY || var1 ==  Double.NaN ||
+					  Double.isInfinite(var1)  || Double.isNaN(var1))
+					return Double.MAX_VALUE;
+			
 			double evalValue = Math.exp(var1);
 //			if (Double.isInfinite(evalValue)){
 //				System.out.println(this.printAsInFixFunctionSimplify());
@@ -64,20 +73,14 @@ public class Exponential  extends AbstractNode implements Cloneable{
 			//System.out.println( evalValue );
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
 				  evalValue == Double.NEGATIVE_INFINITY || evalValue ==  Double.NaN ||
-						  Double.compare(evalValue, 0.0)  < 0  || Double.isInfinite(evalValue)  || Double.isNaN(evalValue) ||
-				  inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
-				  inVal == Double.NEGATIVE_INFINITY || inVal ==  Double.NaN ||
-				Double.compare(inVal, 0.0)  < 0  || Double.isInfinite(inVal)  || Double.isNaN(inVal) ||
-				  var1 == Double.MAX_VALUE || var1 == Double.NEGATIVE_INFINITY ||
-				  var1 == Double.NEGATIVE_INFINITY || var1 ==  Double.NaN ||
-				  Double.compare(var1, 0.0)  < 0  || Double.isInfinite(var1)  || Double.isNaN(var1))
-				return 1000000000.0;
+				Double.isInfinite(evalValue)  || Double.isNaN(evalValue))
+				return Double.MAX_VALUE;
 			else
 				return evalValue;
 		}
 		else {
 			System.out.println( "left not defined in exponential");
-			return -1.0;
+			return Double.MAX_VALUE;
 		}
 	}
 

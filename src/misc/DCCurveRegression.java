@@ -31,11 +31,8 @@ public abstract class DCCurveRegression {
 
 	protected double[] gpprediction;
 	protected double[] predictionWithClassifier;
-	protected double[] predictionMagnitudeWithClassifier;
 	
 	protected double[] trainingGpPrediction;
-	protected double[] trainingGpMagnitudePrediction;
-	
 	
 	double predictionRmse;
 	protected double OpeningPosition = 500000.00;
@@ -409,13 +406,7 @@ public abstract class DCCurveRegression {
 		return downwardTrendTreeString;
 	}
 	
-	public String getUpwardTrendMagnitudeTreeString(){
-		return upwardTrendMagnitudeTreeString;
-	}
 	
-	public String getDownwardTrendMagnitudeTreeString(){
-		return downwardTrendMagnitudeTreeString;
-	}
 	
 	public String getThresholdString (){
 		return thresholdString;

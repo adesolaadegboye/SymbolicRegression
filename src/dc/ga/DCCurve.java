@@ -42,6 +42,7 @@ import misc.SimpleDrawDown;
 import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
+import weka.core.matrix.Maths;
 
 
 
@@ -67,8 +68,8 @@ public class DCCurve {
 	protected double[] GpDownwardoutput;
 
 	protected double[] gpprediction;
-	double[] predictionUpward;
-	double[] predictionDownward;
+	public double[] predictionUpward;
+	public double[] predictionDownward;
 	
 	int numberOfUpwardEvent;
 	int numberOfDownwardEvent;
@@ -123,6 +124,8 @@ public class DCCurve {
 	public double lastUpDCEndTraded = 0.0;
 	public double percentageOfBudgetTraded = 0.0;
 	public double maxNumberOfOpenPositions = 0;
+	
+	public ThresholdStats  thresholdStats =  new ThresholdStats();
 
 	String gpTreeInFixNotation = null;
 
@@ -138,6 +141,7 @@ public class DCCurve {
 	String[] gpRatio = new String[2];
 	double[] meanOvershoot = new double[1];
 	double[] splitmeanOvershoot = new double[2];
+	AbstractNode[] bestGPs = new AbstractNode[2];
 	
 	/**
 	 * 0 = downward event length 1 = upward event length
@@ -1246,13 +1250,13 @@ public class DCCurve {
 						outputTestInstance.add(e, testInstance.get(eventIndex));
 					}catch(IndexOutOfBoundsException inErr){
 						System.out.println("An error occured" + e );
+						System.out.println("An error occured" + e );
 					}
 					
 				}
 			}
-			else
-			{
-				System.out.print("An error occured while copying instance");
+			else{
+				System.out.println("An error occured while copying instance");
 				System.exit(0);
 			}
 
@@ -1321,9 +1325,11 @@ public class DCCurve {
 			BigDecimal bd2 = null;
 			if (output[i].type == Type.Upturn){
 				if (Const.OsFunctionEnum == Const.function_code.eGP ){
-					foo = gpRatio[1];
-					foo = foo.replace("X0", Integer.toString(output[i].length()));
 					
+					eval = bestUpWardEventTree.eval(output[i].length());
+					//foo = gpRatio[1];
+					//foo = foo.replace("X0", Integer.toString(output[i].length()));
+					/*
 					try {
 						javascriptValue = (Double) engine.eval(foo);
 						eval = javascriptValue.doubleValue();
@@ -1340,7 +1346,7 @@ public class DCCurve {
 						;
 					}catch (Exception e) {
 						System.out.println(e.toString());
-					}
+					}*/
 					if  ( eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY ||
 							eval == Double.POSITIVE_INFINITY || eval ==  Double.NaN ||
 							Double.compare(eval, 0.0)  < 0  || Double.isInfinite(eval)  || Double.isNaN(eval)){
@@ -1369,7 +1375,8 @@ public class DCCurve {
 			}
 			else if (output[i].type == Type.Downturn){
 				if (Const.OsFunctionEnum == Const.function_code.eGP ){
-					foo = gpRatio[0];
+					eval = bestDownWardEventTree.eval(output[i].length());
+					/*foo = gpRatio[0];
 					foo = foo.replace("X0", Integer.toString(output[i].length()));
 					eval = 0.0;
 					javascriptValue = Double.MAX_VALUE;
@@ -1400,6 +1407,7 @@ public class DCCurve {
 						Integer integerObject = new Integer(output[i].length());
 						eval = integerObject.doubleValue() * (double) GA_new.NEGATIVE_EXPRESSION_REPLACEMENT;
 					}
+					*/
 				}
 				else if (Const.OsFunctionEnum == Const.function_code.eMichaelFernando ||
 						 Const.OsFunctionEnum == Const.function_code.eOlsen ){
@@ -1496,5 +1504,112 @@ public class DCCurve {
 		System.out.println("estimateRMSEs : This must never be called");
 		System.exit(-1);
 	}
+	
+	protected void estimateTestRMSEAndClassification() {
+		System.out.println("estimateRMSEs : This must never be called");
+		System.exit(-1);
+	}
+	
+	
+	public  class ThresholdStats{
+		double upwardFitness = 0.0;
+		double downwardFitness = 0.0;
+		double    score  = 0.0;
+		double threshold =0.0;
+		double difference = 0.0;
+		double sum =  0.0;
+		double numberOfEvents = 0.0;
+		double numberOfOSEvents = 0.0;
+		double numberOfDataPts = 0.0;
+		double budget = 0.0;
+		double totalReturn = 0.0;
+		double[] gpMeanRatio = new double[2];
+		//DCCurve dcCurve ;
+		 
+		 Vector<Event> upwardEventVector = new Vector<Event>();
+		 Vector<Event> downwardEventVector = new Vector<Event>();
+		 Vector<Double> predictedUpwardLengthVector = new Vector<Double>(); 
+		 Vector<Double> predictedDownwardLengthVector = new Vector<Double>(); 
+		 Vector<Double> actualUpwardLengthVector = new Vector<Double>(); 
+		 Vector<Double> actualDownwardLengthVector = new Vector<Double>();
+		 
+		//public setupwardRatio
+		
+	//	void setOuterClass(DCCurve dcCurve){
+	//		this.dcCurve = dcCurve;
+	//	}
+		
+		void computeUpwardRMSE(String upwardTreeString){
+			for (int outputIndex = 0; outputIndex < events.length; outputIndex++) {
+				if (events[outputIndex].type  == Type.Upturn){
+					upwardEventVector.add(new  Event(events[outputIndex]));
+					if (events[outputIndex].overshoot ==  null)
+						actualUpwardLengthVector.add(0.0);
+					else
+						actualUpwardLengthVector.add(Double.valueOf(events[outputIndex].overshoot.length()));
+				}
+				
+			}
+			String foo = gpRatio[1];
+			
+			Double eval = Double.MAX_VALUE;
+			for (int outputIndex = 0; outputIndex < upwardEventVector.size(); outputIndex++) {
+				if (events[outputIndex].type  == Type.Upturn){
+					foo = foo.replace("X0", Integer.toString(events[outputIndex].length()));
+					try {
+						eval = (Double) engine.eval(foo);	
+						if  ( eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY ||
+								eval == Double.POSITIVE_INFINITY || eval ==  Double.NaN ||
+								Double.compare(eval, 0.0)  < 0  || Double.isInfinite(eval)  || Double.isNaN(eval)){
+							eval = 0.0;
+						}
+						
+						predictedUpwardLengthVector.add(eval);
+						
+					} catch (ScriptException e) {
+						predictedUpwardLengthVector.add(0.0);
+					} catch (ClassCastException e) {
+						predictedUpwardLengthVector.add(0.0);
+					}
+				
+				}
+				else{
+					
+					predictedUpwardLengthVector.add(events[outputIndex].length() * meanRatio[1]);
+				}
+			}
+			
+		}
+		
+		void computeDownwardRMSE(String upwardTreeString){
+			for (int outputIndex = 0; outputIndex < events.length; outputIndex++) {
+				if (events[outputIndex].type  == Type.Downturn){
+					;//actualOSDownwardLengthVector.add(new  Event(events[outputIndex]));
+				}
+				
+			}
+			
+		}
+		
+		double getUpwardDownwardRMSEdiference (){
+			
+			
+			return 0.0; //(Maths.square(upwardRMSE-downwardRMSE));
+		}
+		
+		double getUpwardDownwardRMSESum(){
+			return  0.0; //(Maths.square(upwardRMSE+downwardRMSE));
+		}
+		
+		double getScore(){
+			return ((totalReturn - budget)/budget) + Math.abs(upwardFitness-downwardFitness) + ( (numberOfEvents/numberOfDataPts)/ (numberOfOSEvents/numberOfEvents) ) ;
+		}
+		
+		double getOvershootRatio(){
+			return numberOfEvents/numberOfDataPts;
+		}
+		
+	}
+	
 
 }

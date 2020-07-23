@@ -152,7 +152,7 @@ public class DCCurveClassificationOlsen extends DCCurveRegression {
 			} else if (testingEvents[i].type == Type.Downturn) {
 
 				String classificationStr = "no";
-				classificationStr = preprocess.classifyTrainingInstance(i);
+				classificationStr = preprocess.classifyTestInstance(i);
 
 				// Use classification to select DC trend to trade Olsen
 				if ((classificationStr.compareToIgnoreCase("no") == 0)) {

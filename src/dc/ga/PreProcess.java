@@ -159,17 +159,20 @@ public class PreProcess {
 
 	}
 
-	public void processTestData(Event[] testEvents) {
+	public boolean processTestData(Event[] testEvents) {
 		Event[] copiedArray = Arrays.copyOf(testEvents, testEvents.length);
 
 		extractTestDCfeatures(copiedArray);
-		printTestFeatures(filename, thresholdString, copiedArray);
+		if (false == printTestFeatures(filename, thresholdString, copiedArray))
+			return false;
+		
 		testEventArray = new Event[testEvents.length];
 		System.arraycopy(copiedArray,0 , testEventArray, 0 ,copiedArray.length);
 
+		return true;
 	}
 
-	public void loadTestData(Event[] testEvents) {
+	public boolean loadTestData(Event[] testEvents) {
 
 		File f = new File(filename);
 
@@ -200,15 +203,18 @@ public class PreProcess {
 			//DataSource source = new DataSource(folderName + "/" + fileName+regressionAlgoName + "_Features_" + thresholdString + "_test.arff");
 			testInstances = new Instances(breader);
 		//	testInstances = new Instances(source.getDataSet());
+			if (testInstances.size()< 2 )
+				return false;
 			testInstances.setClassIndex(testInstances.numAttributes() - 1);
 			System.out.println("Read "+ folderName + "/" + fileName+regressionAlgoName + "_Features_" + thresholdString + "_test.arff");
 		} catch ( Exception e1) {
-			testInstances.setClassIndex(1);
+			return false;
+			//testInstances.setClassIndex(1);
 		}
 		
 
 		System.out.println("Instance " + testInstances.numInstances() + " event count " + testEvents.length);
-
+		return true;
 	}
 	public void loadTestData() {
 
@@ -639,7 +645,7 @@ public class PreProcess {
 	boolean autoClassifyTraining(int counter) {
 
 		File f = new File(filename);
-		boolean rtCode = false;
+		boolean rtCode = true;
 		String absolutePath = "";
 		try {
 			absolutePath = f.getCanonicalPath();
@@ -668,6 +674,8 @@ public class PreProcess {
 			 // Default K-fold =  10 . Sample size is smaller we set to sample size
 			  if (trainingInstancesAutoTemp.size() < 3) {
 				  autoWEKAClassifierTemp.setResamplingArgs(trainingInstancesAutoTemp.size()-3);
+				  RuntimeException result = new NullPointerException();
+				  throw result;
 			  }
 			 
 			// System.out.println(autoWEKAClassifierTemp.getOptions().toString());
@@ -675,9 +683,8 @@ public class PreProcess {
 			autoWEKAClassifierTemp.setBespokePath(fileNames+"_" + regressionAlgoName + "_" + thresholdString + counter + "_");
 			autoWEKAClassifierTemp.buildClassifier(trainingInstancesAutoTemp);
 
-			autoWEKAClassifierList.add(autoWEKAClassifierTemp);
-
 			tempFilePath.add(autoWEKAClassifierTemp.getmsExperimentPaths());
+			autoWEKAClassifierList.add(autoWEKAClassifierTemp);
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.out.println("An error occured");
@@ -1158,7 +1165,7 @@ public class PreProcess {
 
 	}
 
-	public void printTestFeatures(String filename, String thresholdString, Event[] testEvents) {
+	public boolean printTestFeatures(String filename, String thresholdString, Event[] testEvents) {
 
 		File f = new File(filename);
 
@@ -1216,6 +1223,9 @@ public class PreProcess {
 			writer2.write("@data");
 			writer2.write("\n");
 			
+			if (testEvents.length< 2)
+				return false;
+			
 			// for (int k = 0; k < trainingCount; k++) {
 			for (int k = 0; k < testEvents.length; k++) {
 				count = count + 1;
@@ -1249,10 +1259,11 @@ public class PreProcess {
 		} catch (IOException e) {
 
 			e.printStackTrace();
+			return false;
 		}
 		// System.out.println(count + " Rows in file");
 		
-		
+		return true;
 	}
 
 	public void selectBestClassifier() {
@@ -1746,7 +1757,7 @@ public class PreProcess {
 		}
 	}
 
-	public void runAutoWeka() {
+	public boolean runAutoWeka() {
 		autoWEKAClassifierList = new ArrayList<myAutoWeka>(3);
 
 		File f = new File(filename);
@@ -1772,8 +1783,8 @@ public class PreProcess {
 					+ "at:" + formatter.format(date));
 			
 		
-			autoClassifyTraining(autoWekaCount);
-			
+			if (!autoClassifyTraining(autoWekaCount))
+				return false;
 				
 				
 			if (autoWekaCount > 3) {
@@ -1814,13 +1825,19 @@ public class PreProcess {
 
 		File dir = new File(tempFolderName);
 		if (!dir.isDirectory())
-			return;
+			return false;
 
-		File[] tempFile = dir.getParentFile().listFiles(new FilenameFilter() {
+		File[] tempFile = null;
+		try{
+		tempFile = dir.getParentFile().listFiles(new FilenameFilter() {
 			public boolean accept(File dir, String name) {
 				return name.startsWith("autoweka" + fileName);
 			}
 		});
+		}
+		catch(Exception  e){
+				System.out.println("File not found");
+		}
 
 		for (int tempFileCount = 0; tempFileCount < tempFile.length; tempFileCount++) {
 			try {
@@ -1830,6 +1847,7 @@ public class PreProcess {
 				System.out.println("Unable to delete one of the directory");
 			}
 		}
+		return true;
 	}
 
 	public String printAutoWekaVsManualClassifierComparison() {

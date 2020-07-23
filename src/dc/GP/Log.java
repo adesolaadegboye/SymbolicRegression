@@ -49,47 +49,32 @@ public class Log  extends AbstractNode implements Cloneable{
 		double childValue = 0.0;
 		if (this.children.get(0) != null ){
 			childValue = this.children.get(0).eval(inVal);
-			if (childValue < 0)
-			{
-				;//System.out.println("");
-			}
-			if (inVal < 0)
-			{
-				;//System.out.println("");
-			}
-			
-			double var1 = Math.abs(childValue);  // Handle Nan
-			if (var1 == 0)
-				var1 = 1.0;
-			double evalValue = Math.log(var1);
-			if (Double.isNaN(evalValue)){
-	//			System.out.println(TreeHelperClass.printTreeToString(this.children.get(0), 0));
-	//			System.out.println(this.printAsInFixFunction());
-	//			System.out.println("Is NAN");
-			}
-	//		
-			if (Double.isInfinite(evalValue)){
-	//			System.out.println(TreeHelperClass.printTreeToString(this.children.get(0), 0));
-	//			System.out.println(this.printAsInFixFunction());
-	//			System.out.println("Is infinity");
-			}
-		//	System.out.println( evalValue );
-			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
-					evalValue == Double.POSITIVE_INFINITY || evalValue ==  Double.NaN ||
-					Double.compare(evalValue, 0.0)  < 0  || Double.isInfinite(evalValue) || Double.isNaN(evalValue) ||
-					inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
+			if  ( inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
 				     inVal == Double.POSITIVE_INFINITY || inVal ==  Double.NaN ||
 				    Double.compare(inVal, 0.0)  < 0  || Double.isInfinite(inVal) || Double.isNaN(inVal) ||
 					 childValue == Double.MAX_VALUE || childValue == Double.NEGATIVE_INFINITY ||
 					 childValue == Double.POSITIVE_INFINITY || childValue ==  Double.NaN ||
 					Double.compare(childValue, 0.0)  < 0   || Double.isInfinite(childValue) || Double.isNaN(childValue))
-				return 1000000000.0;
+				return  Double.MAX_VALUE;
+			
+			// Removed this conversion as NaN will return MAX_VALUE below
+			//double var1 = Math.abs(childValue);  // Handle Nan
+			//if (var1 == 0)
+			//	var1 = 1.0;
+			
+			
+			double evalValue = Math.log(childValue);
+		//	System.out.println( evalValue );
+			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
+					evalValue == Double.POSITIVE_INFINITY || evalValue ==  Double.NaN ||
+					 Double.isInfinite(evalValue) || Double.isNaN(evalValue))
+				return  Double.MAX_VALUE;
 			else
 				return evalValue;
 		}
 		else {
 			System.out.println( "left not defined in Log");
-			return 1000000000.0;
+			return Double.MAX_VALUE;
 		}
 	}
 

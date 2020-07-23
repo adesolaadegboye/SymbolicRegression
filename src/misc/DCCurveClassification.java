@@ -285,25 +285,8 @@ public class DCCurveClassification extends DCCurveRegression {
 
 		for (int outputIndex = 0; outputIndex < testEvents.length - 1; outputIndex++) {
 			String foo = "";
-			if (Const.splitDatasetByTrendType) {
-				if (testEvents[outputIndex].type == Type.Upturn) {
-					foo = upwardTrendTreeString;
-
-				} else if (testEvents[outputIndex].type == Type.Downturn) {
-					foo = downwardTrendTreeString;
-
-				} else {
-					System.out.println("Invalid event");
-					System.exit(0);
-				}
-			} else {
-				foo = trendTreeString;
-			}
-
-			foo = foo.replace("X0", Integer.toString(testEvents[outputIndex].length()));
-			foo = foo.replace("X1", Double.toString(testEvents[outputIndex].high - testEvents[outputIndex].low) );
 			double eval = 0.0;
-
+				
 			String classificationStr = "no";
 			if (preprocess != null)
 				classificationStr = preprocess.classifyTestInstance(outputIndex);
@@ -311,26 +294,19 @@ public class DCCurveClassification extends DCCurveRegression {
 			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 				;// System.out.println("no");
 			} else {
-				Double javascriptValue = Double.MAX_VALUE;
-				try {
-					javascriptValue = (Double) engine.eval(foo);
-					eval = javascriptValue.doubleValue();
-				} catch (ScriptException e) {
-					e.printStackTrace();
-				} catch (ClassCastException e) {
-					e.printStackTrace();
+				if (testEvents[outputIndex].type == Type.Upturn) {
+					
+					eval = bestUpWardEventTree.eval(testEvents[outputIndex].length());
+				} else if (testEvents[outputIndex].type == Type.Downturn) {
+					eval = bestDownWardEventTree.eval(testEvents[outputIndex].length());
+
+				} else {
+					System.out.println("Invalid event");
+					System.exit(0);
 				}
 			}
 
-			BigDecimal bd = null;
-			BigDecimal bd2 = null;
-			try {
-				bd = new BigDecimal(eval);
-				bd2 = new BigDecimal(Double.toString(eval));
-			} catch (NumberFormatException e) {
-				Integer integerObject = new Integer(testEvents[outputIndex].length());
-				eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
-			}
+			
 
 			predictionWithClassifier[outputIndex] = eval;
 		}

@@ -132,24 +132,6 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 				// SymbolicRegression.log.save(gpTreeName,
 				// treeAsInfixNotationString);
 				
-				Const.VARIABLE_EVALUATED = 1;	
-				treeHelperClass.bestTreesInRuns.clear();
-				treeHelperClass.getBestTreesForThreshold(uptrendEvent, Const.POP_SIZE, 1, Const.MAX_GENERATIONS,
-						thresholdStr);
-				
-				if (treeHelperClass.bestTreesInRuns.isEmpty() || treeHelperClass.bestTreesInRuns.size() < 1) {
-					System.out.println("treeHelperClass.bestTreesInRuns.isEmpty()");
-					System.exit(-1);
-				}
-				
-				Collections.sort(treeHelperClass.bestTreesInRuns, comparator);
-				bestUpWardEventMagnitudeTree = treeHelperClass.bestTreesInRuns.get(treeHelperClass.bestTreesInRuns.size() - 1);
-				upwardMagnitudePerf = bestUpWardEventMagnitudeTree.perfScore;
-				upwardTrendMagnitudeTreeString = bestUpWardEventMagnitudeTree.printAsInFixFunction();
-				
-				curve_bestTreesInRunsUpwardMagnitude.setSize(treeHelperClass.bestTreesInRuns.size());
-				Collections.copy(curve_bestTreesInRunsUpwardMagnitude, treeHelperClass.bestTreesInRuns);
-				
 				Const.VARIABLE_EVALUATED = 0;
 				treeHelperClass.bestTreesInRuns.clear();
 			}
@@ -233,28 +215,10 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 				curve_bestTreesInRunsDownward.setSize(treeHelperClass.bestTreesInRuns.size());
 				Collections.copy(curve_bestTreesInRunsDownward, treeHelperClass.bestTreesInRuns);
 				
-				
-				
-				Const.VARIABLE_EVALUATED = 1;	
 				treeHelperClass.bestTreesInRuns.clear();
-				treeHelperClass.getBestTreesForThreshold(downtrendEvent, Const.POP_SIZE, 1, Const.MAX_GENERATIONS,
-						thresholdStr);
-				
-				if (treeHelperClass.bestTreesInRuns.isEmpty() || treeHelperClass.bestTreesInRuns.size() < 1) {
-					System.out.println("treeHelperClass.bestTreesInRuns.isEmpty()");
-					System.exit(-1);
-				}
-				
-				Collections.sort(treeHelperClass.bestTreesInRuns, comparator);
-				bestDownWardEventMagnitudeTree = treeHelperClass.bestTreesInRuns.get(treeHelperClass.bestTreesInRuns.size() - 1);
-				downwardMagnitudePerf = bestDownWardEventMagnitudeTree.perfScore;
-				downwardTrendMagnitudeTreeString = bestDownWardEventMagnitudeTree.printAsInFixFunction();
-				
-				curve_bestTreesInRunsDownwardMagnitude.setSize(treeHelperClass.bestTreesInRuns.size());
-				Collections.copy(curve_bestTreesInRunsDownwardMagnitude, treeHelperClass.bestTreesInRuns);
 				
 				Const.VARIABLE_EVALUATED = 0;
-				treeHelperClass.bestTreesInRuns.clear();	
+					
 			}
 
 		}
@@ -663,7 +627,7 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 		for (int i = 1; i < trainingEvents.length; i++) {
 
 			int tradePoint = 0;
-			Double magnitude = new Double(trainingGpMagnitudePrediction[i]);
+			
 			Double dcPt = new Double(trainingGpPrediction[i]);
 			Double zeroOs = new Double(0.0);
 
@@ -674,30 +638,12 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 										// overshoot
 			{
 				tradePoint = trainingEvents[i].end;
-				if (trainingEvents[i].type == Type.Upturn )
-				{
-					if (magnitude.equals(zeroOs))
-						magnitude =  Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[i].end).askPrice);
-				}
-				else
-				{
-					if (magnitude.equals(zeroOs))
-						magnitude =  Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[i].end).bidPrice);
-				}
+				
 			}
 			else
 			{
 				tradePoint = trainingEvents[i].end + (int) Math.ceil(trainingGpPrediction[i]);
-				if (trainingEvents[i].type == Type.Upturn )
-				{
-					if (trainingEvents[i].overshoot == null)
-						magnitude =  Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[i].end).askPrice);
-				}
-				else
-				{
-					if (trainingEvents[i].overshoot == null)
-						magnitude =  Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[i].end).bidPrice);
-				}
+				
 					
 			}
 			if (i + 1 > trainingEvents.length - 1)
@@ -800,29 +746,23 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 	@Override
 	void estimateTraining(PreProcess preprocess) {
 		trainingGpPrediction = new double[trainingEvents.length];
-		trainingGpMagnitudePrediction = new double[trainingEvents.length];
+		
 		ScriptEngineManager mgr = new ScriptEngineManager();
 		ScriptEngine engine = mgr.getEngineByName("JavaScript");
 
 		for (int outputIndex = 0; outputIndex < trainingEvents.length - 2; outputIndex++) {
 			String foo = "";
-			String foo2 =  "";
+			
 			if (Const.splitDatasetByTrendType) {
 				if (trainingEvents[outputIndex].type == Type.Upturn) {
 					foo = upwardTrendTreeString;		
 					numberOfUpwardEvent++;
 					isUpwardEvent = true;
-					foo2 = upwardTrendMagnitudeTreeString;
-					foo2 = foo2.replace("X0", FReader.dataRecordInFileArray.get(trainingEvents[outputIndex].end).askPrice);
-
+					
 				} else if (trainingEvents[outputIndex].type == Type.Downturn) {
 					foo = downwardTrendTreeString;
 					numberOfDownwardEvent++;
 					isUpwardEvent = false;
-					foo2 = downwardTrendMagnitudeTreeString;
-					foo2 = foo2.replace("X0", FReader.dataRecordInFileArray.get(trainingEvents[outputIndex].end).bidPrice);
-
-					
 				} else {
 					System.out.println("Invalid event");
 					System.exit(0);
@@ -835,7 +775,7 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 			foo = foo.replace("X0", Integer.toString(trainingEvents[outputIndex].length()));
 			//foo = foo.replace("X1", Double.toString(trainingEvents[outputIndex].high - trainingEvents[outputIndex].low) );
 			double eval = 0.0;
-			double eval2 = 0.0;
+			
 			
 			if (trainingEvents[outputIndex].overshoot == null
 					|| trainingEvents[outputIndex].overshoot.end == trainingEvents[outputIndex].overshoot.start) {
@@ -851,20 +791,7 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 					e.printStackTrace();
 				}
 				javascriptValue = Double.MAX_VALUE;
-				try {
-					javascriptValue = (Double) engine.eval(foo2);
-					eval2 = javascriptValue.doubleValue();
-				} catch (ScriptException e) {
-					if (trainingEvents[outputIndex].type == Type.Downturn)
-						eval2 = Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[outputIndex].overshoot.end).bidPrice);
-					else
-						eval2 = Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[outputIndex].overshoot.end).askPrice);
-				} catch (ClassCastException e) {
-					if (trainingEvents[outputIndex].type == Type.Downturn)
-						eval2 = Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[outputIndex].overshoot.end).bidPrice);
-					else
-						eval2 = Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[outputIndex].overshoot.end).askPrice);
-				}
+				
 			}
 
 			BigDecimal bd = null;
@@ -877,20 +804,11 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 				eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 			}
 			
-			try {
-				bd = new BigDecimal(eval2);
-				bd2 = new BigDecimal(Double.toString(eval2));
-			} catch (NumberFormatException e) {
-				if (trainingEvents[outputIndex].type == Type.Downturn)
-					eval2 = Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[outputIndex].overshoot.end).bidPrice);
-				else
-					eval2 = Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[outputIndex].overshoot.end).askPrice);
 			
-			}
 			if (eval < 0) 
 				eval = 0;
 			trainingGpPrediction[outputIndex] = eval;
-			trainingGpMagnitudePrediction[outputIndex] = eval2;
+			
 		}
 
 	}

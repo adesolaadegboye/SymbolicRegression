@@ -50,29 +50,32 @@ public class Power extends AbstractNode implements Cloneable {
 		if (this.children.get(0) != null && this.children.get(1) != null ){
 			double var1 = Math.abs((this.children.get(0)).eval(inVal)); // To handle imaginary number
 			double var2 = (this.children.get(1)).eval(inVal); 
+			if  (    var1 == Double.MAX_VALUE || var1 == Double.NEGATIVE_INFINITY ||
+					   var1 == Double.POSITIVE_INFINITY || var1 ==  Double.NaN ||
+					 Double.isInfinite(var1) || Double.isNaN(var1) || 
+					   var2 == Double.MAX_VALUE || var2 == Double.NEGATIVE_INFINITY ||
+					   var2 == Double.POSITIVE_INFINITY || var2 ==  Double.NaN ||
+					   Double.isInfinite(var2) || Double.isNaN(var2) ||
+					   inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
+					     inVal == Double.POSITIVE_INFINITY || inVal ==  Double.NaN ||
+					    Double.isInfinite(inVal) || Double.isNaN(inVal))
+					return Double.MAX_VALUE;
+			
 			double evalValue = Math.pow(var1,var2);
 			
 			
 			//System.out.println( evalValue );
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
 				  evalValue == Double.POSITIVE_INFINITY || evalValue ==  Double.NaN ||
-				  Double.compare(evalValue, 0.0)  < 0  || Double.isInfinite(evalValue) || Double.isNaN(evalValue) ||
-				   var1 == Double.MAX_VALUE || var1 == Double.NEGATIVE_INFINITY ||
-				   var1 == Double.POSITIVE_INFINITY || var1 ==  Double.NaN ||
-				 Double.compare(var1, 0.0)  < 0  || Double.isInfinite(var1) || Double.isNaN(var1) || 
-				   var2 == Double.MAX_VALUE || var2 == Double.NEGATIVE_INFINITY ||
-				   var2 == Double.POSITIVE_INFINITY || var2 ==  Double.NaN ||
-				  Double.compare(var2, 0.0)  < 0  || Double.isInfinite(var2) || Double.isNaN(var2) ||
-				   inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
-				     inVal == Double.POSITIVE_INFINITY || inVal ==  Double.NaN ||
-				    Double.compare(inVal, 0.0)  < 0  || Double.isInfinite(inVal) || Double.isNaN(inVal))
-				return 1000000000.0;
+				   Double.isInfinite(evalValue) || Double.isNaN(evalValue) ||
+				   var1 == Double.MAX_VALUE || var1 == Double.NEGATIVE_INFINITY )
+				return Double.MAX_VALUE;
 			else
 				return evalValue;
 		}
 		else {
 			System.out.println( "left and right not defined in add");
-			return 10000000000.0;
+			return Double.MAX_VALUE;
 		}
 	}
 

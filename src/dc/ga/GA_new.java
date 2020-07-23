@@ -23,20 +23,19 @@ import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
+
 
 import java.util.Random;
-import java.util.stream.IntStream;
+import java.util.Vector;
 
 import dc.EventWriter;
+import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
@@ -58,7 +57,9 @@ public class GA_new {
 	Double[] test;
 	DCCurve[] curves;
 	Double[][] trainingMeanRatio;
-	String[][] trainingGPMeanRatio;
+	double[][][] gpEstimates = new double[5][2][]; //This is done to improve performance and not to have to
+							// evaluate every data point
+	AbstractNode[][] trainingGPTrees;
 
 	// FReader st = new FReader();
 	// FReader.FileMember2 TestDataObject = st.new FileMember2();
@@ -116,9 +117,8 @@ public class GA_new {
 	public SimpleDrawDown simpleDrawDown = new SimpleDrawDown();
 	public SimpleSharpeRatio sharpeRatio = new SimpleSharpeRatio();
 
-	ScriptEngineManager mgr = new ScriptEngineManager();
-	ScriptEngine engine = mgr.getEngineByName("JavaScript");
 	Map<Double, Map<String, String>> bestThresholdArray;
+	Map<Double, Map<String, AbstractNode>> bestGPThresholdArray;
 	Map<Double, PreProcess> processMap;
 	double[][] multiArrClassification = new double[5][];
 	double[][] transactionsPerThreshold = new double[5][];
@@ -149,6 +149,7 @@ public class GA_new {
 	// (1993) (THIS SOURCE GIVES INFO ON HOW TO PRICE TRADING COSTS AND
 	// SLIPPAGE)
 
+	
 	public GA_new(String filename, int trainingIndexStart, int trainingIndexEnd, int testIndexStart, int testIndexEnd,
 			int POPSIZE, int MAX_GENERATIONS, int tournamentSize, double CROSSOVER_PROB, double MUTATION_PROB,
 			double thresholdIncrement, int numberOfThresholds, int MAX_QUANTITY, int budget,
@@ -164,7 +165,7 @@ public class GA_new {
 																// downward OS
 																// events.
 
-		trainingGPMeanRatio = new String[THRESHOLDS.length][2];// There's only 2
+		trainingGPTrees = new AbstractNode[THRESHOLDS.length][2];// There's only 2
 		this.filename = filename;
 		// ratios, one
 		// for upward
@@ -268,27 +269,44 @@ public class GA_new {
 		
 		System.out.println("DC curves:");
 		// simpleDrawDown.Calculate(budget); 
-		bestThresholdArray = HelperClass.getBestThresholds(filename, THRESHOLDS.length, training, 100, 0.005, 0.0025);
+		if (Const.OsFunctionEnum == Const.function_code.eGP){
+			bestGPThresholdArray = HelperClass.getBestGPThresholds(filename, THRESHOLDS.length, training, Const.NUMBER_OF_THRESHOLDS, 0.005, 0.0025);
+			
+		}
+		else{
+			
+			bestThresholdArray = HelperClass.getBestThresholds(filename, THRESHOLDS.length, training, Const.NUMBER_OF_THRESHOLDS, 0.005, 0.0025);
+			System.out.println("Best thresholds are " + bestThresholdArray.toString());
 
+		}
 		// processMap = HelperClass.getClassifiers(THRESHOLDS, filename,
 		// training);
 
-		System.out.println("Best thresholds are " + bestThresholdArray.toString());
-
+		
 		// TODO : check if GP ratio. If yes update thresolds
 		int thresholdCount = 0;
-		for (Entry<Double, Map<String, String>> entry : bestThresholdArray.entrySet()) {
-			// THRESHOLDS[i] = (initial * (i + 1)) / 100.0;
-			THRESHOLDS[thresholdCount] = entry.getKey();
-			thresholdCount++;
-		}
 		
+		if (Const.OsFunctionEnum == Const.function_code.eGP){
+			for (Entry<Double, Map<String, AbstractNode>> entry : bestGPThresholdArray.entrySet()) {
+				// THRESHOLDS[i] = (initial * (i + 1)) / 100.0;
+				THRESHOLDS[thresholdCount] = entry.getKey();
+				thresholdCount++;
+			}
+			
+		}
+		else{
+			for (Entry<Double, Map<String, String>> entry : bestThresholdArray.entrySet()) {
+				// THRESHOLDS[i] = (initial * (i + 1)) / 100.0;
+				THRESHOLDS[thresholdCount] = entry.getKey();
+				thresholdCount++;
+			}
+		}
 			for (int i = 0; i < curves.length; i++) {
 				curves[i] = new PerfectForecastDCCurve();
 				curves[i].build(training, THRESHOLDS[i]);
 				if (Const.OsFunctionEnum == Const.function_code.eGP){
-					curves[i].gpRatio[0] = bestThresholdArray.get(THRESHOLDS[i]).get("DownwardEvent");
-					curves[i].gpRatio[1] = bestThresholdArray.get(THRESHOLDS[i]).get("UpwardEvent");
+					curves[i].bestDownWardEventTree = bestGPThresholdArray.get(THRESHOLDS[i]).get("DownwardEvent");
+					curves[i].bestUpWardEventTree = bestGPThresholdArray.get(THRESHOLDS[i]).get("UpwardEvent");
 					
 					//processMap.put(THRESHOLDS[i],);
 					curves[i].preprocess =  HelperClass.getClassifier(THRESHOLDS[i], filename, training, Const.OsFunctionEnum);
@@ -303,14 +321,26 @@ public class GA_new {
 					System.out.println("Clean you temp classification file for " + THRESHOLDS[i] + " completed");
 					
 					if (curves[i].preprocess != null)
-						HelperClass.updateClassifierWithTestData(THRESHOLDS[i], test, curves[i]);
-					
-					thresholdClassifcationModelMap.put(THRESHOLDS[i], curves[i].preprocess);
-					if (curves[i].gpRatio[0] == null || curves[i].gpRatio[1] == null){
+						if (false == HelperClass.updateClassifierWithTestData(THRESHOLDS[i], test, curves[i]))
+							curves[i].preprocess = null;
+					try {
+						thresholdClassifcationModelMap.put(THRESHOLDS[i], curves[i].preprocess);
+					}
+					catch(Exception e){
+						thresholdClassifcationModelMap.put(THRESHOLDS[i], null);
+					}
+					if (curves[i].bestUpWardEventTree == null || curves[i].bestDownWardEventTree == null){
 						System.out.println("Exiting");
 						System.exit(-1);
 					}
-					curves[i].predictionOnly();
+					curves[i].predictionOnly();  // GP estimate of OS event length
+					
+					gpEstimates[i][1] =  new double[curves[i].predictionUpward.length];
+					System.arraycopy(curves[i].predictionUpward, 0, gpEstimates[i][1] , 0, curves[i].predictionUpward.length);
+					gpEstimates[i][0] =  new double[curves[i].predictionDownward.length];
+					System.arraycopy(curves[i].predictionDownward, 0, gpEstimates[i][0] , 0, curves[i].predictionDownward.length);
+					
+					
 					System.out.println("Classifier  updated for " + THRESHOLDS[i] + " completed");
 					
 					if (curves[i].preprocess != null){
@@ -371,28 +401,46 @@ public class GA_new {
 
 			trainingMeanRatio[i][0] = curves[i].meanRatio[0];
 			trainingMeanRatio[i][1] = curves[i].meanRatio[1];
-
-			trainingGPMeanRatio[i][0] = curves[i].gpRatio[0]; // downward
-			trainingGPMeanRatio[i][1] = curves[i].gpRatio[1]; // upward
+			
+			//trainingGPTrees[i][0] = curves[i].bestDownWardEventTree; // downward
+			//trainingGPTrees[i][1] = curves[i].bestUpWardEventTree; // upward
 
 			// curves[i].setPreprocessTestInstance();
 			
 			curves[i] = new PerfectForecastDCCurve();
 			curves[i].build(training, THRESHOLDS[i]);
-			curves[i].gpRatio[0] = bestThresholdArray.get(THRESHOLDS[i]).get("DownwardEvent");
-			curves[i].gpRatio[1] = bestThresholdArray.get(THRESHOLDS[i]).get("UpwardEvent");
+			//curves[i].gpRatio[0] = bestThresholdArray.get(THRESHOLDS[i]).get("DownwardEvent");
+			//curves[i].gpRatio[1] = bestThresholdArray.get(THRESHOLDS[i]).get("UpwardEvent");
 			if (Const.OsFunctionEnum == Const.function_code.eGP ){
-				curves[i].preprocess = thresholdClassifcationModelMap.get(THRESHOLDS[i]);
-				curves[i].setTrainingInstance(thresholdTrainingInstanceMap.get(THRESHOLDS[i]));
-				//curves[i].setPreprocessTestInstance(testInstance);
-				curves[i].setTestInstance(thresholdTestInstanceMap.get(THRESHOLDS[i]));
+				curves[i].bestDownWardEventTree = bestGPThresholdArray.get(THRESHOLDS[i]).get("DownwardEvent");
+				curves[i].bestUpWardEventTree = bestGPThresholdArray.get(THRESHOLDS[i]).get("UpwardEvent");
+				if (thresholdClassifcationModelMap.get(THRESHOLDS[i]) != null){
+					curves[i].preprocess = thresholdClassifcationModelMap.get(THRESHOLDS[i]);
+					curves[i].setTrainingInstance(thresholdTrainingInstanceMap.get(THRESHOLDS[i]));
+					//curves[i].setPreprocessTestInstance(testInstance);
+					curves[i].setTestInstance(thresholdTestInstanceMap.get(THRESHOLDS[i]));
+				}
 			}
 			curves[i].threshold = THRESHOLDS[i];
 
 			curves[i].meanRatio[0] = trainingMeanRatio[i][0];
 			curves[i].meanRatio[1] = trainingMeanRatio[i][1];
 			curves[i].filename = filename;
-			curves[i].predictionOnly();
+			//curves[i].predictionOnly();
+			
+			if (Const.OsFunctionEnum == Const.function_code.eGP ){
+				curves[i].predictionUpward = new double[gpEstimates[i][1].length];
+				curves[i].predictionDownward = new  double[gpEstimates[i][0].length];
+				
+				for (int m = 0 ; m < curves[i].predictionUpward.length; m++ )
+					curves[i].predictionUpward[m] = gpEstimates[i][1][m];
+				
+				for (int m = 0 ; m < curves[i].predictionDownward.length; m++ )
+					curves[i].predictionDownward[m] = gpEstimates[i][0][m];
+			}
+			
+		//	System.arraycopy(gpEstimates[i][1], 0,curves[i].predictionUpward , 0, gpEstimates[i].length);
+		//	System.arraycopy(gpEstimates[i][0], 0,curves[i].predictionDownward , 0, gpEstimates[i].length);
 			
 			System.out.println("Old output " + curves[i].output.length);
 			// System.out.println("New output " +
@@ -517,8 +565,8 @@ public class GA_new {
 			trainingMeanRatio[i][0] = curves[i].meanRatio[0];
 			trainingMeanRatio[i][1] = curves[i].meanRatio[1];
 
-			trainingGPMeanRatio[i][0] = curves[i].gpRatio[0]; // downward
-			trainingGPMeanRatio[i][1] = curves[i].gpRatio[1]; // upward
+			//trainingGPMeanRatio[i][0] = curves[i].gpRatio[0]; // downward
+			//trainingGPMeanRatio[i][1] = curves[i].gpRatio[1]; // upward
 
 			// curves[i].setPreprocessTestInstance();
 
@@ -538,9 +586,14 @@ public class GA_new {
 			
 			curves[i].meanRatio[0] = trainingMeanRatio[i][0];
 			curves[i].meanRatio[1] = trainingMeanRatio[i][1];
+			
+			if (Const.OsFunctionEnum == Const.function_code.eGP ){
+				curves[i].bestDownWardEventTree = bestGPThresholdArray.get(THRESHOLDS[i]).get("DownwardEvent").clone();
+				curves[i].bestUpWardEventTree = bestGPThresholdArray.get(THRESHOLDS[i]).get("UpwardEvent").clone();
+			}
 
-			curves[i].gpRatio[0] = bestThresholdArray.get(THRESHOLDS[i]).get("DownwardEvent");
-			curves[i].gpRatio[1] = bestThresholdArray.get(THRESHOLDS[i]).get("UpwardEvent");
+			//curves[i].gpRatio[0] = bestThresholdArray.get(THRESHOLDS[i]).get("DownwardEvent");
+			//curves[i].gpRatio[1] = bestThresholdArray.get(THRESHOLDS[i]).get("UpwardEvent");
 			curves[i].preprocess = thresholdClassifcationModelMap.get(THRESHOLDS[i]);
 			curves[i].predictionOnly();
 
@@ -918,415 +971,255 @@ public class GA_new {
 	Fitness fitness(double[] individual, boolean test) {
 	
 		// number of operations not successful
-		int uSell = 0;
-		int uBuy = 0;
-		int noop = 0;
-		simpleDrawDown = new SimpleDrawDown();
-		sharpeRatio = new SimpleSharpeRatio();
-		simpleDrawDown.Calculate(GA_new.budget);
-		sharpeRatio.addReturn(0.0);
-		Double[] data = (test ? this.test : this.training);
-		List<FReader.FileMember2> bidAskprice;  
+				int uSell = 0;
+				int uBuy = 0;
+				int noop = 0;
+				double lastdccpt = 0;
+				simpleDrawDown = new SimpleDrawDown();
+				sharpeRatio = new SimpleSharpeRatio();
+				simpleDrawDown.Calculate(GA_new.budget);
+				sharpeRatio.addReturn(0.0);
+				Double[] data = (test ? this.test : this.training);
+				List<FReader.FileMember2> bidAskprice;  
 
-		if (test)
-			bidAskprice = new ArrayList<FReader.FileMember2>(testDataList);
-		else
-			bidAskprice = new ArrayList<FReader.FileMember2>(trainingDataList);
-		final int start = 0;
-		final int length = data.length;
+				if (test)
+					bidAskprice = new ArrayList<FReader.FileMember2>(testDataList);
+				else
+					bidAskprice = new ArrayList<FReader.FileMember2>(trainingDataList);
+				final int start = 0;
+				final int length = data.length;
 
-		// the length of the current overshoot			
-		int noOfShortSellingTransactions = 0;
-	
-		Fitness fitness = new Fitness();
-		TradingClass  tradeClass =  new TradingClass();
-		tradeClass.baseCurrencyAmount = budget;
-		tradeClass.boughtTradeList.add(budget);
-		int numberOfOpenPositions = (int) (individual[1] *30) ;
-		double totalWeight = 0.0;
-		for (int j = 0; j < curves.length; j++) {
-			totalWeight = totalWeight + individual[j + 2];
-		}
-		Map<Double, Integer> curveLastConfirmedDCCMap = new HashMap<Double, Integer>();
-		
-		for (int j = 0; j < curves.length; j++) {
-			//remainderAfterAllocation = remainderAfterAllocation +  (budget * individual[2 + j]);
-			// not used . might use in the future
-			double  thresholdWeight = individual[j + 2];
-			curves[j].initialbudget = budget * (thresholdWeight/totalWeight);
-			curves[j].tradingBudget = budget * (thresholdWeight/totalWeight); 
-			curves[j].isPositionOpen = false;
-			curves[j].noOfTransactions=0;
-			curves[j].lastClosedPosition = budget * (thresholdWeight/totalWeight); 
-			curveLastConfirmedDCCMap.put(curves[j].threshold, -1);
+				// the length of the current overshoot			
+				int noOfShortSellingTransactions = 0;
 			
-		}
-		
-		double  previousBaseCCYReturn =budget;
-		double lastPurhaseBidPrice = 0.0;
-		double lastPurhaseAskPrice = 0.0;
-		for (int i = start; i < length; i++) {
-			
-			//Do classification
-			// DO prediction
-			double buyCount = 0.0;
-			double sellCount = 0.0;
-			
-			int lowestSellDCC = Integer.MAX_VALUE;
-			int finalTradingPointUp = 0;
-			int finalTradingPointDown = Integer.MAX_VALUE;
-			int currentDDCPtUpward = Integer.MAX_VALUE;
-			for (int j = 0; j < curves.length; j++) {
-				
-			
-				
-				if (curves[j] == null) {
-					System.out.println("curves[" + j+ "] does not exist. Exiting" );
+				Fitness fitness = new Fitness();
+				TradingClass  tradeClass =  new TradingClass();
+				tradeClass.baseCurrencyAmount = budget;
+				tradeClass.boughtTradeList.add(budget);
+				double totalWeight = 0.0;
+				for (int j = 0; j < curves.length; j++) {
+					totalWeight = totalWeight + individual[j + 2];
 				}
+				Map<Double, Integer> curveLastConfirmedDCCMap = new HashMap<Double, Integer>();
 				
-				
-				if (curves[j].output[i] == null) {
-
-					System.out.println("ccurves[" + j+ "].output[" + "i] does not exist. Exiting");
-					System.exit(-1);
-				}
-
-				Double clsLabel = 1.0;
-				String classificationStr = "no";
-				/** Start: Get classification decision for the data-point in the DC trend **/
-				if (test) {
+				for (int j = 0; j < curves.length; j++) {
+					//remainderAfterAllocation = remainderAfterAllocation +  (budget * individual[2 + j]);
+					// not used . might use in the future
+					double  thresholdWeight = individual[j + 2];
+					curves[j].initialbudget = budget * (thresholdWeight/totalWeight);
+					curves[j].tradingBudget = budget * (thresholdWeight/totalWeight); 
+					curves[j].isPositionOpen = false;
+					curves[j].noOfTransactions=0;
+					curves[j].lastClosedPosition = budget * (thresholdWeight/totalWeight); 
+					curveLastConfirmedDCCMap.put(curves[j].threshold, -1);
 					
-					if (Const.OsFunctionEnum == Const.function_code.eGP && curves[j].preprocess != null){
-						if (i >= curves[j].getOutputTestInstance().size()) {
-							System.out.println("Threshold " + curves[j].threshold + " does not have datapoint " + i);
-							continue;
-						}
+				}
+				
+				double  previousBaseCCYReturn =budget;
+				double lastPurhaseBidPrice = 0.0;
+				double lastPurhaseAskPrice = 0.0;
+				for (int i = start; i < length; i++) {
+					
+					//Do classification
+					// DO prediction
+					double buyCount = 0.0;
+					double sellCount = 0.0;
+					
+					Vector<Double> thresholdsWithUpwardDecision = new Vector<Double>();
+					Vector<Double> thresholdsWithDownwardDecision = new Vector<Double>();
+					
+					for (int j = 0; j < curves.length; j++ ){
 						
-						if (curves[j].preprocess != null && curves[j].getOutputTestInstance().get(i) != null) {
-	
-							try {
-								clsLabel = curves[j].preprocess.autoWEKAClassifier
-										.classifyInstance(curves[j].getOutputTestInstance().get(i));
-							} catch (Exception e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
-							classificationStr = (clsLabel.toString().compareToIgnoreCase("0.0") == 0) ? "yes" : "no";
+						if (curves[j].output[i].type == Type.Upturn   ) {
+							 sellCount = sellCount + individual[2 + j];
+							 thresholdsWithUpwardDecision.add(curves[j].threshold);
+						} else if (curves[j].output[i].type == Type.Downturn ) {
+							buyCount = buyCount +  individual[2 + j];
+							 thresholdsWithDownwardDecision.add(curves[j].threshold);
 						}
-						else {
-							System.out.println(" invalid preprocess or testinstance. I is " + i);
-							continue;
-						} 
 					}
-					else{
-						if (Const.OsFunctionEnum == Const.function_code.eGP)
-							classificationStr = "no";
-						else
-							classificationStr = "yes";
-					}
-				}
-				else{
-					Double instanceClass ;
-					if (multiArrClassification[j] != null){// Wll be null for non-GP
-					 instanceClass = multiArrClassification[j][i];
-					 classificationStr = (instanceClass.toString().compareToIgnoreCase("0.0") == 0) ? "yes" : "no";
-					}
-					else{
-						if (Const.OsFunctionEnum == Const.function_code.eGP)
-							classificationStr = "no";
-						else
-							classificationStr = "yes";
-					}
-				}
-				/** End: Get classification decision for the data-point in the DC trend **/
-				
-				int overshootEstimationPoint =  -1; 
-				int tradingPoint = 0;
-				if ((classificationStr.compareToIgnoreCase("no") == 0)) {  // This means these is no overshoot
-
-					overshootEstimationPoint = (curves[j].output[i].length());
-					tradingPoint = curves[j].output[i].end;
-					
-					
-				}
-				else {
-					
-					double eval = 0.0;
-					if (curves[j].output[i].type ==  Type.Upturn){
-						if (Const.OsFunctionEnum == Const.function_code.eGP)
-							eval = curves[j].predictionUpward[i];
-						else
-							eval = curves[j].meanRatio[1];
-					}
+					int tradingPoint;
+					if(sellCount > buyCount)
+						tradingPoint = getTradingPoint(i, test, Type.Upturn , thresholdsWithUpwardDecision);
 					else
-						if (Const.OsFunctionEnum == Const.function_code.eGP)
-							eval = curves[j].predictionDownward[i];
-						else
-							eval = curves[j].meanRatio[0];
-					
-					//Round because GP has decimals
-					overshootEstimationPoint =  (int) Math.round(eval);
-					tradingPoint =  overshootEstimationPoint + curves[j].output[i].end;
-					
-					/*This is where we do prediction. 
-					 * Always want to trade after the last known 
-					 * Direction change confirmation point.
-					*/
-					int lastdccpt = curveLastConfirmedDCCMap.get(curves[j].threshold);
-					
-					if (i < curves[j].output[i].end-1)
-						continue;
-					
-					
-					/*
-					 * If our prediction is beyond next directional change 
-					 * confirmation point. We need to discard because we know 
-					 * at that point that directions have changed.
-					 * */
-					try{
-						if ( i < length &&  curves[j].output[i+1] != null ){
-							
-							if ( tradingPoint >= getNextDirectionaChangeEndPoint(curves[j].output, i)) //
-													//We only know when current DC ends and a new DC trend
-													// begins when the next DC is confirmed
-							continue;
-						}
-					}
-					catch(ArrayIndexOutOfBoundsException e){
-						continue;
-					}
-					
+						tradingPoint = getTradingPoint(i, test, Type.Downturn , thresholdsWithDownwardDecision);
 
-					//Because thresholds are being combined get the longest predictions
-					//Might be a good idea to try the shortest one two
-					if (curves[j].output[i].type == Type.Upturn && finalTradingPointUp < tradingPoint){
-						finalTradingPointUp = tradingPoint;
-						
-						
-					}
-					
-					 if (curves[j].output[i].type == Type.Upturn &&   currentDDCPtUpward > curves[j].output[i].end){
-						 currentDDCPtUpward = curves[j].output[i].end;
-					 }
-					
-					if (curves[j].output[i].type == Type.Downturn && finalTradingPointDown > tradingPoint){
-						finalTradingPointDown = tradingPoint;
-						
-					}
-					
-					if (tradingPoint <= curves[j].output[i].end) // We only want to trade in OS region
-						continue; 
-					
+
 					if (tradingPoint  > length)
 						continue;
 					
-					
-					
-					
-				} 
-			
-					if (curves[j].output[i].type == Type.Upturn   ) {
-						 sellCount = sellCount + individual[2 + j];
-						 if (curves[j].output[i].end < lowestSellDCC)
-							 lowestSellDCC = curves[j].output[i].end;
+					//if (sellCount > 0  &&  buyCount > 0)
+					//	System.out.println("over lapping thresholds");
 						
-					} else if (curves[j].output[i].type == Type.Downturn ) {
-						buyCount = buyCount +  individual[2 + j];
-					
-				}
-				
-				
-			} //for (int j = 0; j < curves.length; j++)
-			
-			boolean isActionsell = true; 
-			if(sellCount > buyCount){
-				isActionsell= true;
-			}
-			else if (buyCount > sellCount)
-				isActionsell = false;
-			double myPrice = 0.0;
-			double tradetransactionCost;
-			if (sellCount > 0.0 && isActionsell && tradeClass.openPositionCount<  numberOfOpenPositions ){
-				double askQuantity = 0.0;
-				double zeroTransactionCostAskQuantity = 0.0;
-				double transactionCostPrice = 0.0;
-				
-				if (tradeClass.baseCurrencyAmount <= 0.0){
-					// There is no base currecny to trade
-					continue;
-				}
-				double quantityToTrade = individual[0] + ((double)sellCount/totalWeight) * individual[0];
-				try{
-					myPrice = Double.parseDouble(bidAskprice.get(finalTradingPointUp).askPrice);
-				}
-				catch(ArrayIndexOutOfBoundsException e){
-					continue;
-				}
-				catch(IndexOutOfBoundsException e){
-					continue;
-				}
-				
-				tradetransactionCost = quantityToTrade * (transactionCost/100);
-				transactionCostPrice = tradetransactionCost * myPrice;
-				askQuantity =  (quantityToTrade -tradetransactionCost) *myPrice;
-				zeroTransactionCostAskQuantity = quantityToTrade *myPrice;
-				
-				if (Double.compare(transactionCostPrice,(zeroTransactionCostAskQuantity - askQuantity)) < 0 
-						&& ((Double.compare(lastPurhaseAskPrice, 0.0) == 0) ||
-								(Double.compare(lastPurhaseAskPrice, myPrice) >= 0)) ){
-
-					tradeClass.quoteCurrencyAmount = tradeClass.quoteCurrencyAmount + askQuantity;
-					tradeClass.baseCurrencyAmount =  tradeClass.baseCurrencyAmount -( quantityToTrade-tradetransactionCost);
-					tradeClass.isOpenPosition = true;
-					tradeClass.openPositionCount++;
-					tradeClass.soldTradeList.add(new Double(askQuantity));
-					tradeClass.quoteCurrencyTransaction++;
-					//i counter is the dcc point at this point
-					lastPurhaseBidPrice = Double.parseDouble(bidAskprice.get(currentDDCPtUpward).bidPrice);
-					lastPurhaseAskPrice = myPrice;
-					
-				}
-
-			}
-			else if (buyCount > 0.0 && !isActionsell && tradeClass.openPositionCount> 0){
-				double bidQuantity = 0.0;
-
-
-				double zeroTransactionCostBidQuantity = 0.0;
-				double transactionCostPrice = 0.0;
-				buyCount++;
-				
-				if (tradeClass.quoteCurrencyAmount <= 0.0){
-					//N:B: Don't print this because it will make the log too big and use cemas space
-					//System.out.println("quoted currency is " + tradeClass.quoteCurrencyAmount); 
-					continue;
-				}
-				
-				// Close all position at the earliest possibility
-				double quantityToTrade = tradeClass.quoteCurrencyAmount; // individual[0] + ((double)buyCount/totalWeight) * individual[0];
-				
-				
-		//		if (tradeClass.quoteCurrencyAmount >  0.0 && tradeClass.quoteCurrencyAmount < quantityToTrade ){
-		//			quantityToTrade = tradeClass.quoteCurrencyAmount;
-		//		}
-				try{
-				
-				myPrice = Double.parseDouble(bidAskprice.get(finalTradingPointDown).bidPrice);
-				}
-				catch(ArrayIndexOutOfBoundsException e){
-					continue;
-				}
-				catch(IndexOutOfBoundsException e){
-					continue;
-				}
-				
-				
-				tradetransactionCost =  quantityToTrade * (transactionCost/100);
-				transactionCostPrice = tradetransactionCost * myPrice;
-				bidQuantity =  ( quantityToTrade -tradetransactionCost) *myPrice;
-				zeroTransactionCostBidQuantity = quantityToTrade *myPrice;
-
-				if ((Double.compare(transactionCostPrice,(zeroTransactionCostBidQuantity - bidQuantity)) < 0 )
-					&&	(Double.compare(myPrice,lastPurhaseBidPrice) <=0)	 ){
-					double closeout = (tradeClass.quoteCurrencyAmount -tradetransactionCost) /myPrice;
-					//check if we are going to loose money
-					if (tradeClass.boughtTradeList.size() > 1){
-						double temp  =  tradeClass.baseCurrencyAmount + closeout;
-						if (Double.compare( tradeClass.boughtTradeList.size() - 1, temp) < 0){
+					boolean isActionsell = true; 
+					if(sellCount > buyCount){
+						isActionsell= true;
+					}
+					else if (buyCount > sellCount)
+						isActionsell = false;
+					double myPrice;
+					double tradetransactionCost;
+					if (sellCount > 0.0 && isActionsell && !tradeClass.isOpenPosition){
+						double askQuantity = 0.0;
+						double zeroTransactionCostAskQuantity = 0.0;
+						double transactionCostPrice = 0.0;
+						
+						try {
+						myPrice = Double.parseDouble(bidAskprice.get(tradingPoint).askPrice);
+						
+						}
+						catch (ArrayIndexOutOfBoundsException e){
+							
+							continue;
+						}
+						catch (IndexOutOfBoundsException e){
+							continue;
+						}
+						catch (Exception e){
 							continue;
 						}
 						
+						tradetransactionCost = tradeClass.baseCurrencyAmount * (transactionCost/100);
+						transactionCostPrice = tradetransactionCost * myPrice;
+						askQuantity =  (tradeClass.baseCurrencyAmount -tradetransactionCost) *myPrice;
+						zeroTransactionCostAskQuantity = tradeClass.baseCurrencyAmount *myPrice;
+						
+						if (transactionCostPrice <= (zeroTransactionCostAskQuantity - askQuantity) ){
+
+							tradeClass.quoteCurrencyAmount = askQuantity;
+							tradeClass.isOpenPosition = true;
+							tradeClass.soldTradeList.add(new Double(askQuantity));
+							
+							lastdccpt = tradeClass.baseCurrencyAmount;
+							tradeClass.baseCurrencyAmount=0.0;
+							tradeClass.quoteCurrencyTransaction++;
+							sellCount++;
+							
+						}
+
+					}
+					else if (buyCount > 0.0 && !isActionsell && tradeClass.isOpenPosition){
+						double bidQuantity = 0.0;
+
+
+						double zeroTransactionCostBidQuantity = 0.0;
+						double transactionCostPrice = 0.0;
+						buyCount++;
+						
+						
+					try{	
+						myPrice = Double.parseDouble(bidAskprice.get(tradingPoint).bidPrice);
+
+					}
+					catch (ArrayIndexOutOfBoundsException e){
+						
+						continue;
+					}
+					catch (IndexOutOfBoundsException e){
+						continue;
+					}
+					catch (Exception e){
+						continue;
 					}
 						
-					
-					// After discounting transaction cost
-					tradeClass.baseCurrencyAmount = tradeClass.baseCurrencyAmount + closeout;
-					
-					tradeClass.quoteCurrencyAmount = 0.0; //tradeClass.quoteCurrencyAmount - bidQuantity - transactionCostPrice;
-					tradeClass.isOpenPosition = false;
-					tradeClass.openPositionCount = 0 ;
-					tradeClass.boughtTradeList.add(new Double(tradeClass.baseCurrencyAmount));
-					tradeClass.baseCurrencyTransaction++;
-					lowestSellDCC = Integer.MAX_VALUE;
-					simpleDrawDown.Calculate(tradeClass.baseCurrencyAmount); // Has to be here
-					sharpeRatio.addReturn(tradeClass.baseCurrencyAmount-previousBaseCCYReturn);
-					previousBaseCCYReturn =  tradeClass.baseCurrencyAmount;
-				}
-			}
-			
-			
-			// I need this in case there is still an open position
-			tradeClass.lastBidPrice = Double.parseDouble(bidAskprice.get(i).bidPrice);
-		
-		}  //int i = start; i < length; i++
+						tradetransactionCost =  tradeClass.quoteCurrencyAmount * (transactionCost/100);
+						transactionCostPrice = tradetransactionCost * myPrice;
+						bidQuantity =  ( tradeClass.quoteCurrencyAmount -tradetransactionCost) *myPrice;
+						zeroTransactionCostBidQuantity = tradeClass.quoteCurrencyAmount *myPrice;
 
-		/*Convert quoted transaction to based currency*/
-		if (tradeClass.baseCurrencyTransaction ==0 && tradeClass.quoteCurrencyTransaction == 0){
-			tradeClass.baseCurrencyAmount = budget;
-			tradeClass.isOpenPosition = false;
-			tradeClass.baseCurrencyTransaction=0;
-			tradeClass.quoteCurrencyTransaction=0;
-			
-			fitness.wealth = tradeClass.baseCurrencyAmount;
-			fitness.Return = 0.0;
-			fitness.value = 0.0;
-		}
-		else{
-		
-			// A single transaction is dangerous, because it's based on pure luck,
-			// whether the last day's data is preferable, and can lead to a positive
-			// position. So better to avoid this,
-			// and require to have more than 1 transaction. We of course only do
-			// this for the training set (test == false); with test data, we want to
-			// have the real/true fitness, so we
-			// don't want to mess with this number - not doing search any more, no
-			// reason for penalising.
-			if (tradeClass.quoteCurrencyTransaction == 1)
-				fitness.value = -9999.00;
-			else if (tradeClass.baseCurrencyTransaction == 0)
-			{
-				fitness.value = -9999.00;
-			}
-			else
-			{
-				if (!tradeClass.isOpenPosition ){  //we have bought back our base currency. Hence do nothing
-					;
+						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity) ){
+							double closeout = (tradeClass.quoteCurrencyAmount -tradetransactionCost) /myPrice;
+							//if (lastdccpt < closeout )
+							//	continue; 
+							tradeClass.baseCurrencyAmount = closeout;
+							tradeClass.isOpenPosition = false;
+							tradeClass.quoteCurrencyAmount=0.0;
+							tradeClass.boughtTradeList.add(new Double(closeout));
+							tradeClass.baseCurrencyTransaction++;
+							simpleDrawDown.Calculate(tradeClass.baseCurrencyAmount);
+							sharpeRatio.addReturn(tradeClass.baseCurrencyAmount-previousBaseCCYReturn);
+							previousBaseCCYReturn =  tradeClass.baseCurrencyAmount;
+
+						}
+					}
+					
+						
+					
+					tradeClass.lastBidPrice = Double.parseDouble(bidAskprice.get(i).bidPrice);
+
+
+				
+				}  //int i = start; i < length; i++
+
+				/*Convert quoted transaction to based currency*/
+				if (tradeClass.baseCurrencyTransaction ==0 && tradeClass.quoteCurrencyTransaction == 0){
+					tradeClass.baseCurrencyAmount = budget;
+					tradeClass.isOpenPosition = false;
+					
+					tradeClass.quoteCurrencyTransaction++;
+					
+					fitness.wealth = tradeClass.baseCurrencyAmount;
+					fitness.Return = 0.0;
+					fitness.value = 0.0;
 				}
 				else{
+				
+					// A single transaction is dangerous, because it's based on pure luck,
+					// whether the last day's data is preferable, and can lead to a positive
+					// position. So better to avoid this,
+					// and require to have more than 1 transaction. We of course only do
+					// this for the training set (test == false); with test data, we want to
+					// have the real/true fitness, so we
+					// don't want to mess with this number - not doing search any more, no
+					// reason for penalising.
+					if (tradeClass.quoteCurrencyTransaction == 1)
+						fitness.value = -9999.00;
+					else if (tradeClass.baseCurrencyTransaction == 0)
+					{
+						fitness.value = -9999.00;
+					}
+					else
+					{
+						if (tradeClass.quoteCurrencyAmount <= 0){  //we have bought back our base currency. Hence do nothing
+							;
+						}
+						else{
+							
+							double tradetransactionCost =  tradeClass.quoteCurrencyAmount * (transactionCost/100);
+							double closeout = (tradeClass.quoteCurrencyAmount -tradetransactionCost) /tradeClass.lastBidPrice;
+							tradeClass.baseCurrencyAmount = tradeClass.baseCurrencyAmount + closeout;
+							tradeClass.isOpenPosition = false;
+							tradeClass.boughtTradeList.add(new Double(tradeClass.baseCurrencyAmount));
+							tradeClass.quoteCurrencyAmount=0.0;
+							tradeClass.baseCurrencyTransaction++;
+							sharpeRatio.addReturn(tradeClass.baseCurrencyAmount-previousBaseCCYReturn);
+							simpleDrawDown.Calculate(tradeClass.baseCurrencyAmount);
+							previousBaseCCYReturn =  tradeClass.baseCurrencyAmount;
+						}
+							
+						
+						fitness.uSell = uSell;
+						fitness.uBuy = uBuy;
+						fitness.noop = noop;
+						fitness.realisedProfit = tradeClass.baseCurrencyAmount - budget;
+						// fitness.MDD = MDD; Adesola removed
+						fitness.MDD = simpleDrawDown.getMaxDrawDown();
+						fitness.wealth = tradeClass.baseCurrencyAmount;// my wealth, at the end of the
+												// transaction period
+						fitness.sharpRatio = sharpeRatio.calulateSharpeRatio();
+						fitness.Return = 100.0 * (fitness.wealth - budget) / budget;
+						fitness.value = fitness.Return - (mddWeight * Math.abs(fitness.MDD));
+						fitness.noOfTransactions = tradeClass.baseCurrencyTransaction + tradeClass.quoteCurrencyTransaction ;
+						fitness.noOfShortSellingTransactions = noOfShortSellingTransactions;
+						
+					}
 					
-					double tradetransactionCost =  tradeClass.quoteCurrencyAmount * (transactionCost/100);
-					double closeout = (tradeClass.quoteCurrencyAmount -tradetransactionCost) /tradeClass.lastBidPrice;
-					tradeClass.baseCurrencyAmount = tradeClass.baseCurrencyAmount + closeout;
-					tradeClass.isOpenPosition = false;
-					tradeClass.boughtTradeList.add(new Double(tradeClass.baseCurrencyAmount));
-					tradeClass.baseCurrencyTransaction++;
-					sharpeRatio.addReturn(tradeClass.baseCurrencyAmount-previousBaseCCYReturn);
-					previousBaseCCYReturn =  tradeClass.baseCurrencyAmount;
 				}
-					
-				
-				fitness.uSell = uSell;
-				fitness.uBuy = uBuy;
-				fitness.noop = noop;
-				fitness.realisedProfit = tradeClass.baseCurrencyAmount - budget;
-				// fitness.MDD = MDD; Adesola removed
-				fitness.MDD = simpleDrawDown.getMaxDrawDown();
-				fitness.wealth = tradeClass.baseCurrencyAmount;// my wealth, at the end of the
-										// transaction period
-				fitness.sharpRatio = sharpeRatio.calulateSharpeRatio();
-				fitness.Return = 100.0 * (fitness.wealth - budget) / budget;
-				fitness.value = fitness.Return - (mddWeight * Math.abs(fitness.MDD));
-				fitness.noOfTransactions = tradeClass.baseCurrencyTransaction + tradeClass.quoteCurrencyTransaction ;
-				fitness.noOfShortSellingTransactions = noOfShortSellingTransactions;
-				
+
+				fitness.tradingClass = tradeClass;
+
+				return fitness;
 			}
-			
-		}
-
-		fitness.tradingClass = tradeClass;
-
-		return fitness;
-	}
 
 	protected void report(int generation, Fitness[] fitness) {
 		double best = Double.NEGATIVE_INFINITY;
@@ -1426,14 +1319,20 @@ public class GA_new {
 			curves[j].build(test, THRESHOLDS[j]);
 			
 			if (Const.OsFunctionEnum == Const.function_code.eGP ){
-			curves[j].gpRatio[0] = bestThresholdArray.get(THRESHOLDS[j]).get("DownwardEvent");
-			curves[j].gpRatio[1] = bestThresholdArray.get(THRESHOLDS[j]).get("UpwardEvent");
-			curves[j].preprocess = thresholdClassifcationModelMap.get(THRESHOLDS[j]);
-			curves[j].preprocess.filename = filename;
-			curves[j].preprocess.loadTestData();
-			curves[j].setTrainingInstance(thresholdTrainingInstanceMap.get(THRESHOLDS[j]));
-				//curves[i].setPreprocessTestInstance(testInstance);
-			curves[j].setTestInstance(thresholdTestInstanceMap.get(THRESHOLDS[j]));
+				
+				curves[j].bestDownWardEventTree = bestGPThresholdArray.get(THRESHOLDS[j]).get("DownwardEvent");
+				curves[j].bestUpWardEventTree = bestGPThresholdArray.get(THRESHOLDS[j]).get("UpwardEvent");
+				
+				//curves[j].gpRatio[0] = bestThresholdArray.get(THRESHOLDS[j]).get("DownwardEvent");
+				//curves[j].gpRatio[1] = bestThresholdArray.get(THRESHOLDS[j]).get("UpwardEvent");
+				curves[j].preprocess = thresholdClassifcationModelMap.get(THRESHOLDS[j]);
+				if (thresholdClassifcationModelMap.get(THRESHOLDS[j]) != null){
+						curves[j].preprocess.filename = filename;
+						curves[j].preprocess.loadTestData();
+						curves[j].setTrainingInstance(thresholdTrainingInstanceMap.get(THRESHOLDS[j]));
+							//curves[i].setPreprocessTestInstance(testInstance);
+						curves[j].setTestInstance(thresholdTestInstanceMap.get(THRESHOLDS[j]));
+				}
 			}
 			else
 			{	
@@ -1458,21 +1357,30 @@ public class GA_new {
 				curves[j].build(test, THRESHOLDS[j]);
 				
 				if (Const.OsFunctionEnum == Const.function_code.eGP ){
-				curves[j].gpRatio[0] = bestThresholdArray.get(THRESHOLDS[j]).get("DownwardEvent");
-				curves[j].gpRatio[1] = bestThresholdArray.get(THRESHOLDS[j]).get("UpwardEvent");
-				curves[j].preprocess = thresholdClassifcationModelMap.get(THRESHOLDS[j]);
-				curves[j].preprocess.filename = filename;
-				curves[j].preprocess.lastTrainingEvent = thresholdClassifcationModelMap.get(THRESHOLDS[j]).lastTrainingEvent;
-				curves[j].preprocess.lastTestingEvent = thresholdClassifcationModelMap.get(THRESHOLDS[j]).lastTestingEvent;
-				curves[j].preprocess.loadTestData();
-				curves[j].setTrainingInstance(thresholdTrainingInstanceMap.get(THRESHOLDS[j]));
-					//curves[i].setPreprocessTestInstance(testInstance);
-				curves[j].setTestInstance(thresholdTestInstanceMap.get(THRESHOLDS[j]));
+					curves[j].gpRatio[0] = bestThresholdArray.get(THRESHOLDS[j]).get("DownwardEvent");
+					curves[j].gpRatio[1] = bestThresholdArray.get(THRESHOLDS[j]).get("UpwardEvent");
+					curves[j].preprocess = thresholdClassifcationModelMap.get(THRESHOLDS[j]);
+					if (thresholdClassifcationModelMap.get(THRESHOLDS[j]) != null){
+						curves[j].preprocess.filename = filename;
+						curves[j].preprocess.lastTrainingEvent = thresholdClassifcationModelMap.get(THRESHOLDS[j]).lastTrainingEvent;
+						curves[j].preprocess.lastTestingEvent = thresholdClassifcationModelMap.get(THRESHOLDS[j]).lastTestingEvent;
+						curves[j].preprocess.loadTestData();
+						curves[j].setTrainingInstance(thresholdTrainingInstanceMap.get(THRESHOLDS[j]));
+							//curves[i].setPreprocessTestInstance(testInstance);
+						curves[j].setTestInstance(thresholdTestInstanceMap.get(THRESHOLDS[j]));
+					}
 				}
 				curves[j].preprocess = thresholdClassifcationModelMap.get(THRESHOLDS[j]);
-				log.save("ClassificationAnalysis_"+Const.hashFunctionTypeToString(Const.OsFunctionEnum)+".txt", thresholdClassifcationModelMap.get(THRESHOLDS[j]).printPreprocessClassification(thresholdClassifcationModelMap.get(THRESHOLDS[j]).testEventArray));
-				
-				
+				if (thresholdClassifcationModelMap.get(THRESHOLDS[j]) != null)
+					log.save("ClassificationAnalysis_"+Const.hashFunctionTypeToString(Const.OsFunctionEnum)+".txt", thresholdClassifcationModelMap.get(THRESHOLDS[j]).printPreprocessClassification(thresholdClassifcationModelMap.get(THRESHOLDS[j]).testEventArray));
+				else{
+					String thresholdStr = String.format("%.8f", THRESHOLDS[j]);
+					String reportClassification =  filename + "\t" +  thresholdStr + "\t" +  0.000 + "\t" + 0.000 + "\t" + 0.000
+					+ "\t" + 0.000 + "\t" + 0.000 + "\t" + 0.000 + "\t"
+					+ 0.000 + "\t" + 0.000 + "\t" + 0.000 + "\t"
+					+ 0.000  + "\t" + 0.000;
+					log.save("ClassificationAnalysis_"+Const.hashFunctionTypeToString(Const.OsFunctionEnum)+".txt", reportClassification);
+				}
 			}
 		}
 		
@@ -1500,7 +1408,7 @@ public class GA_new {
 		}
 		
 		Const.OsFunctionEnum =  Const.hashFunctionType(s[6]);
-		
+		Const.optimisationSelectedThreshold = Const.optimisation_selected_threshold.eperformanceScore;
 		
 		log = new Logger(s[1], s[3], s[4]);
 		log.delete("Solutions_"+Const.hashFunctionTypeToString(Const.OsFunctionEnum)+".txt");												
@@ -1618,5 +1526,187 @@ public class GA_new {
 			return -1;
 		
 		return nextEvent.end;
+	}
+	
+	public int getTradingPoint(int physicalTimeCounter, boolean test, Type eventType,Vector<Double> selectedThresholds){
+		
+		int tradingPoint = -1;
+		int finalTradingPoint = -1;
+		double bestPerformanceScore = Double.MAX_VALUE;
+		double bestPerformanceScoreTemp = Double.MAX_VALUE;
+		
+		ArrayList<Integer>  predictionArray =  new ArrayList<Integer>(); 
+		for (int curveCounter= 0 ; curveCounter < curves.length ; curveCounter++){
+			int index = selectedThresholds.indexOf(curves[curveCounter].threshold); 
+				
+			if (index == -1)
+				continue;
+			
+			if (curves[curveCounter] == null) {
+				System.out.println("curves[" + curveCounter+ "] does not exist. Exiting" );
+			}
+			
+			if (curves[curveCounter].output[physicalTimeCounter] == null) {
+
+				System.out.println("dccurves[" + curveCounter+ "].output[" + "i] does not exist. Exiting");
+				System.exit(-1);
+			}
+
+			Double clsLabel = 1.0;
+			String classificationStr = "no";
+			/** Start: Get classification decision for the data-point in the DC trend **/
+			if (test) {
+				
+				if (Const.OsFunctionEnum == Const.function_code.eGP && curves[curveCounter].preprocess != null){
+					if (physicalTimeCounter >= curves[curveCounter].getOutputTestInstance().size()) {
+						System.out.println("Threshold " + curves[curveCounter].threshold + " does not have datapoint " + physicalTimeCounter);
+						continue;
+					}
+					
+					if (curves[curveCounter].preprocess != null && curves[curveCounter].getOutputTestInstance().get(physicalTimeCounter) != null) {
+
+						try {
+							clsLabel = curves[curveCounter].preprocess.autoWEKAClassifier
+									.classifyInstance(curves[curveCounter].getOutputTestInstance().get(physicalTimeCounter));
+						} catch (Exception e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						classificationStr = (clsLabel.toString().compareToIgnoreCase("0.0") == 0) ? "yes" : "no";
+					}
+					else {
+						System.out.println(" invalid preprocess or testinstance. I is " + physicalTimeCounter);
+						continue;
+					} 
+				}
+				else{
+			//		if (Const.OsFunctionEnum == Const.function_code.eGP)
+			//			classificationStr = "no";
+			///		else
+						classificationStr = "yes";
+				}
+			}
+			else{
+				Double instanceClass ;
+				if (multiArrClassification[curveCounter] != null){// Wll be null for non-GP
+				 instanceClass = multiArrClassification[curveCounter][physicalTimeCounter];
+				 classificationStr = (instanceClass.toString().compareToIgnoreCase("0.0") == 0) ? "yes" : "no";
+				}
+				else{
+					//if (Const.OsFunctionEnum == Const.function_code.eGP)
+					//	classificationStr = "no";
+					//else
+						classificationStr = "yes";
+				}
+			}
+			/** End: Get classification decision for the data-point in the DC trend **/
+			
+			int overshootEstimationPoint =  -1; 
+			
+			if ((classificationStr.compareToIgnoreCase("no") == 0)) {  // This means these is no overshoot
+
+				overshootEstimationPoint = (curves[curveCounter].output[physicalTimeCounter].length());
+				tradingPoint = curves[curveCounter].output[physicalTimeCounter].end;
+				
+				
+			}
+			else {
+				
+				double eval = 0.0;
+				if (curves[curveCounter].output[physicalTimeCounter].type ==  Type.Upturn){
+					if (Const.OsFunctionEnum == Const.function_code.eGP){
+						eval = curves[curveCounter].bestUpWardEventTree.eval(curves[curveCounter].output[physicalTimeCounter].length()); // curves[curveCounter].predictionUpward[physicalTimeCounter];
+						bestPerformanceScoreTemp = curves[curveCounter].bestUpWardEventTree.perfScore ;
+					}
+					else
+						eval = curves[curveCounter].meanRatio[1];
+				}
+				else
+					if (Const.OsFunctionEnum == Const.function_code.eGP){
+						eval = curves[curveCounter].bestDownWardEventTree.eval(curves[curveCounter].output[physicalTimeCounter].length()); // curves[curveCounter].predictionDownward[physicalTimeCounter]; //					
+							bestPerformanceScoreTemp = curves[curveCounter].bestDownWardEventTree.perfScore ;
+					}
+					else
+						eval = curves[curveCounter].meanRatio[0];
+				
+				//Round because GP has decimals
+				overshootEstimationPoint =  (int) Math.round(eval);
+				tradingPoint =  overshootEstimationPoint + curves[curveCounter].output[physicalTimeCounter].end;
+				
+				/*This is where we do prediction. 
+				 * Always want to trade after the last known 
+				 * Direction change confirmation point.
+				*/
+				
+				if (physicalTimeCounter < curves[curveCounter].output[physicalTimeCounter].end-1)
+					continue;
+				
+				
+				/*
+				 * If our prediction is beyond next directional change 
+				 * confirmation point. We need to discard because we know 
+				 * at that point that directions have changed.
+				 * */
+				try{
+					
+					if ( tradingPoint >= getNextDirectionaChangeEndPoint(curves[curveCounter].output, physicalTimeCounter)) {//
+												//We only know when current DC ends and a new DC trend
+												// begins when the next DC is confirmed
+						continue;
+					}
+				}
+				catch(ArrayIndexOutOfBoundsException e){
+					continue;
+				}					
+			} 
+			
+			//This is dangerous add muct never be uncommented because it
+			// is counter intuitive
+			//if (tradingPoint < curves[curveCounter].output[physicalTimeCounter].end) // We only want to trade in OS region
+			//	continue; 
+			
+			predictionArray.add(tradingPoint);
+			if (Const.optimisationSelectedThreshold == Const.optimisation_selected_threshold.eShortest){
+				if (tradingPoint >= 0 && tradingPoint <finalTradingPoint)
+				finalTradingPoint = tradingPoint;
+			}
+			else if (Const.optimisationSelectedThreshold == Const.optimisation_selected_threshold.eLongest){
+				if (tradingPoint >= 0 && tradingPoint >finalTradingPoint)
+				finalTradingPoint = tradingPoint;
+			}
+			else if (Const.OsFunctionEnum == Const.function_code.eGP &&
+					Const.optimisationSelectedThreshold == Const.optimisation_selected_threshold.eperformanceScore){
+					if (bestPerformanceScoreTemp < bestPerformanceScore){
+						bestPerformanceScore = bestPerformanceScoreTemp;
+						finalTradingPoint = tradingPoint;
+					}
+			}
+			else{
+					
+			}
+		} //end for loop
+			
+		
+		if (Const.optimisationSelectedThreshold == Const.optimisation_selected_threshold.eMedian){
+			Collections.sort(predictionArray);
+			if (predictionArray.size() == 1)
+				 finalTradingPoint = predictionArray.get(0);
+			else if (predictionArray.size() == 2)
+				 finalTradingPoint = (int) (((double)predictionArray.get(0) + (double) predictionArray.get(1))/2);
+			else if (predictionArray.size() == 3)
+				 finalTradingPoint =  predictionArray.get(2);
+			else if (predictionArray.size() == 4)
+				 finalTradingPoint = (int) (((double)predictionArray.get(1) + (double) predictionArray.get(2))/2);
+			else if (predictionArray.size() == 5)
+				 finalTradingPoint =  predictionArray.get(4);
+			else
+				finalTradingPoint = -1;
+		}
+		else  if (Const.OsFunctionEnum == Const.function_code.eGP &&
+				Const.optimisationSelectedThreshold == Const.optimisation_selected_threshold.eperformanceScore){
+			
+		}
+		
+			return finalTradingPoint;
 	}
 }

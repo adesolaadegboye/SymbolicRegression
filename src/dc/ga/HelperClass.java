@@ -15,6 +15,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 
+import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.ga.DCCurve.Event;
 import dc.io.FReader;
@@ -22,7 +23,7 @@ import misc.DCEventGenerator;
 
 public class HelperClass {
 
-	public static void  updateClassifierWithTestData(double threshold, Double[] testData, DCCurve dcurve){
+	public static boolean  updateClassifierWithTestData(double threshold, Double[] testData, DCCurve dcurve){
 		
 		
 		DCEventGenerator dCEventGenerator = new DCEventGenerator();
@@ -37,11 +38,14 @@ public class HelperClass {
 
 		dcurve.preprocess.buildTest(copiedTestArray);
 		System.out.println("About to print test data for threshold " + threshold);
-		dcurve.preprocess.processTestData(copiedTestArray);
+		if(false == dcurve.preprocess.processTestData(copiedTestArray))
+			return false;
 
 		dcurve.preprocess.loadTestData(copiedTestArray);
 
 		dcurve.preprocess.classifyTestData();
+		
+		return true;
 	}
 
 	public static void  cleanUpClassificationTempFile(PreProcess preprocess, String filename){
@@ -83,12 +87,11 @@ public class HelperClass {
 			DCEventGenerator dCEventGenerator = new DCEventGenerator();
 			dCEventGenerator.generateEvents(training, threshold);
 			Event[] copiedArray;
+			//Here We are using event to generate the model but while testing we use output
 			copiedArray = Arrays.copyOf(dCEventGenerator.getEvents(), dCEventGenerator.getEvents().length);
 			Map<String, Event[]> trainingEventsArray = new HashMap<String, Event[]>();
 			
 			trainingEventsArray.put(thresholdStr, copiedArray);
-			
-			String regAlgo  = "";
 			
 			
 			
@@ -103,7 +106,8 @@ public class HelperClass {
 			
 			preprocess.lastTrainingEvent = copiedArray[copiedArray.length - 1];
 
-			preprocess.runAutoWeka();
+			if (!preprocess.runAutoWeka())
+				return null;
 			
 			
 
@@ -111,19 +115,125 @@ public class HelperClass {
 		return preprocess;
 	}
 
+	public static Map<Double, Map<String, AbstractNode>> getBestGPThresholds( String filename,int arraySize, Double[] dataset, int numberOfCandidateThreshold, double startingThreshold,
+			double interval){
+		double [] bestThresholdArray = new double[arraySize];
+		double [] THRESHOLDS = new double[numberOfCandidateThreshold];
+		Map<String, Event[]> trainingEventsMap = new HashMap<String, Event[]>();
+		Map<Double, Map<String, AbstractNode>> thresholdMap = new HashMap<Double, Map<String, AbstractNode>>();
+		
+		PreProcess[] preprocess = new PreProcess[THRESHOLDS.length];
+		DCCurve[] perfectForesightDCCurve;
+		perfectForesightDCCurve = new PerfectForecastDCCurve[THRESHOLDS.length];
+		Map<Double, Double> perfectForecastReturnMap = new HashMap<Double, Double>();
+		Map<Double, Double> perfectForecastThresholdStatMap = new HashMap<Double, Double>();
+		ConcurrentHashMap<Integer, String> gpDaysMap = null;
+		DCCurve dc = new DCCurve();
+		DCCurve.ThresholdStats thresholdStats = dc.new ThresholdStats();
+		try {
+			gpDaysMap = FReader.loadDataMap(filename);
+		} catch (FileNotFoundException e) {
+			System.out.println("File not found exception, HelperClass:getBestThresholds");
+			System.exit(-1);
+		} catch (IOException e) {
+			System.out.println("IO exception, HelperClass:getBestThresholds");
+			System.exit(-1);
+		}
+		for (int i = 0; i < THRESHOLDS.length; i++) {
+			THRESHOLDS[i] = (startingThreshold + (interval * i)) / 100.0;
+		
+		}
+		
+		for (int i = 0; i < THRESHOLDS.length; i++) {
+			
+			DCEventGenerator dCEventGenerator = new DCEventGenerator();
+			perfectForesightDCCurve[i] = new PerfectForecastDCCurve();
+			Map<String, AbstractNode> gpMap = new HashMap<String, AbstractNode>();
+			Event[] copiedArray;
+			THRESHOLDS[i] = (startingThreshold + (interval * i)) / 100.0;
+			String thresholdStr = String.format("%.8f", THRESHOLDS[i]);
+			System.out.println("getting best GP for threshold" + thresholdStr);
+			String gpFileNamePrefix = gpDaysMap.get(0); //Just get first element in collection
+			String gpFileName = gpFileNamePrefix + "_" + thresholdStr + ".txt";
+
+			dCEventGenerator.generateEvents(dataset, THRESHOLDS[i]);
+			copiedArray = Arrays.copyOf(dCEventGenerator.getEvents(), dCEventGenerator.getEvents().length);
+			trainingEventsMap.put(thresholdStr, copiedArray);
+			
+			perfectForesightDCCurve[i].filename = filename;
+			perfectForesightDCCurve[i].build(dataset, THRESHOLDS[i], gpFileName, copiedArray, null);
+			perfectForesightDCCurve[i].estimateTraining(null); 
+			double perfectForcastTrainingReturn = perfectForesightDCCurve[i].trainingTrading(preprocess[i]);
+			perfectForecastReturnMap.put(THRESHOLDS[i], perfectForcastTrainingReturn);
+			
+			
+			//System.out.print(perfectForcastTrainingReturn);
+			//System.out.print(((PerfectForecastDCCurve)curvePerfectForesight[i]).getUpwardDCTree());
+			if (Const.OsFunctionEnum == Const.function_code.eGP){
+				gpMap.put("UpwardEvent", ((PerfectForecastDCCurve)perfectForesightDCCurve[i]).getUpwardDCTree());
+				gpMap.put("DownwardEvent", ((PerfectForecastDCCurve)perfectForesightDCCurve[i]).getDownwardDCTree());
+				thresholdMap.put(THRESHOLDS[i], gpMap);
+				thresholdStats.upwardFitness= ((PerfectForecastDCCurve)perfectForesightDCCurve[i]).bestUpWardEventTree.perfScore;
+				thresholdStats.downwardFitness= ((PerfectForecastDCCurve)perfectForesightDCCurve[i]).bestDownWardEventTree.perfScore;
+				thresholdStats.numberOfEvents = copiedArray.length;
+				thresholdStats.budget = 500000.0;
+				thresholdStats.totalReturn =  perfectForcastTrainingReturn;
+				int OScount =  0;
+				for (Event event : copiedArray){
+					if (event.overshoot !=null)
+						OScount++;
+				}
+				thresholdStats.numberOfOSEvents = OScount;
+				thresholdStats.numberOfDataPts = dataset.length;
+				double score = thresholdStats.getScore();
+				perfectForecastThresholdStatMap.put(THRESHOLDS[i],score);
+				System.out.println("score is" + score);
+			}
+		}
+		
+		//List<Entry<Double, Double>> greatest = findGreatest( perfectForecastThresholdStatMap, Const.NUMBER_OF_SELECTED_THRESHOLDS);
+		List<Entry<Double, Double>> greatest = findGreatest( perfectForecastReturnMap, Const.NUMBER_OF_SELECTED_THRESHOLDS);
+		
+		int tradingThresholdCount =0;
+		for (Entry<Double, Double> entry : greatest) {
+			System.out.println("Selected Thresholds are :" + String.format("%.8f", entry.getKey()));
+			bestThresholdArray[tradingThresholdCount] = entry.getKey();
+			
+			tradingThresholdCount++;
+		}
+		Map<Double, Map<String, AbstractNode>> selectedThresholdGPMap = new HashMap<Double, Map<String, AbstractNode>>();
+		for (int k =0; k< bestThresholdArray.length; k++){
+			
+			selectedThresholdGPMap.put(bestThresholdArray[k], thresholdMap.get(bestThresholdArray[k]));
+		}
+		if (Const.OsFunctionEnum == Const.function_code.eGP){
+		
+			for (Entry<Double, Map<String, AbstractNode>> entry : selectedThresholdGPMap.entrySet()) {
+				// System.out.println(entry);
+				System.out.println("entries are "+ entry.getKey() + ": \n upward tree"  +entry.getValue().get("UpwardEvent").printAsInFixFunction()
+						+ " upward score is"  + entry.getValue().get("UpwardEvent").perfScore + "  \n downward Tree" + entry.getValue().get("DownwardEvent").printAsInFixFunction() 
+						+ " downward score is" +  entry.getValue().get("DownwardEvent").perfScore );
+			}
+		}
+		
+		return selectedThresholdGPMap;
+	}
+	
+	
 	public static Map<Double, Map<String, String>> getBestThresholds( String filename,int arraySize, Double[] dataset, int numberOfCandidateThreshold, double startingThreshold,
 			double interval){
 		double [] bestThresholdArray = new double[arraySize];
 		double [] THRESHOLDS = new double[numberOfCandidateThreshold];
 		Map<String, Event[]> trainingEventsMap = new HashMap<String, Event[]>();
 		Map<Double, Map<String, String>> thresholdMap = new HashMap<Double, Map<String, String>>();
-		Map<Double, Double> thresholdRatioMap = new HashMap<Double, Double>();
 		PreProcess[] preprocess = new PreProcess[THRESHOLDS.length];
 		DCCurve[] perfectForesightDCCurve;
 		perfectForesightDCCurve = new PerfectForecastDCCurve[THRESHOLDS.length];
 		Map<Double, Double> perfectForecastReturnMap = new HashMap<Double, Double>();
+		Map<Double, Double> perfectForecastNormalisedReturnMap = new HashMap<Double, Double>();
 		ConcurrentHashMap<Integer, String> gpDaysMap = null;
-		
+		DCCurve dc = new DCCurve();
+		DCCurve.ThresholdStats thresholdStats = dc.new ThresholdStats();
 		try {
 			gpDaysMap = FReader.loadDataMap(filename);
 		} catch (FileNotFoundException e) {
@@ -151,7 +261,7 @@ public class HelperClass {
 			String gpFileName = gpFileNamePrefix + "_" + thresholdStr + ".txt";
 
 			dCEventGenerator.generateEvents(dataset, THRESHOLDS[i]);
-			copiedArray = Arrays.copyOf(dCEventGenerator.getOutput(), dCEventGenerator.getOutput().length);
+			copiedArray = Arrays.copyOf(dCEventGenerator.getEvents(), dCEventGenerator.getEvents().length);
 			trainingEventsMap.put(thresholdStr, copiedArray);
 			
 			perfectForesightDCCurve[i].filename = filename;
@@ -159,12 +269,21 @@ public class HelperClass {
 			perfectForesightDCCurve[i].estimateTraining(null); 
 			double perfectForcastTrainingReturn = perfectForesightDCCurve[i].trainingTrading(preprocess[i]);
 			perfectForecastReturnMap.put(THRESHOLDS[i], perfectForcastTrainingReturn);
+			
+			
 			//System.out.print(perfectForcastTrainingReturn);
 			//System.out.print(((PerfectForecastDCCurve)curvePerfectForesight[i]).getUpwardDCTree());
 			if (Const.OsFunctionEnum == Const.function_code.eGP){
-				gpMap.put("UpwardEvent", ((PerfectForecastDCCurve)perfectForesightDCCurve[i]).getUpwardDCTree());
-				gpMap.put("DownwardEvent", ((PerfectForecastDCCurve)perfectForesightDCCurve[i]).getDownwardDCTree());
+				gpMap.put("UpwardEvent", ((PerfectForecastDCCurve)perfectForesightDCCurve[i]).getUpwardDCTreeString());
+				gpMap.put("DownwardEvent", ((PerfectForecastDCCurve)perfectForesightDCCurve[i]).getDownwardDCTreeString());
 				thresholdMap.put(THRESHOLDS[i], gpMap);
+				thresholdStats.upwardFitness= ((PerfectForecastDCCurve)perfectForesightDCCurve[i]).bestUpWardEventTree.perfScore;
+				thresholdStats.downwardFitness= ((PerfectForecastDCCurve)perfectForesightDCCurve[i]).bestDownWardEventTree.perfScore;
+				thresholdStats.numberOfEvents = copiedArray.length;
+				thresholdStats.numberOfDataPts = dataset.length;
+				double score = thresholdStats.getScore();
+				perfectForecastNormalisedReturnMap.put(THRESHOLDS[i],score);
+				System.out.println("score is" + score);
 			}
 			else if (Const.OsFunctionEnum == Const.function_code.eMichaelFernando){
 				gpMap.put("UpwardEvent", String.valueOf(((PerfectForecastDCCurve)perfectForesightDCCurve[i]).meanRatio[1]));
@@ -179,7 +298,7 @@ public class HelperClass {
 			}
 		}
 		
-		
+		//List<Entry<Double, Double>> least = findLeast( perfectForecastNormalisedReturnMap, Const.NUMBER_OF_SELECTED_THRESHOLDS);
 		List<Entry<Double, Double>> greatest = findGreatest(perfectForecastReturnMap, Const.NUMBER_OF_SELECTED_THRESHOLDS); // best
 		// 5
 		// thresholds

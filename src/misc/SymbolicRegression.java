@@ -91,7 +91,9 @@ public class SymbolicRegression {
 	String autowekaRunsList = "";
 	ConcurrentHashMap<Integer, String> gpDaysMap = null;
 	int TrainingDay = -1;
-	
+	PreProcess[] preprocess = null;
+	//PreProcess[] preprocessMF = null;
+	//PreProcess[] preprocessOlsen = null;
 	
 	Map<String, Event[]> testEventsArray = new LinkedHashMap<String, Event[]>();
 	Map<String, Event[]> testEventsArrayMF = new LinkedHashMap<String, Event[]>();
@@ -103,10 +105,7 @@ public class SymbolicRegression {
 	Map<String, Event[]> trainingEventsArrayOlsen = new LinkedHashMap<String, Event[]>();
 	
 	static int currentProcessorCounter;
-	static Instances testInstance; // This is needed because PreProcess is
-									// static
-
-	
+		
 	int currentGeneration;
 
 	Double[] training;
@@ -115,6 +114,9 @@ public class SymbolicRegression {
 	DCCurveRegression[] curveMF;
 	DCCurveRegression[] curveOlsen;
 	
+	DCCurveRegression[] curveClassifcationMF;
+	DCCurveRegression[] curveClassifcation;
+	DCCurveRegression[] curveClassificationOlsen;	
 
 	DCCurveRegression[] curvePerfectForesight;
 	DCCurveRegression[] curvePerfectForesightMF;
@@ -174,9 +176,6 @@ public class SymbolicRegression {
 		gpDaysMap = FReader.loadDataMap(filename);
 
 		for (int i = 0; i < THRESHOLDS.length; i++) {
-			// THRESHOLDS[i] = (initial * (i + 1)) / 100.0;
-			// THRESHOLDS[i] = (initial + (0.0020 * i)) / 100.0; //Correct one
-			// /Right one, replace after test
 			THRESHOLDS[i] = (0.005 + (0.0025 * i)) / 100.0;
 			String thresholdStr = String.format("%.8f", THRESHOLDS[i]);
 			// System.out.println(thresholdStr);
@@ -260,7 +259,7 @@ public class SymbolicRegression {
 		curvePerfectForesightOlsen = new DCCurvePerfectForesightOlsen[THRESHOLDS.length];
 	
 		curveCifre = new DCCurveCifre[Const.NUMBER_OF_SELECTED_THRESHOLDS];
-	
+		curveClassifcation = new DCCurveClassification[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		curveRandomGP = new DCCurveRandomGP[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		curveDCCOnlyAndTrailGP = new DCCurveDCCOnlyAndTrail[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		curveNoClassificationNoRegressionGP = new DCCurveNoClassificationNoRegression[Const.NUMBER_OF_SELECTED_THRESHOLDS];
@@ -270,19 +269,21 @@ public class SymbolicRegression {
 		
 		
 		curveMF = new DCCurveMF[Const.NUMBER_OF_SELECTED_THRESHOLDS];
-		
+		curveClassifcationMF = new DCCurveClassificationMF[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		curveRandomMF = new DCCurveRandomMF[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		curveDCCOnlyAndTrailMF = new DCCurveDCCOnlyAndTrail[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		curveNoClassificationNoRegressionMF = new DCCurveNoClassificationNoRegression[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 
 		curveOlsen = new DCCurveOlsen[Const.NUMBER_OF_SELECTED_THRESHOLDS];
-		
+		curveClassificationOlsen = new DCCurveClassificationOlsen[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		curveRandomOlsen = new DCCurveRandomOlsen[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		curveDCCOnlyAndTrailOlsen = new DCCurveDCCOnlyAndTrail[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		curveNoClassificationNoRegressionOlsen = new DCCurveNoClassificationNoRegression[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		
 
-		
+		preprocess = new PreProcess[Const.NUMBER_OF_SELECTED_THRESHOLDS];
+//A		preprocessMF = new PreProcess[Const.NUMBER_OF_SELECTED_THRESHOLDS];
+//A		preprocessOlsen = new PreProcess[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 
 		String[] testArrayPerfectForesight = new String[Const.NUMBER_OF_THRESHOLDS];
 		String[] testArrayCifre = new String[Const.NUMBER_OF_SELECTED_THRESHOLDS];
@@ -493,14 +494,80 @@ public class SymbolicRegression {
 			
 
 			// DO classification for all thresholds
+			for (int i = 0; i < SELECTED_THRESHOLDS.length; i++) {
+				String thresholdStr = String.format("%.8f", SELECTED_THRESHOLDS[i]);
+
+				int arrayLength = trainingEventsArray.get(thresholdStr).length;
+				Arrays.copyOf(trainingEventsArray.get(thresholdStr), arrayLength);
+				copiedArray = Arrays.copyOf(trainingEventsArray.get(thresholdStr), arrayLength);
+				// trainingEventsArray.put(thresholdStr, copiedArray);
+				preprocess[i] = null;
+				preprocess[i] = new PreProcess(SELECTED_THRESHOLDS[i], filename, "GP");
+
+				preprocess[i].buildTraining(copiedArray);
+				preprocess[i].selectBestClassifier();
+
+				// loadTrainingData load classification data "order is
+				// important"
+				preprocess[i].loadTrainingData(copiedArray);
+
+				preprocess[i].lastTrainingEvent = copiedArray[copiedArray.length - 1];
+
+				preprocess[i].runAutoWeka();
+
+			}
+/*
+			for (int i = 0; i < SELECTED_THRESHOLDS_MF.length; i++) {
+				String thresholdStr = String.format("%.8f", SELECTED_THRESHOLDS_MF[i]);
+
+				copiedArray = Arrays.copyOf(trainingEventsArrayMF.get(thresholdStr),
+						trainingEventsArrayMF.get(thresholdStr).length);
+				// trainingEventsArrayMF.put(thresholdStr, copiedArray);
+				preprocessMF[i] = null;
+				preprocessMF[i] = new PreProcess(SELECTED_THRESHOLDS_MF[i], filename, "MF");
+
+				preprocessMF[i].buildTraining(copiedArray);
+				preprocessMF[i].selectBestClassifier();
+
+				// loadTrainingData load classification data "order is
+				// important"
+				preprocessMF[i].loadTrainingData(copiedArray);
+
+				preprocessMF[i].lastTrainingEvent = copiedArray[copiedArray.length - 1];
+
+				preprocessMF[i].runAutoWeka();
+
+			}
+
+			for (int i = 0; i < SELECTED_THRESHOLDS_OLSEN.length; i++) {
+				String thresholdStr = String.format("%.8f", SELECTED_THRESHOLDS_OLSEN[i]);
+				copiedArray = Arrays.copyOf(trainingEventsArrayOlsen.get(thresholdStr),
+						trainingEventsArrayOlsen.get(thresholdStr).length);
+				// trainingEventsArrayOlsen.put(thresholdStr, copiedArray);
+				preprocessOlsen[i] = null;
+				preprocessOlsen[i] = new PreProcess(SELECTED_THRESHOLDS_OLSEN[i], filename, "Olsen");
+
+				preprocessOlsen[i].buildTraining(copiedArray);
+				preprocessOlsen[i].selectBestClassifier();
+
+				// loadTrainingData load classification data "order is
+				// important"
+				preprocessOlsen[i].loadTrainingData(copiedArray);
+				preprocessOlsen[i].lastTrainingEvent = copiedArray[copiedArray.length - 1];
+				preprocessOlsen[i].runAutoWeka();
+
+			}
+*/
+			// Autoweka classification model building ends
+			
 			
 			for (int i = 0; i < SELECTED_THRESHOLDS.length; i++) { // The arrays
 																	// all have
 																	// same size
 				currentProcessorCounter = i;
-
-				curveCifre[i] = new DCCurveCifre();
 				
+				curveCifre[i] = new DCCurveCifre();
+				curveClassifcation[i] = new DCCurveClassification();
 				curveRandomGP[i] = new DCCurveRandomGP();
 				curveDCCOnlyAndTrailGP[i] = new DCCurveDCCOnlyAndTrail();
 				curveNoClassificationNoRegressionGP[i] = new DCCurveNoClassificationNoRegression();
@@ -508,13 +575,13 @@ public class SymbolicRegression {
 				
 			
 				curveMF[i] = new DCCurveMF();
-				
+				curveClassifcationMF[i] = new DCCurveClassificationMF();
 				curveRandomMF[i] = new DCCurveRandomMF();
 				curveDCCOnlyAndTrailMF[i] = new DCCurveDCCOnlyAndTrail();
 				curveNoClassificationNoRegressionMF[i] = new DCCurveNoClassificationNoRegression();
 
 				curveOlsen[i] = new DCCurveOlsen();
-				
+				curveClassificationOlsen[i] = new DCCurveClassificationOlsen();
 				curveRandomOlsen[i] = new DCCurveRandomOlsen();
 				curveDCCOnlyAndTrailOlsen[i] = new DCCurveDCCOnlyAndTrail();
 				curveNoClassificationNoRegressionOlsen[i] = new DCCurveNoClassificationNoRegression();
@@ -547,45 +614,45 @@ public class SymbolicRegression {
 				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
 						&& !regressionModelGP[1].isEmpty())
 					curveCifre[i].assignPerfectForesightRegressionModel(regressionModelGP);
-
+				curveCifre[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
+				curveCifre[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
 				curveCifre[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays.copyOf(
 						trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length), null);
 				curveCifre[i].estimateTraining(null);
 
 				
-
-				
-			
-				
-				for (int thresholdCounter = 0; thresholdCounter < curvePerfectForesight.length; thresholdCounter++) {
-					String thisThresholdStr = String.format("%.8f", SELECTED_THRESHOLDS[i]);
-					if (thisThresholdStr
-							.equalsIgnoreCase(curvePerfectForesight[thresholdCounter].getThresholdString())) {
-						regressionModelMagnitudeGP[0] = curvePerfectForesight[thresholdCounter].getDownwardTrendMagnitudeTreeString();
-						regressionModelMagnitudeGP[1] = curvePerfectForesight[thresholdCounter].getUpwardTrendMagnitudeTreeString();
-
-						break;
-					}
-				}
-				
-
-				
+				curveClassifcation[i].filename = filename;
+				// Assign perfect foresight regression Model here
+				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
+						&& !regressionModelGP[1].isEmpty())
+					curveClassifcation[i].assignPerfectForesightRegressionModel(regressionModelGP);
+				curveClassifcation[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
+				curveClassifcation[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
+				curveClassifcation[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays
+						.copyOf(trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length),
+						preprocess[i]);
+				curveClassifcation[i].estimateTraining(preprocess[i]);
+					
 				
 				curveRandomGP[i].filename = filename;
 				// Assign perfect foresight regression Model here
-				// if (regressionModelGP[0] != null &&
-				// !regressionModelGP[0].isEmpty() &&
-				// regressionModelGP[1] != null &&
-				// !regressionModelGP[1].isEmpty())
-				// curveRandomGP[i].assignPerfectForesightRegressionModel(regressionModelGP);
-
 				curveRandomGP[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays.copyOf(
 						trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length), null);
+				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
+						&& !regressionModelGP[1].isEmpty())
+					curveRandomGP[i].assignPerfectForesightRegressionModel(regressionModelGP);
+				curveRandomGP[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
+				curveRandomGP[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
 				curveRandomGP[i].estimateTraining(null);
 
 				curveDCCOnlyAndTrailGP[i].filename = filename;
 				curveDCCOnlyAndTrailGP[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays.copyOf(
 						trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length), null);
+				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
+						&& !regressionModelGP[1].isEmpty())
+					curveDCCOnlyAndTrailGP[i].assignPerfectForesightRegressionModel(regressionModelGP);
+				curveDCCOnlyAndTrailGP[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
+				curveDCCOnlyAndTrailGP[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
 				curveDCCOnlyAndTrailGP[i].estimateTraining(null);
 				
 				
@@ -594,6 +661,11 @@ public class SymbolicRegression {
 				curveNoClassificationNoRegressionGP[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays
 						.copyOf(trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length),
 						null);
+				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
+						&& !regressionModelGP[1].isEmpty())
+					curveNoClassificationNoRegressionGP[i].assignPerfectForesightRegressionModel(regressionModelGP);
+				curveNoClassificationNoRegressionGP[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
+				curveNoClassificationNoRegressionGP[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
 				curveNoClassificationNoRegressionGP[i].estimateTraining(null);
 
 				thresholdStr = String.format("%.8f", SELECTED_THRESHOLDS_MF[i]);
@@ -622,7 +694,18 @@ public class SymbolicRegression {
 						trainingEventsArrayMF.get(thresholdStr), trainingEventsArrayMF.get(thresholdStr).length), null);
 				curveMF[i].estimateTraining(null);
 
+				curveClassifcationMF[i].filename = filename;
+				// Assign perfect foresight regression Model here
+				if (regressionModelMF[0].doubleValue() > 0.0 && regressionModelMF[1].doubleValue() > 0.0)
+					curveClassifcationMF[i].assignPerfectForesightRegressionModel(regressionModelMF);
 
+//A				curveClassifcationMF[i].build(training, SELECTED_THRESHOLDS_MF[i], gpFileName,
+//A						Arrays.copyOf(trainingEventsArrayMF.get(thresholdStr),
+//A								trainingEventsArrayMF.get(thresholdStr).length),
+//A						preprocessMF[i]);
+//A				curveClassifcationMF[i].estimateTraining(preprocessMF[i]);
+				
+				
 				curveRandomMF[i].filename = filename;
 				// Assign perfect foresight regression Model here
 				 if (regressionModelMF[0].doubleValue() > 0.0 && regressionModelMF[1].doubleValue()> 0.0)
@@ -671,6 +754,16 @@ public class SymbolicRegression {
 				curveOlsen[i].estimateTraining(null);
 
 			
+				curveClassificationOlsen[i].filename = filename;
+				// Assign perfect foresight regression Model here
+				if (regressionModelOlsen[0].doubleValue() > 0.0)
+					curveClassificationOlsen[i].assignPerfectForesightRegressionModel(regressionModelOlsen);
+
+//A				curveClassificationOlsen[i].build(training, SELECTED_THRESHOLDS_OLSEN[i], gpFileName,
+//A						Arrays.copyOf(trainingEventsArrayOlsen.get(thresholdStr),
+//A								trainingEventsArrayOlsen.get(thresholdStr).length),
+//A						preprocessOlsen[i]);
+//A				curveClassificationOlsen[i].estimateTraining(preprocessOlsen[i]);
 
 				curveRandomOlsen[i].filename = filename;
 				// Assign perfect foresight regression Model here
@@ -711,7 +804,9 @@ public class SymbolicRegression {
 				double curveOlsenTrainingReturn = curveOlsen[i].trainingTrading(null);
 				
 				
-				
+				double curveClassifcationTrainingReturn = curveClassifcation[i].trainingTrading(preprocess[i]);
+      		double curveClassifcationMFTrainingReturn =  0.0; //A curveClassifcationMF[i].trainingTrading(preprocessMF[i]);
+				double curveClassificationOlsenTrainingReturn = 0.0; //A curveClassificationOlsen[i].trainingTrading(preprocessOlsen[i]);
 				
 				
 
@@ -734,23 +829,53 @@ public class SymbolicRegression {
 				double curveClassificationNoRegressionOlsenTrainingReturn = curveNoClassificationNoRegressionOlsen[i]
 						.trainingTrading(null);
 			
+				
 				SimpleTradingTraining = filename + " \t" + thresholdStr + " \t " + perfectForcastTrainingReturn + "\t"
-						+ curveCifreTrainingReturn + "\t" +000000+ "\t"
+						+ curveCifreTrainingReturn + "\t" + curveClassifcationTrainingReturn + "\t"
 						+ curveRandomTrainingReturn + "\t" + curveClassificationNoRegressionTrainingReturn + "\t"
 						+ perfectForcastMFTrainingReturn + "\t" + curveMFTrainingReturn + "\t"
-						+ 000000 + "\t" + curveRandomMFTrainingReturn + "\t"
+						+ curveClassifcationMFTrainingReturn + "\t" + curveRandomMFTrainingReturn + "\t"
 						+ curveClassificationNoRegressionMFTrainingReturn + "\t" + perfectForcastOlsenTrainingReturn
-						+ "\t" + curveOlsenTrainingReturn + "\t" + 000000 + "\t"
+						+ "\t" + curveOlsenTrainingReturn + "\t" + curveClassificationOlsenTrainingReturn + "\t"
 						+ curveRandomOlsenTrainingReturn + "\t" + curveClassificationNoRegressionOlsenTrainingReturn;
 				Const.log.save("SimpleTradingTraining.txt", SimpleTradingTraining);
+				
+				Const.log.save("autoWEKAClassifierListEvaluation.txt", preprocess[i].getAutoWEKAClassifierListEvalString());
+		//A		Const.log.save("autoWEKAClassifierListEvaluationMF.txt",
+		//A				preprocessMF[i].getAutoWEKAClassifierListEvalString());
+		//A		Const.log.save("autoWEKAClassifierListEvaluationOlsen.txt",
+		//A				preprocessOlsen[i].getAutoWEKAClassifierListEvalString());
 
 				// cleanup
-				
+/*A				String tempFolderName = preprocess[i].tempFilePath.get(0).substring(0,
+						preprocess[i].tempFilePath.get(0).lastIndexOf(File.separator));
 
+				File dir = new File(tempFolderName);
+				if (!dir.isDirectory())
+					continue;
+
+				String fileNames = filename.substring(filename.lastIndexOf(File.separator) + 1, filename.length() - 4);
+
+				File[] tempFile = dir.getParentFile().listFiles(new FilenameFilter() {
+					public boolean accept(File dir, String name) {
+						return name.startsWith("autoweka" + fileNames);
+					}
+				});
+
+				for (int tempFileCount = 0; tempFileCount < tempFile.length; tempFileCount++) {
+					try {
+						preprocess[i].deleteDirectoryRecursionJava6(tempFile[tempFileCount]);
+					} catch (IOException e) {
+
+						System.out.println("Unable to delete one of the directory");
+					}
+				}
+
+				
+*/
 			} // for (int i = 0; i < SELECTED_THRESHOLDS.length; i++) {
 
-			// TODO Do above loop for each regregression algo
-
+			
 			// reset currentProcessorCounter
 			currentProcessorCounter = 0;
 			for (int testBuildCount = 0; testBuildCount < SELECTED_THRESHOLDS.length; testBuildCount++) {
@@ -765,12 +890,22 @@ public class SymbolicRegression {
 				DCEventGenerator dCEventGenerator = new DCEventGenerator();
 				dCEventGenerator.generateEvents(this.test, SELECTED_THRESHOLDS[testBuildCount]);
 
-				Event[] copiedTestArray = Arrays.copyOf(dCEventGenerator.getEvents(),
-						dCEventGenerator.getEvents().length);
+				Event[] copiedTestArray = Arrays.copyOf(dCEventGenerator.getOutput(),
+						dCEventGenerator.getOutput().length);
 
 				testEventsArray.put(thresholdStr, copiedTestArray);
 
-			
+				preprocess[testBuildCount].lastTestingEvent = copiedTestArray[copiedTestArray.length - 1];
+
+				preprocess[testBuildCount].buildTest(copiedTestArray);
+				System.out.println("About to print test data for threshold " + SELECTED_THRESHOLDS[testBuildCount]);
+				preprocess[testBuildCount].processTestData(copiedTestArray);
+
+				preprocess[testBuildCount].loadTestData(copiedTestArray);
+
+				preprocess[testBuildCount].classifyTestData();
+
+				System.out.println("About to print test data for threshold " + SELECTED_THRESHOLDS[testBuildCount]);
 
 
 				curvePerfectForesight[testBuildCount].testbuild(training.length, this.test,
@@ -779,7 +914,8 @@ public class SymbolicRegression {
 				curveCifre[testBuildCount].testbuild(training.length, this.test, SELECTED_THRESHOLDS[testBuildCount],
 						copiedTestArray, null);
 
-			
+				curveClassifcation[testBuildCount].testbuild(training.length, this.test,
+						SELECTED_THRESHOLDS[testBuildCount], copiedTestArray, preprocess[testBuildCount]);
 				
 				curveRandomGP[testBuildCount].testbuild(training.length, this.test, SELECTED_THRESHOLDS[testBuildCount],
 						copiedTestArray, null);
@@ -806,22 +942,30 @@ public class SymbolicRegression {
 				DCEventGenerator dCEventGenerator = new DCEventGenerator();
 				dCEventGenerator.generateEvents(this.test, SELECTED_THRESHOLDS_MF[testBuildCount]);
 
-				Event[] copiedTestArray = Arrays.copyOf(dCEventGenerator.getEvents(),
-						dCEventGenerator.getEvents().length);
+				Event[] copiedTestArray = Arrays.copyOf(dCEventGenerator.getOutput(),
+						dCEventGenerator.getOutput().length);
 
 				testEventsArrayMF.put(thresholdStr, copiedTestArray);
+/*
+				preprocessMF[testBuildCount].lastTestingEvent = copiedTestArray[copiedTestArray.length - 1];
 
-				
-				// testInstance =
-				// preprocess[testBuildCount].getCopyOfTestInstances();
+				preprocessMF[testBuildCount].buildTest(copiedTestArray);
+				System.out.println("About to print test data for threshold " + SELECTED_THRESHOLDS_MF[testBuildCount]);
+				preprocessMF[testBuildCount].processTestData(copiedTestArray);
 
+				preprocessMF[testBuildCount].loadTestData(copiedTestArray);
+
+				preprocessMF[testBuildCount].classifyTestData();
+			*/
 				System.out
 						.println("About to print test data for MF threshold " + SELECTED_THRESHOLDS_MF[testBuildCount]);
 
 				curveMF[testBuildCount].testbuild(training.length, this.test, SELECTED_THRESHOLDS_MF[testBuildCount],
 						copiedTestArray, null);
 
-
+		//A		curveClassifcationMF[testBuildCount].testbuild(training.length, this.test,
+		//A				SELECTED_THRESHOLDS_MF[testBuildCount], copiedTestArray, preprocessMF[testBuildCount]);
+				
 				curvePerfectForesightMF[testBuildCount].testbuild(training.length, this.test,
 						SELECTED_THRESHOLDS_MF[testBuildCount], copiedTestArray, null);
 
@@ -845,15 +989,28 @@ public class SymbolicRegression {
 				DCEventGenerator dCEventGenerator = new DCEventGenerator();
 				dCEventGenerator.generateEvents(this.test, SELECTED_THRESHOLDS_OLSEN[testBuildCount]);
 
-				Event[] copiedTestArray = Arrays.copyOf(dCEventGenerator.getEvents(),
-						dCEventGenerator.getEvents().length);
+				Event[] copiedTestArray = Arrays.copyOf(dCEventGenerator.getOutput(),
+						dCEventGenerator.getOutput().length);
 
 				testEventsArrayOlsen.put(thresholdStr, copiedTestArray);
+/*
+				preprocessOlsen[testBuildCount].lastTestingEvent = copiedTestArray[copiedTestArray.length - 1];
 
+				preprocessOlsen[testBuildCount].buildTest(copiedTestArray);
+				System.out.println(
+						"About to print test data for Olsen threshold " + SELECTED_THRESHOLDS_OLSEN[testBuildCount]);
+				preprocessOlsen[testBuildCount].processTestData(copiedTestArray);
+
+				preprocessOlsen[testBuildCount].loadTestData(copiedTestArray);
+
+				preprocessOlsen[testBuildCount].classifyTestData();
+	*/			
 				
 				curveOlsen[testBuildCount].testbuild(training.length, this.test,
 						SELECTED_THRESHOLDS_OLSEN[testBuildCount], copiedTestArray, null);
 
+	//A			curveClassificationOlsen[testBuildCount].testbuild(training.length, this.test,
+	//A					SELECTED_THRESHOLDS_OLSEN[testBuildCount], copiedTestArray, preprocessOlsen[testBuildCount]);
 		
 				curvePerfectForesightOlsen[testBuildCount].testbuild(training.length, this.test,
 						SELECTED_THRESHOLDS_OLSEN[testBuildCount], copiedTestArray, null);
@@ -880,7 +1037,18 @@ public class SymbolicRegression {
 			FWriter writer = new FWriter(Const.log.publicFolder + "RegressionAnalysisCurves.txt");
 			Const.log.save("RegressionAnalysisCurves.txt", regressionresult);
 
-			
+			String classificationresult = "Dataset \t Threshold \t TotalMissedOvershoot \t TotalMissedOvershootLength \t TotalAssumedOvershoot \t PossibleOvershoot \t FoundOvershootLength \t TotalFoundOvershoot  \t totalDcEvent \t testAccuracy \t testPrecision \t testRecall";
+
+			FWriter Classicationwriter = new FWriter(
+					Const.log.publicFolder + "ClassificationAnalysis.txt");
+			Const.log.save("ClassificationAnalysis.txt", classificationresult);
+
+			Classicationwriter = new FWriter(Const.log.publicFolder + "ClassificationAnalysisMF.txt");
+			Const.log.save("ClassificationAnalysisMF.txt", classificationresult);
+
+			Classicationwriter = new FWriter(Const.log.publicFolder + "ClassificationAnalysisOlsen.txt");
+			Const.log.save("ClassificationAnalysisOlsen.txt", classificationresult);
+
 
 			String SimpleTradingResult = "Dataset \t PerfectForesight+GP \t GP \t Classifier+GP  \t Random+GP \t GP+DCC \t GP+DCC_trail \t PerfectForesight+MF \t MF  \t Classifier+MF \t Random+MF \t MF+DCC \t MF+DCC_trail  \t PerfectForesight+Olsen \t Olsen \t Classifier+Olsen \t Random+Olsen \t Olsen+DCC \t Olsen+DCC_trail \t PerfectForesight+H  \t H \t Classifier+H \t Random+H \t H+DCC \t H+DCC_trail  \t PerfectForesight+HSplitDCUp_Down \t HSplitDCUp_Down \t Classifier+HSplitDCUp_Down \t Random+HSplitDCUp_Down \t HSplitDCUp_Down+DCC \t HSplitDCUp_Down+DCC_trail \t rsi \t ema \t macd  ";
 			FWriter SimpleTradingResultWriter = new FWriter(
@@ -897,6 +1065,7 @@ public class SymbolicRegression {
 					+ "\t PerfectForesight+Olsen \t Olsen \t Classifier+Olsen "
 					+ "\t Random+Olsen \t Olsen+DCC \t Olsen+DCC_trail "
 					+ "\t rsi \t ema \t macd  ";
+			
 			FWriter MDDWriter = new FWriter(Const.log.publicFolder + "mddBaseCcy.txt");
 			Const.log.save("mddBaseCcy.txt", mDD);
 
@@ -942,6 +1111,31 @@ public class SymbolicRegression {
 
 			// reset currentProcessorCounter
 			currentProcessorCounter = 0;
+			double perfectForesightTradeResult = 0.0;
+			double gPTradeResult = 0.0;
+			double classificationAndGpTradeResult = 0.0;
+			double randomAndGpTradeResult = 0.0;
+			double ddcOnlyAndTrailGPTradeResult = 0.0;
+			double ddcOnlyGPTradeResult = 0.0;
+			
+			double perfectForesightMFTradeResult = 0.0;
+			double mFTradeResult = 0.0;
+			double classificationAndMFTradeResult = 0.0;
+			double randomAndMFTradeResult = 0.0;
+			double ddcOnlyAndTrailMFTradeResult = 0.0;
+			double ddcOnlyMFTradeResult = 0.0;
+
+			double perfectForesightOlsenTradeResult = 0.0;
+			double olsenTradeResult = 0.0;
+			double classificationAndOlsenTradeResult = 0.0;
+			double randomAndOlsenTradeResult = 0.0;
+			double ddcOnlyAndTrailOlsenTradeResult = 0.0;
+			double ddcOnlyOlsenTradeResult = 0.0;
+
+			
+			double rsiTechnicalAnalysisTradeResult = 0.0;
+			double emaTechnicalAnalysisTradeResult = 0.0;
+			double macdTechnicalAnalysisTradeResult = 0.0;
 			
 			for (int reportCount = 0; reportCount < SELECTED_THRESHOLDS.length; reportCount++) {
 				// String thresholdStr = String.format("%.8f",
@@ -955,22 +1149,21 @@ public class SymbolicRegression {
 						SELECTED_THRESHOLDS[reportCount], gpFileName);
 				testArrayCifre[reportCount] = curveCifre[reportCount].report(this.test,
 						SELECTED_THRESHOLDS[reportCount], gpFileName);
-			
+				testArrayClassification[reportCount] = curveClassifcation[reportCount].report(this.test,
+						SELECTED_THRESHOLDS[reportCount], gpFileName);
 				testArrayRandom[reportCount] = curveRandomGP[reportCount].report(this.test,
 						SELECTED_THRESHOLDS[reportCount], gpFileName);
 				testArrayDCCOnlyAndTrailGP[reportCount] = curveDCCOnlyAndTrailGP[reportCount].report(this.test,
 						SELECTED_THRESHOLDS[reportCount], gpFileName);
-				
-				
-				
 				testArrayClassificationNoRegressionGP[reportCount] = curveNoClassificationNoRegressionGP[reportCount]
 						.report(this.test, SELECTED_THRESHOLDS[reportCount], gpFileName);
 
+				
 				testArrayPerfectForesightMF[reportCount] = curvePerfectForesightMF[reportCount].report(this.test,
 						SELECTED_THRESHOLDS_MF[reportCount], gpFileName);
 				testArrayMF[reportCount] = curveMF[reportCount].report(this.test, SELECTED_THRESHOLDS_MF[reportCount],
 						gpFileName);
-				
+				testArrayClassificationMF[reportCount] = "0.0"; //A curveClassifcationMF[reportCount].report(this.test,SELECTED_THRESHOLDS_MF[reportCount], gpFileName);
 				testArrayRandomMF[reportCount] = curveRandomMF[reportCount].report(this.test,
 						SELECTED_THRESHOLDS_MF[reportCount], gpFileName);
 				testArrayDCCOnlyAndTrailMF[reportCount] = curveDCCOnlyAndTrailMF[reportCount].report(this.test,
@@ -982,7 +1175,7 @@ public class SymbolicRegression {
 						SELECTED_THRESHOLDS_OLSEN[reportCount], gpFileName);
 				testArrayOlsen[reportCount] = curveOlsen[reportCount].report(this.test,
 						SELECTED_THRESHOLDS_OLSEN[reportCount], gpFileName);
-				
+				testArrayClassificationOlsen[reportCount] = "0.0"; //AcurveClassificationOlsen[reportCount].report(this.test,SELECTED_THRESHOLDS_OLSEN[reportCount], gpFileName);
 				testArrayRandomOlsen[reportCount] = curveRandomOlsen[reportCount].report(this.test,
 						SELECTED_THRESHOLDS_OLSEN[reportCount], gpFileName);
 				testArrayDCCOnlyAndTrailOlsen[reportCount] = curveDCCOnlyAndTrailOlsen[reportCount].report(this.test,
@@ -1011,7 +1204,8 @@ public class SymbolicRegression {
 				 * End
 				 */
 
-				selectedThresholds = filename + "\t" + String.format("%.8f", SELECTED_THRESHOLDS[reportCount]) + "\t"
+				selectedThresholds = filename + "\t" 
+						+ String.format("%.8f", SELECTED_THRESHOLDS[reportCount]) + "\t"
 						+ String.format("%.8f", curveCifre[reportCount].zeroPercentageTest) + "\t"
 						+ String.format("%.8f", curveCifre[reportCount].dC_OS_Length_RatioTest) + "\t"
 						+ String.format("%.8f", SELECTED_THRESHOLDS_MF[reportCount]) + "\t"
@@ -1023,7 +1217,8 @@ public class SymbolicRegression {
 					
 				Const.log.save("selectedThresholdsTest.txt", selectedThresholds);
 
-				selectedThresholds = filename + "\t" + String.format("%.8f", SELECTED_THRESHOLDS[reportCount]) + "\t"
+				selectedThresholds = filename + "\t" 
+						+ String.format("%.8f", SELECTED_THRESHOLDS[reportCount]) + "\t"
 						+ String.format("%.8f", curveCifre[reportCount].zeroPercentageTraining) + "\t"
 						+ String.format("%.8f", curveCifre[reportCount].dC_OS_Length_RatioTraining) + "\t"
 						+ String.format("%.8f", SELECTED_THRESHOLDS_MF[reportCount]) + "\t"
@@ -1044,7 +1239,8 @@ public class SymbolicRegression {
 				String formatPerfectForesight = decimalFormat
 						.format(Double.parseDouble(testArrayPerfectForesight[reportCount]));
 				String formatCifre = decimalFormat.format(Double.parseDouble(testArrayCifre[reportCount]));
-				
+				String formatClassifier = decimalFormat
+						.format(Double.parseDouble(testArrayClassification[reportCount]));
 				String formatRandom = decimalFormat.format(Double.parseDouble(testArrayRandom[reportCount]));
 				/*
 				 * Skipping testArrayDCCOnlyAndTrailGP[reportCount]
@@ -1054,7 +1250,8 @@ public class SymbolicRegression {
 				String formatPerfectForesightMF = decimalFormat
 						.format(Double.parseDouble(testArrayPerfectForesightMF[reportCount]));
 				String formatMF = decimalFormat.format(Double.parseDouble(testArrayMF[reportCount]));
-				
+				String formatClassifierMF = decimalFormat
+						.format(Double.parseDouble(testArrayClassificationMF[reportCount]));
 				String formatRandomMF = decimalFormat.format(Double.parseDouble(testArrayRandomMF[reportCount]));
 				/*
 				 * Skipping testArrayDCCOnlyAndTrailMF[reportCount]
@@ -1064,35 +1261,39 @@ public class SymbolicRegression {
 				String formatPerfectForesightOlsen = decimalFormat
 						.format(Double.parseDouble(testArrayPerfectForesightOlsen[reportCount]));
 				String formatOlsen = decimalFormat.format(Double.parseDouble(testArrayOlsen[reportCount]));
-				
+				String formatClassifierOlsen = decimalFormat
+						.format(Double.parseDouble(testArrayClassificationOlsen[reportCount]));
 				String formatRandomOlsen = decimalFormat.format(Double.parseDouble(testArrayRandomOlsen[reportCount]));
+				
+				/*
+				 * Skipping testArrayDCCOnlyAndTrailOlsen[reportCount]
+				 * testArrayClassificationNoRegressionOlsen[reportCount];
+				 */
+				
 				regressionresult = filename + "\t" + formatPerfectForesight + "\t" + formatCifre + "\t"
-						+ "\t" + formatRandom + "\t" + formatPerfectForesightMF + "\t" + formatMF
-						+ "\t"  + formatRandomMF + "\t" + formatPerfectForesightOlsen + "\t"
-						+ formatOlsen +  "\t" + formatRandomOlsen ;
+						+ formatClassifier + "\t" + formatRandom + "\t" + formatPerfectForesightMF + "\t" + formatMF
+						+ "\t" + formatClassifierMF + "\t" + formatRandomMF + "\t" + formatPerfectForesightOlsen + "\t"
+						+ formatOlsen + "\t" + formatClassifierOlsen + "\t" + formatRandomOlsen;
 
 				Const.log.save("RegressionAnalysisCurves.txt", regressionresult);
 
 				double pFTrade = curvePerfectForesight[reportCount].trade(null);
 				double gPTrade = curveCifre[reportCount].trade(null);
-				
+				double classificationAndGpTrade = curveClassifcation[reportCount].trade(preprocess[reportCount]);
 				double randomTrade = curveRandomGP[reportCount].trade(null);
 				double noClassifierNoRegressionGPTrade = curveNoClassificationNoRegressionGP[reportCount].trade(null);
 				double dccOnlyAndTrailGPTrade = curveDCCOnlyAndTrailGP[reportCount].trade(null);
 				
-			
-				
-				
 				double perfectForesightMFTrade = curvePerfectForesightMF[reportCount].trade(null);
 				double mFTrade = curveMF[reportCount].trade(null);
-				
+				double classificationAndMFTrade =  0.0; //AcurveClassifcationMF[reportCount].trade(preprocessMF[reportCount]);
 				double randomTradeMF = curveRandomMF[reportCount].trade(null);
 				double dccOnlyAndTrailMFTrade = curveDCCOnlyAndTrailMF[reportCount].trade(null);
 				double noClassifierNoRegressionMFTrade = curveNoClassificationNoRegressionMF[reportCount].trade(null);
 
 				double perfectForesightOlsenTrade = curvePerfectForesightOlsen[reportCount].trade(null);
 				double olsenTrade = curveOlsen[reportCount].trade(null);
-				
+				double classificationAndOlsenTrade = 0.0; //A curveClassificationOlsen[reportCount].trade(preprocessOlsen[reportCount]);
 				double randomTradeOlsen = curveRandomOlsen[reportCount].trade(null);
 				double dccOnlyAndTrailOlsenTrade = curveDCCOnlyAndTrailOlsen[reportCount].trade(null);
 				double noClassifierNoRegressionOlsenTrade = curveNoClassificationNoRegressionOlsen[reportCount]
@@ -1100,147 +1301,246 @@ public class SymbolicRegression {
 
 				
 
-				SimpleTradingResult = filename + " \t" + pFTrade + "\t" + gPTrade + "\t"
+				SimpleTradingResult = filename + " \t" + pFTrade + "\t" + gPTrade + "\t" + classificationAndGpTrade
 						+ "\t" + randomTrade + "\t" + noClassifierNoRegressionGPTrade + "\t" + dccOnlyAndTrailGPTrade
-						+ "\t" + perfectForesightMFTrade + "\t" + mFTrade + "\t"
+						+ "\t" + perfectForesightMFTrade + "\t" + mFTrade + "\t" + classificationAndMFTrade + "\t"
 						+ randomTradeMF + "\t" + noClassifierNoRegressionMFTrade + "\t" + dccOnlyAndTrailMFTrade + "\t"
-						+ perfectForesightOlsenTrade + "\t" + olsenTrade + "\t" 
-						+ randomTradeOlsen + "\t" + noClassifierNoRegressionOlsenTrade + "\t"
-						+ dccOnlyAndTrailOlsenTrade + "\t" 
+						+ perfectForesightOlsenTrade + "\t" + olsenTrade + "\t" + classificationAndOlsenTrade + "\t"
+						+ randomTradeOlsen + "\t" + noClassifierNoRegressionOlsenTrade + "\t"  + dccOnlyAndTrailOlsenTrade + "\t" 
 						+ rsiTradeResult + "\t" + emaTradeResult + "\t" + mcadTradeResult ;
 
 				Const.log.save("SimpleTradingResult.txt", SimpleTradingResult);
 
 				// TODO continue here for DCConly and DCCAnd trail
 
-				profit = filename + " \t" + +curvePerfectForesight[reportCount].getBaseCCyProfit() + "\t"
+				profit = filename + " \t" 
+						+ curvePerfectForesight[reportCount].getBaseCCyProfit() + "\t"
 						+ curveCifre[reportCount].getBaseCCyProfit() + "\t"
+						+ curveClassifcation[reportCount].getBaseCCyProfit() + "\t"
 						+ curveRandomGP[reportCount].getBaseCCyProfit() + "\t"
 						+ curveNoClassificationNoRegressionGP[reportCount].getBaseCCyProfit() + "\t"
 						+ curveDCCOnlyAndTrailGP[reportCount].getBaseCCyProfit() +"\t"
+						+ curvePerfectForesightMF[reportCount].getMaxMddBase() + "\t"
 						+ curveMF[reportCount].getBaseCCyProfit() + "\t"
-						+ curveOlsen[reportCount].getBaseCCyProfit();
+						+ curveClassifcationMF[reportCount].getBaseCCyProfit() + "\t"
+						+ curveRandomMF[reportCount].getBaseCCyProfit() + "\t"
+						+ curveNoClassificationNoRegressionMF[reportCount].getBaseCCyProfit() + "\t"
+						+ curveDCCOnlyAndTrailMF[reportCount].getBaseCCyProfit() +"\t"
+						+ curveOlsen[reportCount].getBaseCCyProfit() + "\t"
+						+ curveClassificationOlsen[reportCount].getBaseCCyProfit() + "\t"
+						+ curveRandomOlsen[reportCount].getBaseCCyProfit() + "\t"
+						+ curveNoClassificationNoRegressionOlsen[reportCount].getBaseCCyProfit() + "\t"
+						+ curveDCCOnlyAndTrailOlsen[reportCount].getBaseCCyProfit();
+						
 						Const.log.save("BaseCCyProfit.txt", profit);
 
-				profit = filename + " \t" + curvePerfectForesight[reportCount].getQuoteCCyProfit() + "\t"
+				profit = filename + " \t" 
+						+ curvePerfectForesight[reportCount].getQuoteCCyProfit() + "\t"
 						+ curveCifre[reportCount].getQuoteCCyProfit() + "\t"
+						+ curveClassifcation[reportCount].getQuoteCCyProfit() + "\t"
 						+ curveRandomGP[reportCount].getQuoteCCyProfit() + "\t"
 						+ curveNoClassificationNoRegressionGP[reportCount].getQuoteCCyProfit() + "\t"
 						+ curveDCCOnlyAndTrailGP[reportCount].getQuoteCCyProfit() +"\t"
+						+ curvePerfectForesightMF[reportCount].getQuoteCCyProfit() + "\t"
 						+ curveMF[reportCount].getQuoteCCyProfit() + "\t"
-						+ curveOlsen[reportCount].getQuoteCCyProfit() + "\t";
+						+ curveClassifcationMF[reportCount].getQuoteCCyProfit() + "\t"
+						+ curveRandomMF[reportCount].getQuoteCCyProfit() + "\t"
+						+ curveNoClassificationNoRegressionMF[reportCount].getQuoteCCyProfit() + "\t"
+						+ curveDCCOnlyAndTrailMF[reportCount].getQuoteCCyProfit() +"\t"
+						+ curveOlsen[reportCount].getQuoteCCyProfit() + "\t"
+						+ curveClassificationOlsen[reportCount].getQuoteCCyProfit() + "\t"
+						+ curveRandomOlsen[reportCount].getQuoteCCyProfit() + "\t"
+						+ curveNoClassificationNoRegressionOlsen[reportCount].getQuoteCCyProfit() + "\t"
+						+ curveDCCOnlyAndTrailOlsen[reportCount].getQuoteCCyProfit();
 				Const.log.save("QuoteCCyProfit.txt", profit);
 
-				profit = filename + " \t" + curvePerfectForesight[reportCount].getSharpRatio() + "\t"
+				profit = filename + " \t" 
+						+ curvePerfectForesight[reportCount].getSharpRatio() + "\t"
 						+ curveCifre[reportCount].getSharpRatio() + "\t"
+						+ curveClassifcation[reportCount].getSharpRatio() + "\t"
 						+ curveRandomGP[reportCount].getSharpRatio() + "\t"
 						+ curveNoClassificationNoRegressionGP[reportCount].getSharpRatio() + "\t"
 						+ curveDCCOnlyAndTrailGP[reportCount].getSharpRatio() +"\t"
-						+ curveMF[reportCount].getSharpRatio()
-						+ curveOlsen[reportCount].getSharpRatio() + "\t";
+						+ curvePerfectForesightMF[reportCount].getSharpRatio() + "\t"
+						+ curveMF[reportCount].getSharpRatio() + "\t"
+						+ curveClassifcationMF[reportCount].getSharpRatio() + "\t"
+						+ curveRandomMF[reportCount].getSharpRatio() + "\t"
+						+ curveNoClassificationNoRegressionMF[reportCount].getSharpRatio() + "\t"
+						+ curveDCCOnlyAndTrailMF[reportCount].getSharpRatio() +"\t"
+						+ curveOlsen[reportCount].getSharpRatio() + "\t"
+						+ curveClassificationOlsen[reportCount].getSharpRatio() + "\t"
+						+ curveRandomOlsen[reportCount].getSharpRatio() + "\t"
+						+ curveNoClassificationNoRegressionOlsen[reportCount].getSharpRatio() + "\t"
+						+ curveDCCOnlyAndTrailOlsen[reportCount].getSharpRatio();
 				Const.log.save("SharpRatio.txt", profit);
 
-				
+				if (preprocess[reportCount] != null /* A&& preprocessMF[reportCount] != null
+						&& preprocessOlsen[reportCount] != null*/ ) {
+
+					String thresholdStr = String.format("%.8f", SELECTED_THRESHOLDS[reportCount]);
+					String classificationResult = preprocess[reportCount]
+							.printPreprocessClassification(testEventsArray.get(thresholdStr));
+
+					Const.log.save("ClassificationAnalysis.txt", classificationResult);
+
+					classificationResult = preprocess[reportCount]
+							.printPreprocessClassificationTraining(trainingEventsArray.get(thresholdStr));
+					Const.log.save("ClassificationAnalysisTraining.txt", classificationResult);
+
+//A					thresholdStr = String.format("%.8f", SELECTED_THRESHOLDS_MF[reportCount]);
+//A					String classificationResultMF = preprocessMF[reportCount].printPreprocessClassification(testEventsArrayMF.get(thresholdStr));
+//A					Const.log.save("ClassificationAnalysisMF.txt", classificationResultMF);
+
+//A					classificationResult = preprocessMF[reportCount].printPreprocessClassificationTraining(trainingEventsArray.get(thresholdStr));
+//A					Const.log.save("ClassificationAnalysisTrainingMF.txt", classificationResult);
+
+//A					thresholdStr = String.format("%.8f", SELECTED_THRESHOLDS_OLSEN[reportCount]);
+//A					String classificationResultOlsen = filename + "\t" + preprocessOlsen[reportCount].printPreprocessClassification(testEventsArrayOlsen.get(thresholdStr));
+//					Const.log.save("ClassificationAnalysisOlsen.txt", classificationResultOlsen);
+
+//					classificationResult = preprocessOlsen[reportCount].printPreprocessClassificationTraining(trainingEventsArrayOlsen.get(thresholdStr));
+//					Const.log.save("ClassificationAnalysisTrainingOlsen.txt", classificationResult);
+
+				}
+
 			
 				
-				mDD = filename + " \t" + curvePerfectForesight[reportCount].getMaxMddBase() + "\t"
+				mDD = filename + " \t" 
+						+ curvePerfectForesight[reportCount].getMaxMddBase() + "\t"
 						+ curveCifre[reportCount].getMaxMddBase() + "\t"
+						+ curveClassifcation[reportCount].getMaxMddBase() + "\t"
 						+ curveRandomGP[reportCount].getMaxMddBase() + "\t"
 						+ curveNoClassificationNoRegressionGP[reportCount].getMaxMddBase() + "\t"
 						+ curveDCCOnlyAndTrailGP[reportCount].getMaxMddBase() +"\t"
 						+ curvePerfectForesightMF[reportCount].getMaxMddBase() + "\t"
 						+ curveMF[reportCount].getMaxMddBase() + "\t"
+						+ curveClassifcationMF[reportCount].getMaxMddBase() + "\t"
 						+ curveRandomMF[reportCount].getMaxMddBase() + "\t"
 						+ curveNoClassificationNoRegressionMF[reportCount].getMaxMddBase() + "\t"
-						+ curveDCCOnlyAndTrailMF[reportCount].getMaxMddBase() + "\t"
-						+ curvePerfectForesightOlsen[reportCount].getMaxMddBase() + "\t"
+						+ curveDCCOnlyAndTrailMF[reportCount].getMaxMddBase() +"\t"
 						+ curveOlsen[reportCount].getMaxMddBase() + "\t"
+						+ curveClassificationOlsen[reportCount].getMaxMddBase() + "\t"
 						+ curveRandomOlsen[reportCount].getMaxMddBase() + "\t"
 						+ curveNoClassificationNoRegressionOlsen[reportCount].getMaxMddBase() + "\t"
-						+ curveDCCOnlyAndTrailOlsen[reportCount].getMaxMddBase() + "\t"
+						+ curveDCCOnlyAndTrailOlsen[reportCount].getMaxMddBase()+ "\t"
 						+ rsiTrading.getMaxMddBase() + "\t" + emaTrading.getMaxMddBase() + "\t" + mcadTrading.getMaxMddBase();
 				Const.log.save("mddBaseCcy.txt", mDD);
 
-				mDD = filename + " \t" + curvePerfectForesight[reportCount].getMaxMddQuote() + "\t"
+				mDD = filename + " \t" 
+						+ curvePerfectForesight[reportCount].getMaxMddQuote() + "\t"
 						+ curveCifre[reportCount].getMaxMddQuote() + "\t"
+						+ curveClassifcation[reportCount].getMaxMddQuote() + "\t"
 						+ curveRandomGP[reportCount].getMaxMddQuote() + "\t"
 						+ curveNoClassificationNoRegressionGP[reportCount].getMaxMddQuote() + "\t"
 						+ curveDCCOnlyAndTrailGP[reportCount].getMaxMddQuote() +"\t"
 						+ curvePerfectForesightMF[reportCount].getMaxMddQuote() + "\t"
 						+ curveMF[reportCount].getMaxMddQuote() + "\t"
+						+ curveClassifcationMF[reportCount].getMaxMddQuote() + "\t"
 						+ curveRandomMF[reportCount].getMaxMddQuote() + "\t"
 						+ curveNoClassificationNoRegressionMF[reportCount].getMaxMddQuote() + "\t"
-						+ curveDCCOnlyAndTrailMF[reportCount].getMaxMddBase() + "\t"
-						+ curvePerfectForesightOlsen[reportCount].getMaxMddQuote() + "\t"
+						+ curveDCCOnlyAndTrailMF[reportCount].getMaxMddQuote() +"\t"
 						+ curveOlsen[reportCount].getMaxMddQuote() + "\t"
-						+ curveNoClassificationNoRegressionOlsen[reportCount].getMaxMddQuote() + "\t"
-						+ curveDCCOnlyAndTrailOlsen[reportCount].getMaxMddQuote() + "\t"
+						+ curveClassificationOlsen[reportCount].getMaxMddQuote() + "\t"
 						+ curveRandomOlsen[reportCount].getMaxMddQuote() + "\t"
-						+ rsiTrading.getMaxMddQuote() + "\t"
-						+ emaTrading.getMaxMddQuote() + "\t" + mcadTrading.getMaxMddQuote();
+						+ curveNoClassificationNoRegressionOlsen[reportCount].getMaxMddQuote() + "\t"
+						+ curveDCCOnlyAndTrailOlsen[reportCount].getMaxMddQuote()+ "\t"
+						+ rsiTrading.getMaxMddQuote() + "\t" + emaTrading.getMaxMddQuote() + "\t" + mcadTrading.getMaxMddQuote();
 				Const.log.save("mddQuoteCcy.txt", mDD);
 
-				transactions = filename + " \t" + +curvePerfectForesight[reportCount].getNumberOfQuoteCcyTransactions()
-						+ "\t" + curveCifre[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
+				transactions = filename + " \t" 			
+						+ curvePerfectForesight[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
+						+ curveCifre[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
+						+ curveClassifcation[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
 						+ curveRandomGP[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
 						+ curveNoClassificationNoRegressionGP[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
 						+ curveDCCOnlyAndTrailGP[reportCount].getNumberOfQuoteCcyTransactions() +"\t"
 						+ curvePerfectForesightMF[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
 						+ curveMF[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
+						+ curveClassifcationMF[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
 						+ curveRandomMF[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
 						+ curveNoClassificationNoRegressionMF[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
-						+ curveDCCOnlyAndTrailMF[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
-						+ curvePerfectForesightOlsen[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
+						+ curveDCCOnlyAndTrailMF[reportCount].getNumberOfQuoteCcyTransactions() +"\t"
 						+ curveOlsen[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
+						+ curveClassificationOlsen[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
 						+ curveRandomOlsen[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
 						+ curveNoClassificationNoRegressionOlsen[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
-						+ curveDCCOnlyAndTrailOlsen[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
-						+ curveRandomOlsen[reportCount].getNumberOfQuoteCcyTransactions() + "\t"
-						+ rsiTrading.getNumberOfQuoteCcyTransactions() + "\t"
-						+ emaTrading.getNumberOfQuoteCcyTransactions() + "\t"
-						+ mcadTrading.getNumberOfQuoteCcyTransactions();
-				Const.log.save("NumberOfQuoteCCyTransaction.txt", transactions);
+						+ curveDCCOnlyAndTrailOlsen[reportCount].getNumberOfQuoteCcyTransactions()+ "\t"
+						+ rsiTrading.getNumberOfQuoteCcyTransactions() + "\t" + emaTrading.getNumberOfQuoteCcyTransactions() + "\t" + mcadTrading.getNumberOfQuoteCcyTransactions();
+						Const.log.save("NumberOfQuoteCCyTransaction.txt", transactions);
 
-				transactions = filename + " \t" + +curvePerfectForesight[reportCount].getNumberOfBaseCcyTransactions()
-						+ "\t" + curveCifre[reportCount].getNumberOfBaseCcyTransactions() + "\t"
+				transactions = filename + " \t" 
+						+ curvePerfectForesight[reportCount].getNumberOfBaseCcyTransactions() + "\t"
+						+ curveCifre[reportCount].getNumberOfBaseCcyTransactions() + "\t"
+						+ curveClassifcation[reportCount].getNumberOfBaseCcyTransactions() + "\t"
 						+ curveRandomGP[reportCount].getNumberOfBaseCcyTransactions() + "\t"
 						+ curveNoClassificationNoRegressionGP[reportCount].getNumberOfBaseCcyTransactions() + "\t"
 						+ curveDCCOnlyAndTrailGP[reportCount].getNumberOfBaseCcyTransactions() +"\t"
 						+ curvePerfectForesightMF[reportCount].getNumberOfBaseCcyTransactions() + "\t"
 						+ curveMF[reportCount].getNumberOfBaseCcyTransactions() + "\t"
+						+ curveClassifcationMF[reportCount].getNumberOfBaseCcyTransactions() + "\t"
 						+ curveRandomMF[reportCount].getNumberOfBaseCcyTransactions() + "\t"
 						+ curveNoClassificationNoRegressionMF[reportCount].getNumberOfBaseCcyTransactions() + "\t"
-						+ curveDCCOnlyAndTrailMF[reportCount].getNumberOfBaseCcyTransactions() + "\t"
-						+ curvePerfectForesightOlsen[reportCount].getNumberOfBaseCcyTransactions() + "\t"
+						+ curveDCCOnlyAndTrailMF[reportCount].getNumberOfBaseCcyTransactions() +"\t"
 						+ curveOlsen[reportCount].getNumberOfBaseCcyTransactions() + "\t"
+						+ curveClassificationOlsen[reportCount].getNumberOfBaseCcyTransactions() + "\t"
 						+ curveRandomOlsen[reportCount].getNumberOfBaseCcyTransactions() + "\t"
-						+ rsiTrading.getNumberOfBaseCcyTransactions() + "\t"
-						+ emaTrading.getNumberOfBaseCcyTransactions() + "\t"
-						+ mcadTrading.getNumberOfBaseCcyTransactions();
+						+ curveNoClassificationNoRegressionOlsen[reportCount].getNumberOfBaseCcyTransactions() + "\t"
+						+ curveDCCOnlyAndTrailOlsen[reportCount].getNumberOfBaseCcyTransactions()+ "\t"
+						+ rsiTrading.getNumberOfBaseCcyTransactions() + "\t" + emaTrading.getNumberOfBaseCcyTransactions() + "\t" + mcadTrading.getNumberOfBaseCcyTransactions();
 				Const.log.save("NumberOfBaseCCyTransaction.txt", transactions);
 
 			
 
+				if (preprocess[reportCount] != null)
+					preprocess[reportCount].removeTempFiles();
+
+				String tempFolderName = preprocess[reportCount].tempFilePath.get(0).substring(0,
+						preprocess[reportCount].tempFilePath.get(0).lastIndexOf(File.separator));
+
+				File dir = new File(tempFolderName);
+				if (!dir.isDirectory())
+					continue;
+
+				File[] tempFile = dir.getParentFile().listFiles(new FilenameFilter() {
+					public boolean accept(File dir, String name) {
+						return name.startsWith("autoweka" + filename);
+					}
+				});
+
+				for (int tempFileCount = 0; tempFileCount < tempFile.length; tempFileCount++) {
+					try {
+						preprocess[reportCount].deleteDirectoryRecursionJava6(tempFile[tempFileCount]);
+					} catch (IOException e) {
+
+						System.out.println("Unable to delete one of the directory");
+					}
+				}
 				
 				currentProcessorCounter = reportCount;
 
 				int maxTransaction = -1;
 
 				
-				maxTransaction = Math.max(curvePerfectForesight[reportCount].getMaxTransactionSize(), curveCifre[reportCount].getMaxTransactionSize());
+				maxTransaction = Math.max(curvePerfectForesight[reportCount].getMaxTransactionSize(),
+						curveClassifcation[reportCount].getMaxTransactionSize());
+				maxTransaction = Math.max(maxTransaction, curveCifre[reportCount].getMaxTransactionSize());
 				maxTransaction = Math.max(maxTransaction, curveRandomGP[reportCount].getMaxTransactionSize());
 				maxTransaction = Math.max(maxTransaction, curveNoClassificationNoRegressionGP[reportCount].getMaxTransactionSize());
 				maxTransaction = Math.max(maxTransaction, curveDCCOnlyAndTrailGP[reportCount].getNumberOfBaseCcyTransactions());
 				maxTransaction = Math.max(maxTransaction, curvePerfectForesightMF[reportCount].getMaxTransactionSize());
 				maxTransaction = Math.max(maxTransaction, curveMF[reportCount].getMaxTransactionSize());
-			
+				maxTransaction = Math.max(maxTransaction, curveClassifcationMF[reportCount].getMaxTransactionSize());
 				maxTransaction = Math.max(maxTransaction, curveRandomMF[reportCount].getMaxTransactionSize());
 
 				maxTransaction = Math.max(maxTransaction,
 						curvePerfectForesightOlsen[reportCount].getMaxTransactionSize());
 				maxTransaction = Math.max(maxTransaction, curveOlsen[reportCount].getMaxTransactionSize());
-			
+				maxTransaction = Math.max(maxTransaction,
+						curveClassificationOlsen[reportCount].getMaxTransactionSize());
 				maxTransaction = Math.max(maxTransaction, curveRandomOlsen[reportCount].getMaxTransactionSize());
+
+				
+				
 				maxTransaction = Math.max(maxTransaction, rsiTrading.getMaxTransactionSize());
 				maxTransaction = Math.max(maxTransaction, mcadTrading.getMaxTransactionSize());
 				maxTransaction = Math.max(maxTransaction, emaTrading.getMaxTransactionSize());

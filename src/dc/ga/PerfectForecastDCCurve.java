@@ -137,7 +137,8 @@ public class PerfectForecastDCCurve extends DCCurve {
 			
 			
 			//TODO Adesola make this configurable 
-			treeHelperClass.getBestTreesForThreshold(uptrendEvent, 500, 1, 37,
+			System.out.println("Evolving upward event GP for Threshold" + thresholdStr);
+			treeHelperClass.getBestTreesForThreshold(uptrendEvent, Const.POP_SIZE, 1, Const.MAX_GP_GENERATIONS,
 					thresholdStr);
 
 			if (treeHelperClass.bestTreesInRuns.isEmpty() || treeHelperClass.bestTreesInRuns.size() < 1) {
@@ -220,8 +221,8 @@ public class PerfectForecastDCCurve extends DCCurve {
 			// "test");
 			//TODO Adesola make this configurable
 			//treeHelperClass.getBestTreesForThreshold(downtrendEvent, Const.POP_SIZE, 1, Const.MAX_GENERATIONS,thresholdStr);
-
-			treeHelperClass.getBestTreesForThreshold(downtrendEvent, 100, 1, 5,
+			System.out.println("Evolving downward event GP for Threshold" + thresholdStr);
+			treeHelperClass.getBestTreesForThreshold(downtrendEvent, Const.POP_SIZE, 1, Const.MAX_GP_GENERATIONS,
 					thresholdStr);
 			if (treeHelperClass.bestTreesInRuns.isEmpty() || treeHelperClass.bestTreesInRuns.size() < 1) {
 				System.out.println("treeHelperClass.bestTreesInRuns.isEmpty()");
@@ -267,9 +268,8 @@ public class PerfectForecastDCCurve extends DCCurve {
 			if (trainingEvents[i] == null)
 				continue;
 
-			if (dcPt.equals(zeroOs)) // Skip DC classified as not having
-										// overshoot
-				continue;
+			if (dcPt.equals(zeroOs)) 
+				tradePoint = trainingEvents[i].end;
 			
 			tradePoint = trainingEvents[i].end + (int) Math.ceil(trainingPrediction[i]);
 
@@ -321,7 +321,7 @@ public class PerfectForecastDCCurve extends DCCurve {
 				//transactionCost = trainingOpeningPosition * (0.025/100);
 				//trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) *myPrice;
 				
-				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) ){
+				if (transactionCostPrice <= (zeroTransactionCostAskQuantity - askQuantity) ){
 					trainingOpeningPosition = askQuantity;
 
 					lastPurchasebid = Double.parseDouble(FReader.dataRecordInFileArray.get( trainingEvents[i].end).bidPrice);
@@ -454,12 +454,23 @@ public class PerfectForecastDCCurve extends DCCurve {
 
 	}
 
-	public String getUpwardDCTree(){
+	public AbstractNode getUpwardDCTree(){
+		
+		return bestUpWardEventTree;
+	}
+	
+	public AbstractNode getDownwardDCTree(){
+		
+		return bestDownWardEventTree;
+	}
+	
+	
+	public String getUpwardDCTreeString(){
 		
 		return upwardTrendTreeString;
 	}
 	
-	public String getDownwardDCTree(){
+	public String getDownwardDCTreeString(){
 		
 		return downwardTrendTreeString;
 	}
@@ -478,31 +489,32 @@ public class PerfectForecastDCCurve extends DCCurve {
 			String foo = "";
 			double  prediction= 0.0;
 			Double clsLabel = 0.0;
-			String classificationStr  = "";
+			String classificationStr  = "yes";
 		
 				
 				if (Const.OsFunctionEnum == Const.function_code.eGP){
 
-					 if (events.length != preprocess.testInstances.size()){
-							System.out.println("Unable to print classification result. Event and test instance does not match");
+					 if (preprocess != null && events.length != preprocess.testInstances.size()){
+							System.out.println("Unable to print RMSE result. Event and test instance does not match");
 						}
 					 
-					if ( events[outputIndex].type == Type.Upturn){
-						foo = gpRatio[1];
-					}
-					else
-						foo = gpRatio[0];
+					
 					
 					Double eval = Double.MAX_VALUE;
-					foo = foo.replace("X0", Integer.toString(events[outputIndex].length()));
-					Instance ins = getTestInstance().get(outputIndex);
+					
+					if ( events[outputIndex].type == Type.Upturn){
+						eval = bestUpWardEventTree.eval(events[outputIndex].length());
+					}
+					else
+						eval = bestDownWardEventTree.eval(events[outputIndex].length());
+					
 					if (preprocess != null && getTestInstance().get(outputIndex) != null) {
 
 						try {
 							clsLabel = preprocess.autoWEKAClassifier
 									.classifyInstance(getTestInstance().get(outputIndex));
 						} catch (Exception e) {
-							// TODO Auto-generated catch block
+							
 							e.printStackTrace();
 						}
 						classificationStr = (clsLabel.toString().compareToIgnoreCase("0.0") == 0) ? "yes" : "no";
@@ -511,35 +523,24 @@ public class PerfectForecastDCCurve extends DCCurve {
 						
 					if ((classificationStr.compareToIgnoreCase("no") == 0)){
 						predictedLengthVector.add(prediction);
-						actualOSLengthVector.add(0.0);
 					} else{
-						try {
-							eval = (Double) engine.eval(foo);	
-							if  ( eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY ||
+						
+								
+							if  (  eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY ||
 									eval == Double.POSITIVE_INFINITY || eval ==  Double.NaN ||
 									Double.compare(eval, 0.0)  < 0  || Double.isInfinite(eval)  || Double.isNaN(eval)){
 								eval = ((Integer ) events[outputIndex].length()).doubleValue();
 							}
 							
 							predictedLengthVector.add(eval);
-							if (events[outputIndex].overshoot == null ||
-									events[outputIndex].overshoot.start == events[outputIndex].overshoot.end ){
-								actualOSLengthVector.add(0.0);
-							}
-							else
-								actualOSLengthVector.add((double) events[outputIndex].overshoot.length());
-						} catch (ScriptException e) {
-							predictedLengthVector.add(0.0);
-							actualOSLengthVector.add(0.0);
-							System.out.println("Error encountered while calculating estimateRMSEsGP upward");
-							return;
-						} catch (ClassCastException e) {
-							predictedLengthVector.add(0.0);
-							actualOSLengthVector.add(0.0);
-							System.out.println("Error encountered while calculating estimateRMSEsGP upward");
-							return;
-						}
-					}	
+					} 
+					if (events[outputIndex].overshoot == null ){
+						actualOSLengthVector.add(0.0);
+					}
+					else
+						actualOSLengthVector.add((double) events[outputIndex].overshoot.length());
+
+						
 				}
 				else
 				{

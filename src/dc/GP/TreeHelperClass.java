@@ -47,16 +47,18 @@ public class TreeHelperClass {
 	private static ExecutorService threadPool;
 	private static int Number_Of_Trees = 0;
 	private static Event[] Directional_changes_length;
-	private static boolean SPLIT_DATASET;
+	//private static boolean SPLIT_DATASET;
 	private static int number_of_generations = 0;
+	
 
-	private static trend_type_code datasetTrend = trend_type_code.enumUnknown;
+	//private static trend_type_code datasetTrend = trend_type_code.enumUnknown;
 
 	public  Vector<AbstractNode> bestTreesInRuns = new Vector<AbstractNode>();
 
 	static Map<String, List<FitnessClass>> fitnessList = new HashMap<String, List<FitnessClass>>();
-	public static treeStructurePostcreate treeStructurePostcreateObj;
-	
+	public static treeStructurePostcreate treeStructurePostcreateObj = treeStructurePostcreate.ePrune;
+	 ScriptEngineManager mgr = new ScriptEngineManager();
+	ScriptEngine engine = mgr.getEngineByName("JavaScript");
 	public enum trend_type_code {
 		enumUnknown, enumUptrend, enumDowntrend,
 	}
@@ -684,7 +686,7 @@ public class TreeHelperClass {
 		return treeString;
 	}
 
-	public static double evaluateRegressionTree(AbstractNode tree, Event[] directionChangesLength) {
+	public  double evaluateRegressionTree(AbstractNode tree, Event[] directionChangesLength) {
 		double treeEvaluation = 0.0;
 		double err = 0.0;
 		double sumSquaredErr = 0.0;
@@ -706,26 +708,53 @@ public class TreeHelperClass {
 		if (!hasConstant)
 			return Double.MAX_VALUE;
 		
-		String treeToString = tree.printAsInFixFunction();
-		ScriptEngineManager mgr = new ScriptEngineManager();
-		ScriptEngine engine = mgr.getEngineByName("JavaScript");
+		if(!treeAsString.contains(Const.VARIABLE_1))
+			return Double.MAX_VALUE;
 		
-		treeToString = treeToString.replace("X0", Integer.toString(1));
+		String treeToString = tree.printAsInFixFunction();
+		
+		
+		
+		treeToString = treeToString.replace("X0", Integer.toString(2));
 		Double javascriptValue = Double.MAX_VALUE;
 		double eval = 0.0;
-		try {
+	/*	try {
 			javascriptValue = (Double) engine.eval(treeToString);
-			eval = javascriptValue.doubleValue();
-			if (Double.compare(eval, 0) < 0)
+			
+			if  ( javascriptValue == Double.MAX_VALUE || javascriptValue == Double.NEGATIVE_INFINITY ||
+					javascriptValue == Double.POSITIVE_INFINITY || javascriptValue ==  Double.NaN ||
+					Double.compare(javascriptValue, 0.0)  < 0  || Double.isInfinite(javascriptValue)  || Double.isNaN(javascriptValue)){
 				return Double.MAX_VALUE;
+			}
+			else{
+				eval = javascriptValue.doubleValue();
+			}
+			
 		} catch (ScriptException e) {
 			return Double.MAX_VALUE;
 		} catch (ClassCastException e) {
 			return Double.MAX_VALUE;
 		}
+		*/
+	
 		
-		FReader freader = new FReader();
-		FileMember2 fileMember3 = freader.new FileMember2();
+		javascriptValue = new Double(tree.eval(1));
+		if  ( javascriptValue == Double.MAX_VALUE || javascriptValue == Double.NEGATIVE_INFINITY ||
+				javascriptValue == Double.POSITIVE_INFINITY || javascriptValue ==  Double.NaN ||
+				Double.compare(javascriptValue, 0.0)  < 0  || Double.isInfinite(javascriptValue)  || Double.isNaN(javascriptValue)){
+			return Double.MAX_VALUE;
+		}
+		
+		
+		javascriptValue = new Double(tree.eval(30));
+		if  ( javascriptValue == Double.MAX_VALUE || javascriptValue == Double.NEGATIVE_INFINITY ||
+				javascriptValue == Double.POSITIVE_INFINITY || javascriptValue ==  Double.NaN ||
+				Double.compare(javascriptValue, 0.0)  < 0  || Double.isInfinite(javascriptValue)  || Double.isNaN(javascriptValue)){
+			return Double.MAX_VALUE;
+		}
+		
+		
+		
 		for (Event e : directionChangesLength) {
 			if (Const.VARIABLE_EVALUATED == 0)
 				variableSize = e.length();
@@ -839,7 +868,7 @@ public class TreeHelperClass {
 		return bestTree;
 	}
 
-	public static AbstractNode getbestTreeForThreshold(Event[] directionChangesLength, int NumberOfTrees, int run,
+	public  AbstractNode getbestTreeForThreshold(Event[] directionChangesLength, int NumberOfTrees, int run,
 			String thresholdStr) {
 
 		// GenerateInitialTrees
@@ -854,10 +883,7 @@ public class TreeHelperClass {
 			AbstractNode randomTree = treeCreation.tree;
 			
 			double score = evaluateRegressionTree(randomTree, directionChangesLength);
-			if (Double.compare(score, 0.0)< 0)
-				randomTree.perfScore =Double.MAX_VALUE;
-			else
-				randomTree.perfScore = score;
+			randomTree.perfScore = score;
 			
 			vector.add(randomTree);
 		}
@@ -882,48 +908,59 @@ public class TreeHelperClass {
 		return bestTree;
 	}
 
-	static AbstractNode evolve(Event[] directionChangesLength, Vector<AbstractNode> gpTrees, double evolutionRate,
+	AbstractNode evolve(Event[] directionChangesLength, Vector<AbstractNode> gpTrees, double evolutionRate,
 			double crossoverRatio, int numberOfGenerations, int run, String thresholdStr) {
 
-		// System.out.println("before evolution capacity of random tree is" +
+		Calendar cal = Calendar.getInstance();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd  HH:mm:ss");
+        System.out.println( "Evolution of GP Started at :" +sdf.format(cal.getTime()) );
+		//System.out.println("Evolution of GA Startedcapacity of random tree is" +
 		// gpTrees.capacity());
 		int size = (gpTrees.size());
 		int evolvedElementsSize = (int) (size * evolutionRate);
 		int preservedElementsSize = size - evolvedElementsSize;
+		if (preservedElementsSize < 1)
+			preservedElementsSize = 1;
 		Vector<AbstractNode> evolvedGpTrees = new Vector<AbstractNode>(size);
 		AbstractNode bestTree = null;
-		for (int gen = 0; gen < numberOfGenerations; gen++) {
+		for (int genNum = 0; genNum < numberOfGenerations; genNum++) {
 		//	System.out.println("Generation:" + gen );
 			if (gpTrees.get(gpTrees.size() - 1).perfScore == 0) {
 				System.out.println("Perfect match found.");
 				break;
 			}
-			int generationCount = gen + 1;
+			
 			// Adesola remove comment when not
 			// tunning//System.out.println("Threshold: " + thresholdStr + " Run:
 			// " + run + " Generation: " + generationCount);
-			System.out.println("The Best performing trees' scores generation "+  gen + " are: ");
+			//System.out.println("The Best performing trees' scores generation "+  gen + " are: ");
 			for (int counter = size - 1; counter >= evolvedElementsSize; counter--) {
 				AbstractNode copy = gpTrees.get(counter).clone();
 				copy.perfScore = gpTrees.get(counter).perfScore;
 			//	System.out.println(printTreeToString(copy, 0));
-				System.out.println(copy.perfScore + " depth " + getDepth(copy, 1) + " size " + getTreeSize(copy));
+			//	System.out.println(copy.perfScore + " depth " + getDepth(copy, 1) + " size " + getTreeSize(copy));
 				evolvedGpTrees.add(gpTrees.get(counter));
 				//System.out.println(printTreeToString(gpTrees.get(counter),0));
 			}
 
+			cal = Calendar.getInstance();
+	    //    System.out.println( "Evolving population started at :" +sdf.format(cal.getTime())  );
+			AbstractNode selectedTree = tournament(gpTrees, Const.TOURNAMENT_SIZE, 0); // Already
 			for (int i = 0; i < evolvedElementsSize; i++) {
-
-				AbstractNode selectedTree = tournament(gpTrees, Const.TOURNAMENT_SIZE, 0); // Already
+				
+				
+		      //  System.out.println( "Evolving population: " +i  );
 				// cloned
 				// in
 				// tournament
 				double randomValue = rd.nextDouble();
 				if (randomValue < crossoverRatio) {
 					
-
-					double d = (double) Const.MAX_DEPTH; //
-					int max_node_count = ((int) Math.pow(2.0, d) - 1);
+					//cal = Calendar.getInstance();
+			        //System.out.println( "Crossover  started at :" +sdf.format(cal.getTime())  );
+					
+					//double d = (double) Const.MAX_DEPTH; //
+					//int max_node_count = ((int) Math.pow(2.0, d) - 1);
 					
 					AbstractNode newTree = null;
 					
@@ -941,21 +978,18 @@ public class TreeHelperClass {
 							Arrays.asList(crossOverTreeStringArray));
 					TreeOperation treeOperation = new TreeOperation(crossOverTreeStringVector);
 					newTree = treeOperation.getTree();
-					int treeSize =  getTreeSize(newTree);
+					//int treeSize =  getTreeSize(newTree);
 					
-					if ( treeSize <= max_node_count) {
+					/*if ( treeSize <= max_node_count) {
 						double score = evaluateRegressionTree(newTree, directionChangesLength);
 						newTree.perfScore = score;
 					} else {
 						//System.out.println("Penalizing tree because size is " + treeSize + " while max tree size allowed is " + max_node_count);
 						newTree.perfScore = Double.MAX_VALUE;
-					}
+					}*/
 					
-					if (newTree.perfScore <0 )
-						newTree.perfScore = Double.MAX_VALUE;
-						
 					
-					if (newTree.perfScore == Double.MAX_VALUE || randomValue < 0.03) { // Crossover and mutate a few
+					/*if ( randomValue < 0.03) { // Crossover and mutate a few
 						String mutateTreeString = TreeHelperClass.mutateTree(newTree);
 						mutateTreeString = mutateTreeString.replace(",", "");
 						// System.out.println("mutated tree" +
@@ -965,16 +999,15 @@ public class TreeHelperClass {
 								Arrays.asList(mutateTreeStringArray));
 						TreeOperation treeOperation2 = new TreeOperation(mutateTreeStringVector);
 						AbstractNode newTree2 = treeOperation2.getTree();
-						double score2 = evaluateRegressionTree(newTree2, directionChangesLength);
-						newTree2.perfScore = score2;
 						
 						
 						evolvedGpTrees.add(newTree2);
 
-					} else {
-
+					} else {*/
+						
 						evolvedGpTrees.add(newTree);
-					}
+					//}
+						
 				} else {
 					String mutateTreeString = TreeHelperClass.mutateTree(selectedTree);
 					mutateTreeString = mutateTreeString.replace(",", "");
@@ -983,20 +1016,22 @@ public class TreeHelperClass {
 					Vector<String> mutateTreeStringVector = new Vector<String>(Arrays.asList(mutateTreeStringArray));
 					TreeOperation treeOperation2 = new TreeOperation(mutateTreeStringVector);
 					AbstractNode newTree2 = treeOperation2.getTree();
-					double score2 = evaluateRegressionTree(newTree2, directionChangesLength);
-					newTree2.perfScore = score2;					
+									
 					evolvedGpTrees.add(newTree2);
 					
 				}
 			} // end of a generation
+			cal = Calendar.getInstance();
+	       // System.out.println( "Crossover population ended at :" +sdf.format(cal.getTime())  );
+			
 			gpTrees.clear();
 			// System.out.println("After clearing random tree capacity is" +
 			// gpTrees.capacity());
 
 			
-			removeDuplicates(evolvedGpTrees);
+			//removeDuplicates(evolvedGpTrees);
 			
-			int numberOftries = 0;
+		/*	int numberOftries = 0;
 			while ( evolvedGpTrees.size() <= size ){
 				TreeCreation treeCreation = new TreeCreation(evolvedGpTrees.size());
 
@@ -1041,15 +1076,17 @@ public class TreeHelperClass {
 				}
 				
 				
-			}
-			
+			}*/
+			cal = Calendar.getInstance();
+	       // System.out.println( "Prunning population started at :" +sdf.format(cal.getTime())  );
+
 			for (int k=0 ; k< evolvedGpTrees.size() ; k++ )
 			{
 				//System.out.println("A " + TreeHelperClass.printTreeToString(evolvedGpTrees.get(k),0));
 				
 				if (treeStructurePostcreateObj == treeStructurePostcreate.ePruneAndEqualERCAndExternalInputLeaf || treeStructurePostcreateObj == treeStructurePostcreate.ePrune)
 				{	
-					AbstractNode treeCopy =  evolvedGpTrees.get(k).clone();
+					AbstractNode treeCopy =  evolvedGpTrees.get(k).clone();	
 					 evolvedGpTrees.get(k).pruneNode();
 					 if (evolvedGpTrees.get(k).getNumChildren() < 1)
 					 evolvedGpTrees.set(k, treeCopy); // Don't prune if it leads to only on Node. Give it  chance to evolve
@@ -1060,6 +1097,22 @@ public class TreeHelperClass {
 
 				gpTrees.add(evolvedGpTrees.get(k));
 			}
+			cal = Calendar.getInstance();
+	       // System.out.println( "Prunning population ended at :" +sdf.format(cal.getTime())  );
+
+	        cal = Calendar.getInstance();
+	      //  System.out.println( "Evaluating population started at :" +sdf.format(cal.getTime())  );
+
+			
+			for (int k=0 ; k< gpTrees.size() ; k++ )
+			{
+					double score2 = evaluateRegressionTree(gpTrees.get(k), directionChangesLength);
+					gpTrees.get(k).perfScore = score2;	
+			}
+			
+			cal = Calendar.getInstance();
+	     //   System.out.println( "Evaluating population ended at :" +sdf.format(cal.getTime())  );
+
 			
 			
 			System.gc();
@@ -1070,9 +1123,15 @@ public class TreeHelperClass {
 			
 			
 		
+			cal = Calendar.getInstance();
+	       // System.out.println( "sorting population started at :" +sdf.format(cal.getTime())  );
 
+			
 			//Comparator<AbstractNode> comparator = Collections.reverseOrder();
 			Collections.sort(gpTrees, comparator);
+			cal = Calendar.getInstance();
+	      //  System.out.println( "sorting population ended at :" +sdf.format(cal.getTime())  );
+
 			
 			//Collections.sort(gpTrees2, comparator);
 			
@@ -1081,11 +1140,9 @@ public class TreeHelperClass {
 			evolvedGpTrees.clear();
 			
 		}
-		for (int k =  0 ; k< gpTrees.size(); k++){
+		/*for (int k =  0 ; k< gpTrees.size(); k++){
 			String treeToString = gpTrees.get(k).printAsInFixFunction();
-			ScriptEngineManager mgr = new ScriptEngineManager();
-			ScriptEngine engine = mgr.getEngineByName("JavaScript");
-			
+	
 			treeToString = treeToString.replace("X0", Integer.toString(1));
 			Double javascriptValue = Double.MAX_VALUE;
 			double eval = 0.0;
@@ -1099,7 +1156,7 @@ public class TreeHelperClass {
 			} catch (ClassCastException e) {
 				gpTrees.get(k).perfScore = Double.MAX_VALUE;
 			}
-		}
+		}*/
 		
 		Comparator<AbstractNode> comparator = Collections.reverseOrder();
 		Collections.sort(gpTrees, comparator);
@@ -1108,9 +1165,8 @@ public class TreeHelperClass {
 
 		bestTree = gpTrees.get(gpTrees.size() - 1).clone();
 		
-		Calendar cal = Calendar.getInstance();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd  HH:mm:ss");
-        System.out.println( sdf.format(cal.getTime()) + " completed " );
+		cal = Calendar.getInstance();
+       // System.out.println( "GP evolution ended at: "+sdf.format(cal.getTime()) + " completed " );
         
         
 		

@@ -68,18 +68,24 @@ square.perfScore =  this.perfScore;
 		if (this.children.get(0) != null ){
 			
 			double evalValue = (this.children.get(0)).eval(inVal);
+			
+			if  ( inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
+					inVal == Double.POSITIVE_INFINITY || inVal ==  Double.NaN ||
+							inVal  < 0.0  || Double.isInfinite(inVal) || Double.isNaN(inVal))
+				return Double.MAX_VALUE;
+			
 			evalValue = evalValue * evalValue;
 		//	System.out.println( evalValue );
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
 					evalValue == Double.POSITIVE_INFINITY || evalValue ==  Double.NaN ||
 					evalValue  < 0.0  || Double.isInfinite(evalValue) || Double.isNaN(evalValue))
-				return 1000000000.0;
+				return Double.MAX_VALUE;
 			else
 				return evalValue;
 		}
 		else {
 			System.out.println( "left not defined in square root");
-			return 1000000000.0;
+			return Double.MAX_VALUE;
 		}
 	}
 
