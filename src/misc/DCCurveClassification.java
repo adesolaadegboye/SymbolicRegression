@@ -11,11 +11,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Vector;
-
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
-
 import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.GP.TreeHelperClass;
@@ -277,9 +272,6 @@ public class DCCurveClassification extends DCCurveRegression {
 
 		testingEvents = Arrays.copyOf(testEvents, testEvents.length);
 		String thresholdStr = String.format("%.8f", delta);
-
-		ScriptEngineManager mgr = new ScriptEngineManager();
-		ScriptEngine engine = mgr.getEngineByName("JavaScript");
 
 		predictionWithClassifier = new double[testEvents.length];
 
@@ -740,27 +732,11 @@ public class DCCurveClassification extends DCCurveRegression {
 	@Override
 	void estimateTraining(PreProcess preprocess) {
 		trainingGpPrediction = new double[trainingEvents.length];
-		ScriptEngineManager mgr = new ScriptEngineManager();
-		ScriptEngine engine = mgr.getEngineByName("JavaScript");
+		
 
 		for (int outputIndex = 0; outputIndex < trainingEvents.length; outputIndex++) {
 			String foo = "";
-			if (Const.splitDatasetByTrendType) {
-				if (trainingEvents[outputIndex].type == Type.Upturn) {
-					foo = upwardTrendTreeString;
-
-				} else if (trainingEvents[outputIndex].type == Type.Downturn) {
-					foo = downwardTrendTreeString;
-
-				} else {
-					System.out.println("Invalid event");
-					System.exit(0);
-				}
-			} else {
-				foo = trendTreeString;
-			}
-
-			foo = foo.replace("X0", Integer.toString(trainingEvents[outputIndex].length()));
+			
 			double eval = 0.0;
 
 			String classificationStr = "no";
@@ -771,14 +747,10 @@ public class DCCurveClassification extends DCCurveRegression {
 			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 				;// System.out.println("no");
 			} else {
-				Double javascriptValue = Double.MAX_VALUE;
-				try {
-					javascriptValue = (double) engine.eval(foo);
-					eval = javascriptValue.doubleValue();
-				} catch (ScriptException e) {
-					e.printStackTrace();
-				} catch (ClassCastException e) {
-					e.printStackTrace();
+				if (trainingEvents[outputIndex].type == Type.Upturn) {
+					eval = bestUpWardEventTree.eval(trainingEvents[outputIndex].length());
+				} else if (trainingEvents[outputIndex].type == Type.Downturn) {
+					eval = bestDownWardEventTree.eval(trainingEvents[outputIndex].length());
 				}
 			}
 

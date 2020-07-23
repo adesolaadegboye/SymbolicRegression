@@ -12,9 +12,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Vector;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
 
 import dc.GP.AbstractNode;
 import dc.GP.Const;
@@ -245,8 +242,6 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 
 		String thresholdStr = String.format("%.8f", delta);
 
-		ScriptEngineManager mgr = new ScriptEngineManager();
-		ScriptEngine engine = mgr.getEngineByName("JavaScript");
 		gpprediction = new double[testEvents.length];
 		for (int outputIndex = 1; outputIndex < testEvents.length; outputIndex++) {
 			String foo = "";
@@ -275,34 +270,14 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 					|| testEvents[outputIndex].overshoot.end == testEvents[outputIndex].overshoot.start) {
 				; // eval = Double.valueOf(testEvents[outputIndex].length());
 			} else {
-				try {
-					javascriptValue = (Double) engine.eval(foo);
-					eval = javascriptValue.doubleValue();
-				} catch (ScriptException e) {
-					Integer integerObject = new Integer(testEvents[outputIndex].length());
-					eval = integerObject.doubleValue();
-				} catch (ClassCastException e) {
-
-					eval = testEvents[outputIndex].length() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
-				}
-				if (eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY || Double.toString(eval) == "Infinity"
-						|| eval == Double.NaN || Double.isNaN(eval) || Double.isInfinite(eval)
-						|| eval == Double.POSITIVE_INFINITY || eval < 0) {
-
-					eval = testEvents[outputIndex].length() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
-
+				
+				if (testEvents[outputIndex].type == Type.Upturn) {
+					eval = bestUpWardEventTree.eval(testEvents[outputIndex].length());
+				} else if (testEvents[outputIndex].type == Type.Downturn) {
+					eval = bestDownWardEventTree.eval(testEvents[outputIndex].length());
 				}
 			}
-			BigDecimal bd = null;
-			BigDecimal bd2 = null;
-			try {
-				bd = new BigDecimal(eval);
-				bd2 = new BigDecimal(Double.toString(eval));
-			} catch (NumberFormatException e) {
-				Integer integerObject = new Integer(testEvents[outputIndex].length());
-				eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
-			}
-
+			
 			gpprediction[outputIndex] = eval;
 
 		}
@@ -747,8 +722,6 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 	void estimateTraining(PreProcess preprocess) {
 		trainingGpPrediction = new double[trainingEvents.length];
 		
-		ScriptEngineManager mgr = new ScriptEngineManager();
-		ScriptEngine engine = mgr.getEngineByName("JavaScript");
 
 		for (int outputIndex = 0; outputIndex < trainingEvents.length - 2; outputIndex++) {
 			String foo = "";
@@ -781,32 +754,14 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 					|| trainingEvents[outputIndex].overshoot.end == trainingEvents[outputIndex].overshoot.start) {
 				;
 			} else {
-				Double javascriptValue = Double.MAX_VALUE;
-				try {
-					javascriptValue = (Double) engine.eval(foo);
-					eval = javascriptValue.doubleValue();
-				} catch (ScriptException e) {
-					e.printStackTrace();
-				} catch (ClassCastException e) {
-					e.printStackTrace();
+				if (trainingEvents[outputIndex].type == Type.Upturn) {
+					eval = bestUpWardEventTree.eval(trainingEvents[outputIndex].length());
+				} else if (trainingEvents[outputIndex].type == Type.Downturn) {
+					eval = bestDownWardEventTree.eval(trainingEvents[outputIndex].length());
 				}
-				javascriptValue = Double.MAX_VALUE;
 				
 			}
 
-			BigDecimal bd = null;
-			BigDecimal bd2 = null;
-			try {
-				bd = new BigDecimal(eval);
-				bd2 = new BigDecimal(Double.toString(eval));
-			} catch (NumberFormatException e) {
-				Integer integerObject = new Integer(trainingEvents[outputIndex].length());
-				eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
-			}
-			
-			
-			if (eval < 0) 
-				eval = 0;
 			trainingGpPrediction[outputIndex] = eval;
 			
 		}

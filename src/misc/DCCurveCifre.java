@@ -232,9 +232,6 @@ public class DCCurveCifre extends DCCurveRegression {
 		testingEvents = Arrays.copyOf(testEvents, testEvents.length);
 		String thresholdStr = String.format("%.8f", delta);
 
-		javax.script.ScriptEngineManager mgr = new javax.script.ScriptEngineManager();
-		javax.script.ScriptEngine engine = mgr.getEngineByName("JavaScript");
-
 		
 
 		gpprediction = new double[testingEvents.length];
@@ -261,7 +258,7 @@ public class DCCurveCifre extends DCCurveRegression {
 			foo = foo.replace("X0", Integer.toString(testingEvents[outputIndex].length()));
 			foo = foo.replace("X1", Double.toString(testingEvents[outputIndex].high - testingEvents[outputIndex].low) );
 			double eval = 0.0;
-			Double javascriptValue = Double.MAX_VALUE;
+			
 			if ((testingEvents[outputIndex].overshoot == null || testEvents[outputIndex].overshoot.length() == 0)) {
 				// Event eventOverShootCopy = new
 				// Event(this.GPtestEvents[outputIndex].start,
@@ -274,33 +271,21 @@ public class DCCurveCifre extends DCCurveRegression {
 				// numberOfNegativeDownwardEventGP++;
 			}
 
-			try {
-				javascriptValue = (Double) engine.eval(foo);
-				eval = javascriptValue.doubleValue();
-			} catch (javax.script.ScriptException e) {
-				e.printStackTrace();
 
-			} catch (ClassCastException e) {
+			if (testingEvents[outputIndex].type == Type.Upturn) {
+				
+				eval = bestUpWardEventTree.eval(testingEvents[outputIndex].length());
+			} else if (trainingEvents[outputIndex].type == Type.Downturn) {
+				eval = bestDownWardEventTree.eval(testingEvents[outputIndex].length());
 
-				e.printStackTrace();
+			} else {
+				System.out.println("Invalid event");
+				System.exit(0);
 			}
-			if (eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY || Double.toString(eval) == "Infinity"
-					|| eval == Double.NaN || Double.isNaN(eval) || Double.isInfinite(eval)
-					|| eval == Double.POSITIVE_INFINITY || eval < 0) {
-
-				eval = testEvents[outputIndex].length() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
-
-			}
-
-			BigDecimal bd = null;
-			BigDecimal bd2 = null;
-			try {
-				bd = new BigDecimal(eval);
-				bd2 = new BigDecimal(Double.toString(eval));
-			} catch (NumberFormatException e) {
-				Integer integerObject = new Integer(testEvents[outputIndex].length());
-				eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
-			}
+			
+			
+			
+			
 
 			gpprediction[outputIndex] = eval;
 
@@ -733,8 +718,7 @@ public class DCCurveCifre extends DCCurveRegression {
 	@Override
 	void estimateTraining(PreProcess preprocess) {
 		trainingGpPrediction = new double[trainingEvents.length];
-		javax.script.ScriptEngineManager mgr = new javax.script.ScriptEngineManager();
-		javax.script.ScriptEngine engine = mgr.getEngineByName("JavaScript");
+		
 
 		for (int outputIndex = 0; outputIndex < trainingEvents.length; outputIndex++) {
 			String foo = "";
@@ -758,34 +742,16 @@ public class DCCurveCifre extends DCCurveRegression {
 			foo = foo.replace("X0", Integer.toString(trainingEvents[outputIndex].length()));
 			foo = foo.replace("X1", Double.toString(trainingEvents[outputIndex].high - trainingEvents[outputIndex].low) );
 			double eval = 0.0;
-			Double javascriptValue = Double.MAX_VALUE;
+			
+			if (trainingEvents[outputIndex].type == Type.Upturn) {
+				
+				eval = bestUpWardEventTree.eval(trainingEvents[outputIndex].length());
+			} else if (trainingEvents[outputIndex].type == Type.Downturn) {
+				eval = bestDownWardEventTree.eval(trainingEvents[outputIndex].length());
 
-			try {
-				javascriptValue = (Double) engine.eval(foo);
-				eval = javascriptValue.doubleValue();
-			} catch (javax.script.ScriptException e) {
-				e.printStackTrace();
-
-			} catch (ClassCastException e) {
-
-				e.printStackTrace();
-			}
-			if (eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY || Double.toString(eval) == "Infinity"
-					|| eval == Double.NaN || Double.isNaN(eval) || Double.isInfinite(eval)
-					|| eval == Double.POSITIVE_INFINITY || eval < 0) {
-
-				eval = trainingEvents[outputIndex].length() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
-
-			}
-
-			BigDecimal bd = null;
-			BigDecimal bd2 = null;
-			try {
-				bd = new BigDecimal(eval);
-				bd2 = new BigDecimal(Double.toString(eval));
-			} catch (NumberFormatException e) {
-				Integer integerObject = new Integer(trainingEvents[outputIndex].length());
-				eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
+			} else {
+				System.out.println("Invalid event");
+				System.exit(0);
 			}
 
 			trainingGpPrediction[outputIndex] = eval;

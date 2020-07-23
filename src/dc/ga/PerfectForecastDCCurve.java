@@ -12,9 +12,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Vector;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
 
 import dc.MyException;
 import dc.GP.AbstractNode;
@@ -368,9 +365,7 @@ public class PerfectForecastDCCurve extends DCCurve {
 	public
 	void estimateTraining(PreProcess preprocess) {
 		trainingPrediction = new double[trainingEvents.length];
-		ScriptEngineManager mgr = new ScriptEngineManager();
-		ScriptEngine engine = mgr.getEngineByName("JavaScript");
-
+		
 		for (int outputIndex = 0; outputIndex < trainingEvents.length - 2; outputIndex++) {
 			String foo = "";
 			if (Const.OsFunctionEnum == Const.function_code.eGP){
@@ -395,27 +390,21 @@ public class PerfectForecastDCCurve extends DCCurve {
 						|| trainingEvents[outputIndex].overshoot.end == trainingEvents[outputIndex].overshoot.start) {
 					;
 				} else {
-					Double javascriptValue = Double.MAX_VALUE;
-					try {
-						javascriptValue = (Double) engine.eval(foo);
-						eval = javascriptValue.doubleValue();
-					} catch (ScriptException e) {
-						e.printStackTrace();
-					} catch (ClassCastException e) {
-						e.printStackTrace();
+					
+					if (trainingEvents[outputIndex].type == Type.Upturn) {
+						
+						eval = bestUpWardEventTree.eval(trainingEvents[outputIndex].length());
+					} else if (trainingEvents[outputIndex].type == Type.Downturn) {
+						eval = bestDownWardEventTree.eval(trainingEvents[outputIndex].length());
+
+					} else {
+						System.out.println("Invalid event");
+						System.exit(0);
 					}
+					
 				}
 	
-				BigDecimal bd = null;
-				BigDecimal bd2 = null;
-				try {
-					bd = new BigDecimal(eval);
-					bd2 = new BigDecimal(Double.toString(eval));
-				} catch (NumberFormatException e) {
-					Integer integerObject = new Integer(trainingEvents[outputIndex].length());
-					eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
-				}
-	
+
 				trainingPrediction[outputIndex] = eval;
 			}
 			else if (Const.OsFunctionEnum == Const.function_code.eMichaelFernando){
