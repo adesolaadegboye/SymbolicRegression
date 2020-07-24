@@ -255,8 +255,8 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 					numberOfDownwardEvent++;
 					isUpwardEvent = false;
 				} else {
-					System.out.println("Invalid event");
-					System.exit(0);
+					System.out.println("DCCurvePErfectForesight - DCCurvePErfectForesight - Invalid event");
+					continue;
 				}
 			} else {
 				foo = trendTreeString;
@@ -737,8 +737,8 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 					numberOfDownwardEvent++;
 					isUpwardEvent = false;
 				} else {
-					System.out.println("Invalid event");
-					System.exit(0);
+					System.out.println("DCCurvePErfectForesight - DCCurvePErfectForesight - Invalid event");
+					continue;
 				}
 
 			} else {

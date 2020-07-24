@@ -293,8 +293,8 @@ public class DCCurveClassification extends DCCurveRegression {
 					eval = bestDownWardEventTree.eval(testEvents[outputIndex].length());
 
 				} else {
-					System.out.println("Invalid event");
-					System.exit(0);
+					System.out.println("DCCurveClassification - DCCurveClassification - Invalid event");
+					continue;
 				}
 			}
 

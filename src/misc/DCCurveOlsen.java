@@ -214,9 +214,12 @@ public class DCCurveOlsen extends DCCurveRegression {
 		}
 
 		if (isPositionOpen) {
-			tradedPrice.remove(tradedPrice.size() - 1);
+			if (tradedPrice.size() > 0)
+				tradedPrice.remove(tradedPrice.size() - 1);
+			if (anticipatedTrend.size() > 0)
 			anticipatedTrend.remove(anticipatedTrend.size() - 1);
-			actualTrend.remove(actualTrend.size() - 1);
+			if (actualTrend.size() > 0)
+				actualTrend.remove(actualTrend.size() - 1);
 			OpeningPosition = positionArrayBase.get(positionArrayBase.size() - 1);
 			positionArrayQuote.remove(positionArrayQuote.size() - 1);
 			isPositionOpen = false;

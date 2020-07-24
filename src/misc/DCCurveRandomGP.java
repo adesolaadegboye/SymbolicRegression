@@ -291,8 +291,8 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 					foo = downwardTrendTreeString;
 
 				} else {
-					System.out.println("Invalid event");
-					System.exit(0);
+					System.out.println("DCCurveRandom - DCCurveRandom - Invalid event");
+					continue;
 				}
 			} else {
 				foo = trendTreeString;
@@ -776,7 +776,7 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 					foo = downwardTrendTreeString;
 
 				} else {
-					System.out.println("Invalid event");
+					System.out.println("DCCurveRandom - DCCurveRandom - Invalid event");
 					System.exit(0);
 				}
 			} else {

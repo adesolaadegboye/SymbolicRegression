@@ -18,6 +18,8 @@
 
 package dc.ga;
 
+import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.text.ParseException;
 import java.time.LocalDateTime;
@@ -1307,6 +1309,37 @@ public class GA_new {
 		}
 	}
 	
+	public void cleanUpTempFiles(){
+		
+		for (int reportCount = 0; reportCount < curves.length; reportCount++) {
+			if (curves[reportCount].preprocess != null)
+				curves[reportCount].preprocess.removeTempFiles();
+	
+			String tempFolderName = curves[reportCount].preprocess.tempFilePath.get(0).substring(0,
+					curves[reportCount].preprocess.tempFilePath.get(0).lastIndexOf(File.separator));
+	
+			File dir = new File(tempFolderName);
+			if (!dir.isDirectory())
+				continue;
+	
+			File[] tempFile = dir.getParentFile().listFiles(new FilenameFilter() {
+				public boolean accept(File dir, String name) {
+					return name.startsWith("autoweka" + filename);
+				}
+			});
+	
+			for (int tempFileCount = 0; tempFileCount < tempFile.length; tempFileCount++) {
+				try {
+					curves[reportCount].preprocess.deleteDirectoryRecursionJava6(tempFile[tempFileCount]);
+				} catch (IOException e) {
+	
+					System.out.println("Unable to delete one of the directory");
+				}
+			}
+		}
+
+	}
+	
 	public void reportRMSE(){
 		log.delete("RegressionAnalysis_"+Const.hashFunctionTypeToString(Const.OsFunctionEnum)+".txt");
 		log.save("RegressionAnalysis_"+Const.hashFunctionTypeToString(Const.OsFunctionEnum)+".txt", " Filename \t threshold \t RMSE");
@@ -1465,8 +1498,11 @@ public class GA_new {
 		ga.reportRMSE();
 		
 		if (Const.OsFunctionEnum == Const.function_code.eGP ){
-			ga.reportClassification();
+			//ga.reportClassification();
+			ga.cleanUpTempFiles();
 		}
+		
+		
 		log.save("Results_"+Const.hashFunctionTypeToString(Const.OsFunctionEnum)+".txt", "\n\nTesting Budget\t" + budget);
 	}
 

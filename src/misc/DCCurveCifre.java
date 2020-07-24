@@ -248,8 +248,8 @@ public class DCCurveCifre extends DCCurveRegression {
 					numberOfDownwardEvent++;
 					isUpwardEvent = false;
 				} else {
-					System.out.println("Invalid event");
-					System.exit(0);
+					System.out.println("DCCurveCifre - DCCurveCifre - Invalid event");
+					continue;
 				}
 			} else {
 				foo = trendTreeString;
@@ -275,12 +275,12 @@ public class DCCurveCifre extends DCCurveRegression {
 			if (testingEvents[outputIndex].type == Type.Upturn) {
 				
 				eval = bestUpWardEventTree.eval(testingEvents[outputIndex].length());
-			} else if (trainingEvents[outputIndex].type == Type.Downturn) {
+			} else if (testingEvents[outputIndex].type == Type.Downturn) {
 				eval = bestDownWardEventTree.eval(testingEvents[outputIndex].length());
 
 			} else {
-				System.out.println("Invalid event");
-				System.exit(0);
+				System.out.println("DCCurveCifre - DCCurveCifre - Invalid event");
+				continue;
 			}
 			
 			
@@ -732,8 +732,8 @@ public class DCCurveCifre extends DCCurveRegression {
 					numberOfDownwardEvent++;
 					isUpwardEvent = false;
 				} else {
-					System.out.println("Invalid event");
-					System.exit(0);
+					System.out.println("DCCurveCifre - DCCurveCifre - Invalid event");
+					continue;
 				}
 			} else {
 				foo = trendTreeString;
@@ -750,8 +750,8 @@ public class DCCurveCifre extends DCCurveRegression {
 				eval = bestDownWardEventTree.eval(trainingEvents[outputIndex].length());
 
 			} else {
-				System.out.println("Invalid event");
-				System.exit(0);
+				System.out.println("DCCurveCifre - DCCurveCifre - Invalid event");
+				continue;
 			}
 
 			trainingGpPrediction[outputIndex] = eval;
