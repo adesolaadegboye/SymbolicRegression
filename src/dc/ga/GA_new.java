@@ -456,11 +456,12 @@ public class GA_new {
 	}
 
 	public Fitness run(long seed, int currentRun) {
-		if (seed == 0) {
-			seed = System.currentTimeMillis();
-		}
+		//if (seed == 0) {
+	//		seed = System.currentTimeMillis();
+	//	}
 
-		random = new Random(seed);
+		//random = new Random(seed);
+		random = new Random();
 		System.out.println("Starting GA_new...");
 		System.out.println(String.format("Random seed: %d", seed));
 		System.out.println("Training budget: " + budget);
@@ -655,8 +656,13 @@ public class GA_new {
 		int quantity = -1;
 		if (shortSelling == false) {
 
-			while (quantity <= 0)
-				quantity = random.nextInt(MAX_QUANTITY);
+			while (quantity <= 0){
+				int max = 11;
+				int min = 1;
+				Random rand = new Random();
+				quantity = rand.nextInt((max - min) + 1) + min;
+				//quantity =  1 + (10 - 1) * new Random().nextInt(); //random.nextInt(MAX_QUANTITY);
+			}
 		} else {
 			while (quantity < 0)// we don't set equal to 0, as we might want to
 								// allow 0 quantity in order to disable
@@ -734,9 +740,6 @@ public class GA_new {
 						newPop[individual][j] =  generateQuantity(false);//if j==0, then it's the normal quantity, otherwise it's quantity for short-selling	
 					else//all other cases go here, even the j=1 for beta.
 							newPop[individual][j] = random.nextDouble();
-					if (j == 0){
-						newPop[individual][j] =  getRandomDoubleBetweenRange(budget/8,budget/4); // number of open positions
-					}
 				}
 			}
 		}
@@ -753,11 +756,10 @@ public class GA_new {
 			{
 				if (random.nextDouble() > 0.5)
 				{
-						if (j == 0){
-						
-							pop[individual][j] =  getRandomDoubleBetweenRange(budget/8,budget/4); // number of open positions
-						}
-						else{//all other cases go here, even the j=1 for beta.
+					if (j == 0)//we need to generate an integer for the quantity
+						newPop[individual][j] = (int) generateQuantity(false);
+					else{
+						//all other cases go here, even the j=1 for beta.
 							double a = 0;
 							double b = 1;
 							double r = random.nextDouble();
@@ -765,9 +767,8 @@ public class GA_new {
 							
 							newPop[individual][j] = (tau == 1) ? 
 									pop[individual][j] + (b - pop[individual][j]) * (1 - Math.pow(r, 1 - (double)currentGeneration/MAX_GENERATIONS)) : 
-									pop[individual][j] - (pop[individual][j] - a) * (1 - Math.pow(r, 1 - (double)currentGeneration/MAX_GENERATIONS)); 
-						}
-						
+									pop[individual][j] - (pop[individual][j] - a) * (1 - Math.pow(r, 1 - (double)currentGeneration/MAX_GENERATIONS)); 			
+					}
 				}
 			}
 		}
@@ -820,12 +821,6 @@ public class GA_new {
 				offspring[j] =
 						random.nextDouble() > 0.5 ? pop[first][j]
 								: pop[second][j];
-
-						
-						if (j == 0 ){
-							
-							offspring[0] =  getRandomDoubleBetweenRange(budget/8,budget/4); // number of open positions
-						}
 			}
 		}
 		else
@@ -865,13 +860,6 @@ public class GA_new {
 				offspring[j] =pop[second][j];
 
 			}
-
-			
-			
-			if ( offspring[0] >  budget/100 ){
-				
-				offspring[0] =  getRandomDoubleBetweenRange(budget/8,budget/4); // number of open positions
-			}
 		}
 		else
 		{
@@ -904,12 +892,6 @@ public class GA_new {
 					offspring[j] = (int) ( 0.5 * pop[first][j] + 0.5 * pop[second][j] );//obtaining the arithmetic mean of the two parents
 				else
 					offspring[j] = 0.5 * pop[first][j] + 0.5 * pop[second][j];//obtaining the arithmetic mean of the two parents
-
-				
-				if (j == 0){
-					
-					offspring[0] =  getRandomDoubleBetweenRange(budget/8,budget/4); // number of open positions
-				}
 			}
 		}
 		else
@@ -945,15 +927,11 @@ public class GA_new {
 				double cmax = pop[first][j] > pop[second][j] ? pop[first][j] : pop[second][j];
 
 				if (j == 0)//we need to generate an integer for the quantity
-					offspring[j] = (int) ( random.nextDouble() * (cmax - cmin) + cmin );//rnd number in the range [cmin, cmax]
+					offspring[j] = (int) generateQuantity(false); //( random.nextDouble() * (cmax - cmin) + cmin );//rnd number in the range [cmin, cmax]
 				else
 					offspring[j] = random.nextDouble() * (cmax - cmin) + cmin;//rnd number in the range [cmin, cmax]
 
 				
-				if (j == 0){
-					
-					offspring[0] =  getRandomDoubleBetweenRange(budget/8,budget/4); // number of open positions
-				}
 			}
 		}
 		else
@@ -1002,24 +980,9 @@ public class GA_new {
 				for (int j = 0; j < curves.length; j++) {
 					totalWeight = totalWeight + individual[j + 2];
 				}
-				Map<Double, Integer> curveLastConfirmedDCCMap = new HashMap<Double, Integer>();
-				
-				for (int j = 0; j < curves.length; j++) {
-					//remainderAfterAllocation = remainderAfterAllocation +  (budget * individual[2 + j]);
-					// not used . might use in the future
-					double  thresholdWeight = individual[j + 2];
-					curves[j].initialbudget = budget * (thresholdWeight/totalWeight);
-					curves[j].tradingBudget = budget * (thresholdWeight/totalWeight); 
-					curves[j].isPositionOpen = false;
-					curves[j].noOfTransactions=0;
-					curves[j].lastClosedPosition = budget * (thresholdWeight/totalWeight); 
-					curveLastConfirmedDCCMap.put(curves[j].threshold, -1);
-					
-				}
 				
 				double  previousBaseCCYReturn =budget;
-				double lastPurhaseBidPrice = 0.0;
-				double lastPurhaseAskPrice = 0.0;
+				double lastUpDCCend = 0.0;
 				for (int i = start; i < length; i++) {
 					
 					//Do classification
@@ -1061,7 +1024,7 @@ public class GA_new {
 						isActionsell = false;
 					double myPrice;
 					double tradetransactionCost;
-					if (sellCount > 0.0 && isActionsell && !tradeClass.isOpenPosition){
+					if (sellCount > 0.0 && isActionsell && tradeClass.baseCurrencyAmount > 0){
 						double askQuantity = 0.0;
 						double zeroTransactionCostAskQuantity = 0.0;
 						double transactionCostPrice = 0.0;
@@ -1081,26 +1044,29 @@ public class GA_new {
 							continue;
 						}
 						
-						tradetransactionCost = tradeClass.baseCurrencyAmount * (transactionCost/100);
+						tradetransactionCost = (tradeClass.baseCurrencyAmount/(individual[0])) * (transactionCost/100);
 						transactionCostPrice = tradetransactionCost * myPrice;
-						askQuantity =  (tradeClass.baseCurrencyAmount -tradetransactionCost) *myPrice;
-						zeroTransactionCostAskQuantity = tradeClass.baseCurrencyAmount *myPrice;
+						askQuantity =  ((tradeClass.baseCurrencyAmount/(individual[0])) -tradetransactionCost) *myPrice;
+						zeroTransactionCostAskQuantity = (tradeClass.baseCurrencyAmount/(individual[0])) *myPrice;
 						
-						if (transactionCostPrice <= (zeroTransactionCostAskQuantity - askQuantity) ){
+						if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) ){
 
-							tradeClass.quoteCurrencyAmount = askQuantity;
+							tradeClass.quoteCurrencyAmount =  tradeClass.quoteCurrencyAmount + askQuantity;
 							tradeClass.isOpenPosition = true;
 							tradeClass.soldTradeList.add(new Double(askQuantity));
 							
 							lastdccpt = tradeClass.baseCurrencyAmount;
-							tradeClass.baseCurrencyAmount=0.0;
+							tradeClass.baseCurrencyAmount=tradeClass.baseCurrencyAmount - (tradeClass.baseCurrencyAmount/(individual[0]));
 							tradeClass.quoteCurrencyTransaction++;
 							sellCount++;
+
+							lastUpDCCend = Double.parseDouble(bidAskprice.get(tradingPoint).bidPrice);
+							
 							
 						}
 
 					}
-					else if (buyCount > 0.0 && !isActionsell && tradeClass.isOpenPosition){
+					else if (buyCount > 0.0 && !isActionsell && tradeClass.quoteCurrencyAmount > 0){
 						double bidQuantity = 0.0;
 
 
@@ -1129,11 +1095,12 @@ public class GA_new {
 						bidQuantity =  ( tradeClass.quoteCurrencyAmount -tradetransactionCost) *myPrice;
 						zeroTransactionCostBidQuantity = tradeClass.quoteCurrencyAmount *myPrice;
 
-						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity) ){
+						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
+								&& myPrice < lastUpDCCend){
 							double closeout = (tradeClass.quoteCurrencyAmount -tradetransactionCost) /myPrice;
-							//if (lastdccpt < closeout )
-							//	continue; 
-							tradeClass.baseCurrencyAmount = closeout;
+							
+							
+							tradeClass.baseCurrencyAmount = tradeClass.baseCurrencyAmount +closeout;
 							tradeClass.isOpenPosition = false;
 							tradeClass.quoteCurrencyAmount=0.0;
 							tradeClass.boughtTradeList.add(new Double(closeout));
@@ -1441,7 +1408,7 @@ public class GA_new {
 		}
 		
 		Const.OsFunctionEnum =  Const.hashFunctionType(s[6]);
-		Const.optimisationSelectedThreshold = Const.optimisation_selected_threshold.eperformanceScore;
+		Const.optimisationSelectedThreshold = Const.optimisation_selected_threshold.eMedian;
 		
 		log = new Logger(s[1], s[3], s[4]);
 		log.delete("Solutions_"+Const.hashFunctionTypeToString(Const.OsFunctionEnum)+".txt");												
