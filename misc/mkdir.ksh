@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Korn Shell script (1) to back up files
+# bash Shell script to create directories
 
 /bin/mkdir  -p "mkampo/GADC/dc/build/jar/adesolaNumber1/fx-spot_AUD_JPY_10min_201603"
 /bin/mkdir  -p "mkampo/GADC/dc/build/jar/adesolaNumber1/fx-spot_AUD_JPY_10min_201604"
