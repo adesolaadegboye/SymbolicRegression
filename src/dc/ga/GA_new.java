@@ -13,7 +13,6 @@
 *
 * You should have received a copy of the GNU General Public License
 * along with DC+GA.  If not, see <http://www.gnu.org/licenses/>.
-
 */
 
 package dc.ga;
@@ -505,7 +504,7 @@ public class GA_new {
 
 
 			report(t, fitness);
-
+			
 			/** tournament selection and crossover **/
 			for (int p = Const.ELISTISM_COUNT; p < POPSIZE; p++)// 1 because of elitism
 			{
@@ -529,6 +528,7 @@ public class GA_new {
 					newPop[p] = crossoverDiscrete(first, second);
 					break;
 				}
+				
 
 			} // end of going through population
 
@@ -1697,11 +1697,11 @@ public class GA_new {
 			else if (predictionArray.size() == 2)
 				 finalTradingPoint = (int) (((double)predictionArray.get(0) + (double) predictionArray.get(1))/2);
 			else if (predictionArray.size() == 3)
-				 finalTradingPoint =  predictionArray.get(2);
+				 finalTradingPoint =  predictionArray.get(1);
 			else if (predictionArray.size() == 4)
 				 finalTradingPoint = (int) (((double)predictionArray.get(1) + (double) predictionArray.get(2))/2);
 			else if (predictionArray.size() == 5)
-				 finalTradingPoint =  predictionArray.get(4);
+				 finalTradingPoint =  predictionArray.get(2);
 			else
 				finalTradingPoint = -1;
 		}
