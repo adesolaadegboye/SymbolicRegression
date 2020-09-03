@@ -15,11 +15,12 @@ import dc.io.Logger;
 
 
 /**
- * @author Michael Kampouridis
+ * @author Adesola Adegboye
  *
  */
 public class DCCurvePerformance extends GA{
 
+	
 	public DCCurvePerformance(String filename, int trainingIndexStart, int trainingIndexEnd, int testIndexStart, int testIndexEnd, int POPSIZE,
 			int MAX_GENERATIONS, int tournamentSize, double CROSSOVER_PROB, double MUTATION_PROB, double thresholdIncrement,
 			int numberOfThresholds, int MAX_QUANTITY, int budget, double shortSellingAllowance, double mddWeight, int xoverOperatorIndex,

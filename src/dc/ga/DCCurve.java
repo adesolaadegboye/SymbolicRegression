@@ -39,6 +39,7 @@ import dc.io.FReader;
 import dc.io.FReader.FileMember2;
 import misc.DCEventGenerator;
 import misc.SimpleDrawDown;
+import misc.SimpleSharpeRatio;
 import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
@@ -79,7 +80,7 @@ public class DCCurve {
 	double rmseResult = Double.MAX_VALUE;
 	
 	
-	
+	double lastUpDCCend = 0.0;
 	Event[] trainingEvents;
 	String upwardTrendTreeString = null;
 	String downwardTrendTreeString = null;
@@ -106,6 +107,8 @@ public class DCCurve {
 	public double threshold = -0.1;
 	Map<Integer, double[]> runsPrediction = new HashMap<Integer, double[]>();
 	SimpleDrawDown simpleDrawDown = new SimpleDrawDown();
+	SimpleSharpeRatio simpleSharpeRatio = new SimpleSharpeRatio();
+	
 	boolean isUpwardEvent = true;
 	Instances testInstance;
 	Instances trainingInstance;
@@ -116,9 +119,12 @@ public class DCCurve {
 	public double tradingBudget = 0.0;
 	public boolean isPositionOpen = false;
 	public double lastClosedPosition = 0.0;
+	public double previousMdd = 0.0;
+	public double currentMdd = 0.0;
 	public double lastOpenPrice = 0.0;
 	public int noOfTransactions = 0;
 	
+	 
 	public double tradingBudgetQuoteCCy = 0.0;
 	public int numberOfOpenPositions = 0;
 	public double lastUpDCEndTraded = 0.0;

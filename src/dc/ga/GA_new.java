@@ -26,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -42,6 +43,7 @@ import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
 import dc.io.FReader;
 import dc.io.Logger;
+import dc.io.FReader.FileMember2;
 import misc.SimpleDrawDown;
 import misc.SimpleSharpeRatio;
 import weka.core.Instances;
@@ -123,9 +125,6 @@ public class GA_new {
 	Map<Double, PreProcess> processMap;
 	double[][] multiArrClassification = new double[5][];
 	double[][] transactionsPerThreshold = new double[5][];
-	// Map<Double, Event[]> testOutputMap = new HashMap<>();
-	// Map<Double, Event[]> trainingOutputMap = new HashMap<>();
-	final protected double transactionCost;
 	final protected double slippageAllowance;// SLIPPAGE is the difference
 												// between the price of a trade
 												// that is expected and the
@@ -206,11 +205,8 @@ public class GA_new {
 
 		nRuns = 50;
 
-		transactionCost = 0.025; // 0.001 / 100;// 0.001/100; the 0.025 is the proper
-										// cost.
 		slippageAllowance = 0.01/100 ; //0 / 100;// 0.01/100 the 0.01 is the proper cost
 
-		System.out.println("Transaction cost: " + transactionCost);
 		System.out.println("Slippage allowance: " + slippageAllowance);
 
 		bestTestFitness.value = Double.NEGATIVE_INFINITY;
@@ -954,7 +950,7 @@ public class GA_new {
 				int uSell = 0;
 				int uBuy = 0;
 				int noop = 0;
-				double lastdccpt = 0;
+				
 				simpleDrawDown = new SimpleDrawDown();
 				sharpeRatio = new SimpleSharpeRatio();
 				simpleDrawDown.Calculate(GA_new.budget);
@@ -981,210 +977,262 @@ public class GA_new {
 					totalWeight = totalWeight + individual[j + 2];
 				}
 				
-				double  previousBaseCCYReturn =budget;
-				double lastUpDCCend = 0.0;
+				//assign budget
+				double allocatedBudget = 0.0;
+				for (int j = 0; j < curves.length; j++ ){
+					curves[j].initialbudget = (individual[j + 2]/totalWeight) * budget;
+					curves[j].tradingBudget = curves[j].initialbudget;
+					allocatedBudget = curves[j].initialbudget + allocatedBudget;
+					curves[j].isPositionOpen =  false;
+				}
+
+				curves[0].initialbudget  = curves[0].initialbudget + (budget - allocatedBudget);
+				curves[0].tradingBudget  = curves[0].tradingBudget + (budget - allocatedBudget);
+				
+				
+				for (int j = 0; j < curves.length; j++ ){
+					curves[j].simpleDrawDown = new SimpleDrawDown();
+					curves[j].simpleDrawDown.Calculate(curves[j].initialbudget);
+					curves[j].simpleSharpeRatio = new SimpleSharpeRatio();
+					curves[j].simpleSharpeRatio.addReturn(0);
+					curves[j].noOfTransactions = 0;
+				}
+				
+				
 				for (int i = start; i < length; i++) {
 					
-					//Do classification
-					// DO prediction
-					double buyCount = 0.0;
-					double sellCount = 0.0;
 					
-					Vector<Double> thresholdsWithUpwardDecision = new Vector<Double>();
-					Vector<Double> thresholdsWithDownwardDecision = new Vector<Double>();
-					
-					for (int j = 0; j < curves.length; j++ ){
-						
-						if (curves[j].output[i].type == Type.Upturn   ) {
-							 sellCount = sellCount + individual[2 + j];
-							 thresholdsWithUpwardDecision.add(curves[j].threshold);
-						} else if (curves[j].output[i].type == Type.Downturn ) {
-							buyCount = buyCount +  individual[2 + j];
-							 thresholdsWithDownwardDecision.add(curves[j].threshold);
-						}
-					}
-					int tradingPoint;
-					if(sellCount > buyCount)
-						tradingPoint = getTradingPoint(i, test, Type.Upturn , thresholdsWithUpwardDecision);
-					else
-						tradingPoint = getTradingPoint(i, test, Type.Downturn , thresholdsWithDownwardDecision);
+					for (int m = 0; m < curves.length; m++ ){
+						Double clsLabel = 1.0;
+						String classificationStr = "no";
+						double  transactionCost=0.0;
+						double eval = 0.0;
+						if (test) {
+							if ( curves[m].preprocess == null){
+								System.out.print("Classificier not found exiting- Test hase cannot continue");
+								System.exit(-1);
+							}
+							if ( curves[m].preprocess != null){
+								if (i >= curves[m].getOutputTestInstance().size()) {
+									System.out.println("Threshold " + curves[m].threshold + " does not have datapoint " + i);
+									continue;
+								}
+								
+								if (curves[m].preprocess != null && curves[m].getOutputTestInstance().get(i) != null) {
 
-
-					if (tradingPoint  > length)
-						continue;
-					
-					//if (sellCount > 0  &&  buyCount > 0)
-					//	System.out.println("over lapping thresholds");
-						
-					boolean isActionsell = true; 
-					if(sellCount > buyCount){
-						isActionsell= true;
-					}
-					else if (buyCount > sellCount)
-						isActionsell = false;
-					double myPrice;
-					double tradetransactionCost;
-					if (sellCount > 0.0 && isActionsell && tradeClass.baseCurrencyAmount > 0){
-						double askQuantity = 0.0;
-						double zeroTransactionCostAskQuantity = 0.0;
-						double transactionCostPrice = 0.0;
-						
-						try {
-						myPrice = Double.parseDouble(bidAskprice.get(tradingPoint).askPrice);
-						
+									try {
+										clsLabel = curves[m].preprocess.autoWEKAClassifier
+												.classifyInstance(curves[m].getOutputTestInstance().get(i));
+									} catch (Exception e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+									classificationStr = (clsLabel.toString().compareToIgnoreCase("0.0") == 0) ? "yes" : "no";
+								}
+								else {
+									System.out.println(" invalid preprocess or testinstance. I is " + i);
+									continue;
+								} 
+							}
+							else{
+						//		if (Const.OsFunctionEnum == Const.function_code.eGP)
+						//			classificationStr = "no";
+						///		else
+									classificationStr = "yes";
+							}
 						}
-						catch (ArrayIndexOutOfBoundsException e){
+						else{
+							Double instanceClass ;
+							if (multiArrClassification[m] != null){ // used double array to maintain order and it is faster
+							 instanceClass = multiArrClassification[m][i];
+							 classificationStr = (instanceClass.toString().compareToIgnoreCase("0.0") == 0) ? "yes" : "no";
+							}
+							else{
+								//if (Const.OsFunctionEnum == Const.function_code.eGP)
+								//	classificationStr = "no";
+								//else
+									classificationStr = "yes";
+							}
+						}
+
+						
+						
+						int overshootEstimationPoint =  0; 
+						int tradePoint = -1;
+						
+						if ((classificationStr.compareToIgnoreCase("no") == 0)) {  // This means these is no overshoot
+							tradePoint = curves[m].output[i].end;
+						}
+						else {
 							
+							
+							if (curves[m].output[i].type ==  Type.Upturn){
+								if (Const.OsFunctionEnum == Const.function_code.eGP){
+									eval = curves[m].bestUpWardEventTree.eval(curves[m].output[i].length()); // curves[curveCounter].predictionUpward[physicalTimeCounter];
+								}
+								else
+									eval = curves[m].meanRatio[1];
+							}
+							else
+								if (Const.OsFunctionEnum == Const.function_code.eGP){
+									eval = curves[m].bestDownWardEventTree.eval(curves[m].output[i].length()); // curves[curveCounter].predictionDownward[physicalTimeCounter]; //					
+								}
+								else
+									eval = curves[m].meanRatio[0];
+						}
+							
+						//Round because GP has decimals
+						overshootEstimationPoint =  (int) Math.floor(eval);
+						tradePoint =  overshootEstimationPoint + curves[m].output[i].end;
+				
+						if (curves[m].output[i] == null)
 							continue;
-						}
-						catch (IndexOutOfBoundsException e){
+
+						if (i + 1 > curves[m].output.length - 1)
 							continue;
-						}
-						catch (Exception e){
+
+						if (curves[m].output[i + 1] == null)
 							continue;
+						int nextEventEndPOint = getNextDirectionaChangeEndPoint(curves[m].output,  tradePoint);
+						
+						if (tradePoint > nextEventEndPOint ) // If a new DC is
+																		// encountered
+																		// before the
+																		// estimation point
+																		// skip trading
+							continue;
+
+						
+						double myPrice;
+						
+						if (tradePoint >= bidAskprice.size() ) {
+							//System.out.println(" DCCurveClassification: predicted datapoint "
+							//		+  tradePoint + " is beyond the size of price array  "
+							//		+ bidAskprice.size() + " . Trading ended");
+							continue;
+						} else {
+							// I am opening my position in base currency
+							try {
+								
+								
+								if (curves[m].output[i].type == Type.Upturn && !curves[m].isPositionOpen) {
+									// Now position is in quote currency
+									double askQuantity = curves[m].tradingBudget;
+									double zeroTransactionCostAskQuantity = curves[m].tradingBudget;
+									double transactionCostPrice = 0.0;
+									myPrice = Double.parseDouble(bidAskprice.get(tradePoint).askPrice);
+									
+									
+									transactionCost = askQuantity * (0.025/100);
+									transactionCostPrice = transactionCost * myPrice;
+									askQuantity =  (askQuantity -transactionCost) *myPrice;
+									zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity *myPrice;
+									
+									
+									if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){		
+										
+									
+										curves[m].lastUpDCCend = Double.parseDouble(bidAskprice.get(tradePoint).bidPrice);
+										curves[m].tradingBudget = askQuantity;
+										curves[m].isPositionOpen = true;
+									}
+
+								} else if (curves[m].output[i].type == Type.Downturn && curves[m].isPositionOpen) {
+									// Now position is in base currency
+									// I buy base currency
+									double bidQuantity = curves[m].tradingBudget;
+									double zeroTransactionCostBidQuantity = curves[m].tradingBudget;
+									double transactionCostPrice = 0.0;
+									myPrice = Double.parseDouble(bidAskprice.get(tradePoint).bidPrice);
+
+									transactionCost = bidQuantity * (0.025 / 100);
+									transactionCostPrice = transactionCost * myPrice;
+									bidQuantity = (bidQuantity - transactionCost) * myPrice;
+									zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
+								
+									if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
+											&& myPrice < curves[m].lastUpDCCend){
+							
+										curves[m].previousMdd = curves[m].currentMdd;
+										curves[m].tradingBudget = (curves[m].tradingBudget - transactionCost) / myPrice;
+										
+										curves[m].isPositionOpen = false;
+										curves[m].simpleDrawDown.Calculate(curves[m].tradingBudget);
+										curves[m].simpleSharpeRatio.addReturn(curves[m].tradingBudget - curves[m].lastClosedPosition);
+										curves[m].lastClosedPosition = curves[m].tradingBudget;
+										curves[m].currentMdd = curves[m].simpleDrawDown.getMaxDrawDown();
+										curves[m].noOfTransactions++;
+									}
+								}
+							} catch (ArrayIndexOutOfBoundsException exception) {
+								System.out.println(" DCCurveClassiifcation: Search for element " +  tradePoint
+										+ " is beyond the size of price array  " + 
+										bidAskprice.size() + " . Trading ended") ;
+								break;
+								
+							}
+
 						}
-						
-						tradetransactionCost = (tradeClass.baseCurrencyAmount/(individual[0])) * (transactionCost/100);
-						transactionCostPrice = tradetransactionCost * myPrice;
-						askQuantity =  ((tradeClass.baseCurrencyAmount/(individual[0])) -tradetransactionCost) *myPrice;
-						zeroTransactionCostAskQuantity = (tradeClass.baseCurrencyAmount/(individual[0])) *myPrice;
-						
-						if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) ){
 
-							tradeClass.quoteCurrencyAmount =  tradeClass.quoteCurrencyAmount + askQuantity;
-							tradeClass.isOpenPosition = true;
-							tradeClass.soldTradeList.add(new Double(askQuantity));
-							
-							lastdccpt = tradeClass.baseCurrencyAmount;
-							tradeClass.baseCurrencyAmount=tradeClass.baseCurrencyAmount - (tradeClass.baseCurrencyAmount/(individual[0]));
-							tradeClass.quoteCurrencyTransaction++;
-							sellCount++;
-
-							lastUpDCCend = Double.parseDouble(bidAskprice.get(tradingPoint).bidPrice);
-							
-							
-						}
-
-					}
-					else if (buyCount > 0.0 && !isActionsell && tradeClass.quoteCurrencyAmount > 0){
-						double bidQuantity = 0.0;
-
-
-						double zeroTransactionCostBidQuantity = 0.0;
-						double transactionCostPrice = 0.0;
-						buyCount++;
-						
-						
-					try{	
-						myPrice = Double.parseDouble(bidAskprice.get(tradingPoint).bidPrice);
-
-					}
-					catch (ArrayIndexOutOfBoundsException e){
-						
-						continue;
-					}
-					catch (IndexOutOfBoundsException e){
-						continue;
-					}
-					catch (Exception e){
-						continue;
-					}
-						
-						tradetransactionCost =  tradeClass.quoteCurrencyAmount * (transactionCost/100);
-						transactionCostPrice = tradetransactionCost * myPrice;
-						bidQuantity =  ( tradeClass.quoteCurrencyAmount -tradetransactionCost) *myPrice;
-						zeroTransactionCostBidQuantity = tradeClass.quoteCurrencyAmount *myPrice;
-
-						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-								&& myPrice < lastUpDCCend){
-							double closeout = (tradeClass.quoteCurrencyAmount -tradetransactionCost) /myPrice;
-							
-							
-							tradeClass.baseCurrencyAmount = tradeClass.baseCurrencyAmount +closeout;
-							tradeClass.isOpenPosition = false;
-							tradeClass.quoteCurrencyAmount=0.0;
-							tradeClass.boughtTradeList.add(new Double(closeout));
-							tradeClass.baseCurrencyTransaction++;
-							simpleDrawDown.Calculate(tradeClass.baseCurrencyAmount);
-							sharpeRatio.addReturn(tradeClass.baseCurrencyAmount-previousBaseCCYReturn);
-							previousBaseCCYReturn =  tradeClass.baseCurrencyAmount;
-
-						}
 					}
 					
-						
-					
-					tradeClass.lastBidPrice = Double.parseDouble(bidAskprice.get(i).bidPrice);
-
 
 				
 				}  //int i = start; i < length; i++
 
-				/*Convert quoted transaction to based currency*/
-				if (tradeClass.baseCurrencyTransaction ==0 && tradeClass.quoteCurrencyTransaction == 0){
-					tradeClass.baseCurrencyAmount = budget;
-					tradeClass.isOpenPosition = false;
-					
-					tradeClass.quoteCurrencyTransaction++;
-					
-					fitness.wealth = tradeClass.baseCurrencyAmount;
-					fitness.Return = 0.0;
-					fitness.value = 0.0;
+				for (int j = 0; j < curves.length; j++) {
+					if (curves[j].isPositionOpen){
+						curves[j].tradingBudget = curves[j].lastClosedPosition;
+						curves[j].simpleSharpeRatio.removeLastElementFromreturnsList();
+						curves[j].currentMdd =  curves[j].previousMdd; 
+						curves[j].noOfTransactions--;
+					}	
 				}
-				else{
 				
-					// A single transaction is dangerous, because it's based on pure luck,
-					// whether the last day's data is preferable, and can lead to a positive
-					// position. So better to avoid this,
-					// and require to have more than 1 transaction. We of course only do
-					// this for the training set (test == false); with test data, we want to
-					// have the real/true fitness, so we
-					// don't want to mess with this number - not doing search any more, no
-					// reason for penalising.
-					if (tradeClass.quoteCurrencyTransaction == 1)
-						fitness.value = -9999.00;
-					else if (tradeClass.baseCurrencyTransaction == 0)
-					{
-						fitness.value = -9999.00;
-					}
-					else
-					{
-						if (tradeClass.quoteCurrencyAmount <= 0){  //we have bought back our base currency. Hence do nothing
-							;
+				double totalMdd =0.0;
+				double totalsharpRatio = 0.0;
+				double totalWealth = 0.0;
+				
+				int numOfTransactions = 0;
+				
+				// Calculate the sum of each number (return, mdd, sharpRatio) multiplied by its weight
+				for (int j = 0; j < curves.length; j++) {
+					
+						if ( curves[j].noOfTransactions < 2){
+						//	System.out.println("Sharp ratio is Nan"); 
+							totalWealth = totalWealth + (curves[j].initialbudget) ;
+							totalMdd =  totalMdd + ( 0.0  * individual[j + 2]) ;
+							totalsharpRatio = totalsharpRatio + ( 0.0  * individual[j + 2]) ;
+							  ;
 						}
 						else{
-							
-							double tradetransactionCost =  tradeClass.quoteCurrencyAmount * (transactionCost/100);
-							double closeout = (tradeClass.quoteCurrencyAmount -tradetransactionCost) /tradeClass.lastBidPrice;
-							tradeClass.baseCurrencyAmount = tradeClass.baseCurrencyAmount + closeout;
-							tradeClass.isOpenPosition = false;
-							tradeClass.boughtTradeList.add(new Double(tradeClass.baseCurrencyAmount));
-							tradeClass.quoteCurrencyAmount=0.0;
-							tradeClass.baseCurrencyTransaction++;
-							sharpeRatio.addReturn(tradeClass.baseCurrencyAmount-previousBaseCCYReturn);
-							simpleDrawDown.Calculate(tradeClass.baseCurrencyAmount);
-							previousBaseCCYReturn =  tradeClass.baseCurrencyAmount;
-						}
-							
-						
-						fitness.uSell = uSell;
-						fitness.uBuy = uBuy;
-						fitness.noop = noop;
-						fitness.realisedProfit = tradeClass.baseCurrencyAmount - budget;
-						// fitness.MDD = MDD; Adesola removed
-						fitness.MDD = simpleDrawDown.getMaxDrawDown();
-						fitness.wealth = tradeClass.baseCurrencyAmount;// my wealth, at the end of the
-												// transaction period
-						fitness.sharpRatio = sharpeRatio.calulateSharpeRatio();
-						fitness.Return = 100.0 * (fitness.wealth - budget) / budget;
-						fitness.value = fitness.Return - (mddWeight * Math.abs(fitness.MDD));
-						fitness.noOfTransactions = tradeClass.baseCurrencyTransaction + tradeClass.quoteCurrencyTransaction ;
-						fitness.noOfShortSellingTransactions = noOfShortSellingTransactions;
-						
-					}
-					
+							totalWealth = totalWealth + (curves[j].tradingBudget) ;
+							numOfTransactions = numOfTransactions+ curves[j].noOfTransactions   ;
+							totalsharpRatio =  totalsharpRatio +( curves[j].simpleSharpeRatio.calulateSharpeRatio() * individual[j + 2]) ;
+							totalMdd = totalMdd + (curves[j].currentMdd * individual[j + 2]) ;
+						}	
 				}
-
+				
+				// Divide totals  by the sum of all weights
+				totalsharpRatio		=	totalsharpRatio/totalWeight;
+				totalMdd			=	totalMdd/totalWeight;
+				
+				
+				
+				fitness.uSell = uSell;
+				fitness.uBuy = uBuy;
+				fitness.noop = noop;
+				fitness.realisedProfit = totalWealth - budget;
+				
+				fitness.MDD = totalMdd;// /numberOfMdds;
+				fitness.wealth = totalWealth;// my wealth, at the end of the
+										// transaction period
+				fitness.sharpRatio = totalsharpRatio;// /numberOffSharpRatio;
+				fitness.Return = 100.0 * (fitness.wealth - budget) / budget;
+				fitness.value = fitness.Return - (mddWeight * Math.abs(fitness.MDD)); // + fitness.sharpRatio;
+				fitness.noOfTransactions = numOfTransactions;
+				fitness.noOfShortSellingTransactions = 0;
+				
 				fitness.tradingClass = tradeClass;
 
 				return fitness;
@@ -1517,8 +1565,14 @@ public class GA_new {
 	public int getNextDirectionaChangeEndPoint(Event[] output, int pointInTime){
 		
 		Event nextEvent = null;
-		Event currentEvent =  output[pointInTime];
-		
+		Event currentEvent =  null;
+		try{
+			
+			currentEvent = output[pointInTime];
+		}
+		catch(ArrayIndexOutOfBoundsException e){
+			return Integer.MAX_VALUE;
+		}	
 		for (int i = pointInTime+1; i < output.length; i++ ){
 			nextEvent = output[i] ;
 			if (nextEvent.type !=currentEvent.type )
