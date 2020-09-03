@@ -21,8 +21,8 @@ public final class Const {
 	 public static int NEGATIVE_EXPRESSION_REPLACEMENT=2;
 	 public static boolean LINEAR_FUNCTIONALITY_ONLY=false;
 	 public static int POP_SIZE = 500;
-	 public static int NUMBER_OF_THRESHOLDS = 100; //100;
-	 public static int ELISTISM_COUNT = 27;
+	 public static int NUMBER_OF_THRESHOLDS = 10; //100;
+	 public static int ELISTISM_COUNT = 10;
 	 public static int MAX_GENERATIONS = 37;
 	 public static int MAX_GP_GENERATIONS = 37;
 	 public static int TOURNAMENT_SIZE = 7;
@@ -40,9 +40,9 @@ public final class Const {
 	 public static final String INNER_NODE_TYPE = "innerNode";
 	 public static final String LEAF_NODE_TYPE = "leafNode";
 	 public static boolean REUSE_EXISTING_TREE = false;
-	 public static boolean splitDatasetByTrendType = false; // Reads input
-		// parameter
+	 public static boolean splitDatasetByTrendType = false; // Reads input parameter
 	 public static boolean INCLUDE_ZERO_OS_ITEMS= true;
+	 public static final String QUANTITY_TRADED= "FLEX"; 
 	 
 	 public enum treeStructurePostcreate {
 		 	eNone,
