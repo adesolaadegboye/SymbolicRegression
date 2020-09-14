@@ -669,7 +669,7 @@ public class PreProcess {
 			autoWEKAClassifierTemp.setParallelRuns(1);
 			autoWEKAClassifierTemp.setMemLimit(1024);
 			// autoWEKAClassifierTemp.setMemLimit(5);
-			autoWEKAClassifierTemp.setTimeLimit(60);
+			autoWEKAClassifierTemp.setTimeLimit(1);
 			//autoWEKAClassifierTemp.setSeed(123);
 			 // Default K-fold =  10 . Sample size is smaller we set to sample size
 			  if (trainingInstancesAutoTemp.size() < 3) {

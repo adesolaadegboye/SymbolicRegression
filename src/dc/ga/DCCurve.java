@@ -82,6 +82,9 @@ public class DCCurve {
 	
 	double lastUpDCCend = 0.0;
 	Event[] trainingEvents;
+	Event[] trainingOutputEvents;
+	
+	
 	String upwardTrendTreeString = null;
 	String downwardTrendTreeString = null;
 	String trendTreeString = null;
@@ -1163,7 +1166,7 @@ public class DCCurve {
 		return Double.MIN_VALUE; 
 	}
 
-	 public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, PreProcess preprocess){
+	 public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, Event[] output, PreProcess preprocess){
 		 try
 	        { 
 	            throw new NullPointerException("Invalid Call"); 

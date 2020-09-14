@@ -52,12 +52,13 @@ public class PerfectForecastDCCurve extends DCCurve {
 	 *            the name of the file where GP tree is stored
 	 */
 	public void build(Double[] values, double delta, String GPTreeFileName, Event[] trainEvents,
-			PreProcess preprocess) {
+			Event[] trainOutput, PreProcess preprocess) {
 
 		if (trainEvents == null || trainEvents.length < 1)
 			return;
 
 		trainingEvents = Arrays.copyOf(trainEvents, trainEvents.length);
+		trainingOutputEvents = Arrays.copyOf(trainOutput, trainOutput.length);
 		//TreeHelperClass.treeStructurePostcreateObj = treeStructurePostcreate.ePrune;
 		
 		if (Const.OsFunctionEnum == Const.function_code.eGP)
@@ -256,27 +257,47 @@ public class PerfectForecastDCCurve extends DCCurve {
 		
 		double lastPurchasebid = 0.0;
 
-		for (int i = 1; i < trainingEvents.length; i++) {
+		for (int i = 1; i < trainingOutputEvents.length; i++) {
 
 			int tradePoint = 0;
-			Double dcPt = new Double(trainingPrediction[i]);
+			double eval = 0.0;
+
+			if (trainingOutputEvents[i].overshoot == null
+					|| trainingOutputEvents[i].overshoot.end == trainingOutputEvents[i].overshoot.start) {
+				;
+			} else {
+				
+				if (trainingOutputEvents[i].type == Type.Upturn) {
+					
+					eval = bestUpWardEventTree.eval(trainingOutputEvents[i].length());
+				} else if (trainingOutputEvents[i].type == Type.Downturn) {
+					eval = bestDownWardEventTree.eval(trainingOutputEvents[i].length());
+
+				} else {
+					System.out.println("Invalid event");
+					System.exit(0);
+				}
+				
+			}
+
+			Double dcPt = new Double(eval);
 			Double zeroOs = new Double(0.0);
 
-			if (trainingEvents[i] == null)
+			if (trainingOutputEvents[i] == null)
 				continue;
 
 			if (dcPt.equals(zeroOs)) 
-				tradePoint = trainingEvents[i].end;
-			
-			tradePoint = trainingEvents[i].end + (int) Math.ceil(trainingPrediction[i]);
+				tradePoint = trainingOutputEvents[i].end;
+			else
+				tradePoint = trainingOutputEvents[i].end + (int) Math.ceil(eval);
 
-			if (i + 1 > trainingEvents.length - 1)
+			if (i + 1 > trainingOutputEvents.length - 1)
 				continue;
 
-			if (trainingEvents[i + 1] == null)
+			if (trainingOutputEvents[i + 1] == null)
 				continue;
 
-			Event ev = getNextDirectionaChangeEndPoint(trainingEvents,i);
+			Event ev = getNextDirectionaChangeEndPoint(trainingOutputEvents,i);
 			if (ev == null)
 				continue ;
 			
@@ -302,7 +323,7 @@ public class PerfectForecastDCCurve extends DCCurve {
 				System.out.println(e.getMessage());
 				continue;
 			}
-			if (trainingEvents[i].type == Type.Upturn && !isPositionOpen) {
+			if (trainingOutputEvents[i].type == Type.Upturn && !isPositionOpen) {
 				// Now position is in quote currency
 				// I sell base currency in bid price
 				double askQuantity = trainingOpeningPosition;
@@ -321,12 +342,12 @@ public class PerfectForecastDCCurve extends DCCurve {
 				if (transactionCostPrice <= (zeroTransactionCostAskQuantity - askQuantity) ){
 					trainingOpeningPosition = askQuantity;
 
-					lastPurchasebid = Double.parseDouble(FReader.dataRecordInFileArray.get( trainingEvents[i].end).bidPrice);
+					lastPurchasebid = Double.parseDouble(FReader.dataRecordInFileArray.get( trainingOutputEvents[i].end).bidPrice);
 					
 					 
 					isPositionOpen = true;
 				}
-			} else if (trainingEvents[i].type == Type.Downturn && isPositionOpen ) {
+			} else if (trainingOutputEvents[i].type == Type.Downturn && isPositionOpen ) {
 				// Now position is in base currency
 				// I buy base currency
 				double bidQuantity = trainingOpeningPosition;

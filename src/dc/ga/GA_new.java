@@ -986,8 +986,11 @@ public class GA_new {
 					curves[j].isPositionOpen =  false;
 				}
 
-				curves[0].initialbudget  = curves[0].initialbudget + (budget - allocatedBudget);
-				curves[0].tradingBudget  = curves[0].tradingBudget + (budget - allocatedBudget);
+				int chosenThreshold = (int) ((Math.random() * (4 - 0)) + 0);
+	
+
+				curves[chosenThreshold].initialbudget  = curves[chosenThreshold].initialbudget + (budget - allocatedBudget);
+				curves[chosenThreshold].tradingBudget  = curves[chosenThreshold].tradingBudget + (budget - allocatedBudget);
 				
 				
 				for (int j = 0; j < curves.length; j++ ){
@@ -1009,7 +1012,7 @@ public class GA_new {
 						double eval = 0.0;
 						if (test) {
 							if ( curves[m].preprocess == null){
-								System.out.print("Classificier not found exiting- Test hase cannot continue");
+								System.out.print("Classifier not found exiting- Test hase cannot continue");
 								System.exit(-1);
 							}
 							if ( curves[m].preprocess != null){
@@ -1073,17 +1076,19 @@ public class GA_new {
 								else
 									eval = curves[m].meanRatio[1];
 							}
-							else
+							else{
 								if (Const.OsFunctionEnum == Const.function_code.eGP){
 									eval = curves[m].bestDownWardEventTree.eval(curves[m].output[i].length()); // curves[curveCounter].predictionDownward[physicalTimeCounter]; //					
 								}
 								else
 									eval = curves[m].meanRatio[0];
+							}
+							//Round because GP has decimals
+							overshootEstimationPoint =  (int) Math.floor(eval);
+							tradePoint =  overshootEstimationPoint + curves[m].output[i].end;
 						}
 							
-						//Round because GP has decimals
-						overshootEstimationPoint =  (int) Math.floor(eval);
-						tradePoint =  overshootEstimationPoint + curves[m].output[i].end;
+						
 				
 						if (curves[m].output[i] == null)
 							continue;
@@ -1093,7 +1098,7 @@ public class GA_new {
 
 						if (curves[m].output[i + 1] == null)
 							continue;
-						int nextEventEndPOint = getNextDirectionaChangeEndPoint(curves[m].output,  tradePoint);
+						int nextEventEndPOint = HelperClass.getNextDirectionaChangeEndPoint(curves[m].output,  tradePoint);
 						
 						if (tradePoint > nextEventEndPOint ) // If a new DC is
 																		// encountered
@@ -1131,7 +1136,7 @@ public class GA_new {
 									
 									if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){		
 										
-									
+										curves[m].lastClosedPosition  = curves[m].tradingBudget;
 										curves[m].lastUpDCCend = Double.parseDouble(bidAskprice.get(tradePoint).bidPrice);
 										curves[m].tradingBudget = askQuantity;
 										curves[m].isPositionOpen = true;
@@ -1158,8 +1163,11 @@ public class GA_new {
 										
 										curves[m].isPositionOpen = false;
 										curves[m].simpleDrawDown.Calculate(curves[m].tradingBudget);
-										curves[m].simpleSharpeRatio.addReturn(curves[m].tradingBudget - curves[m].lastClosedPosition);
-										curves[m].lastClosedPosition = curves[m].tradingBudget;
+										double profitGained = curves[m].tradingBudget - curves[m].lastClosedPosition;
+									//	if (profitGained < 0)
+									//		System.out.println("Negative profit");
+										curves[m].simpleSharpeRatio.addReturn(profitGained);
+										//curves[m].lastClosedPosition = curves[m].tradingBudget;
 										curves[m].currentMdd = curves[m].simpleDrawDown.getMaxDrawDown();
 										curves[m].noOfTransactions++;
 									}
@@ -1229,7 +1237,7 @@ public class GA_new {
 										// transaction period
 				fitness.sharpRatio = totalsharpRatio;// /numberOffSharpRatio;
 				fitness.Return = 100.0 * (fitness.wealth - budget) / budget;
-				fitness.value = fitness.Return - (mddWeight * Math.abs(fitness.MDD)); // + fitness.sharpRatio;
+				fitness.value = totalsharpRatio; //fitness.Return - (mddWeight * Math.abs(fitness.MDD)); // + fitness.sharpRatio;
 				fitness.noOfTransactions = numOfTransactions;
 				fitness.noOfShortSellingTransactions = 0;
 				
@@ -1562,28 +1570,7 @@ public class GA_new {
 		int openPositionCount = 0;
 	}
 	
-	public int getNextDirectionaChangeEndPoint(Event[] output, int pointInTime){
-		
-		Event nextEvent = null;
-		Event currentEvent =  null;
-		try{
-			
-			currentEvent = output[pointInTime];
-		}
-		catch(ArrayIndexOutOfBoundsException e){
-			return Integer.MAX_VALUE;
-		}	
-		for (int i = pointInTime+1; i < output.length; i++ ){
-			nextEvent = output[i] ;
-			if (nextEvent.type !=currentEvent.type )
-				break;	
-		}
-		
-		if (nextEvent ==  null || nextEvent.type ==currentEvent.type  )
-			return -1;
-		
-		return nextEvent.end;
-	}
+	
 	
 	public int getTradingPoint(int physicalTimeCounter, boolean test, Type eventType,Vector<Double> selectedThresholds){
 		
@@ -1706,7 +1693,7 @@ public class GA_new {
 				 * */
 				try{
 					
-					if ( tradingPoint >= getNextDirectionaChangeEndPoint(curves[curveCounter].output, physicalTimeCounter)) {//
+					if ( tradingPoint >= HelperClass.getNextDirectionaChangeEndPoint(curves[curveCounter].output, physicalTimeCounter)) {//
 												//We only know when current DC ends and a new DC trend
 												// begins when the next DC is confirmed
 						continue;
