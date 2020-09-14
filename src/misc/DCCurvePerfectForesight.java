@@ -19,6 +19,7 @@ import dc.GP.TreeHelperClass;
 import dc.ga.PreProcess;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
+import dc.ga.HelperClass;
 import dc.io.FReader;
 import dc.io.FReader.FileMember2;
 import files.FWriter;
@@ -40,7 +41,7 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 	 */
 	
 	public void build(Double[] values, double delta, String GPTreeFileName, Event[] trainEvents,
-			PreProcess preprocess) {
+			 Event[] trainingOutput,PreProcess preprocess) {
 		String thresholdStr = String.format("%.8f", delta);
 		thresholdString = thresholdStr;
 		
@@ -48,7 +49,8 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 		if (trainEvents == null || trainEvents.length < 1)
 			return;
 
-		trainingEvents = Arrays.copyOf(trainEvents, trainEvents.length);
+		this.trainingEvents = Arrays.copyOf(trainEvents, trainEvents.length);
+		this.trainingOutputEvents =  Arrays.copyOf(trainingOutput, trainingOutput.length);
 
 		TreeHelperClass treeHelperClass = new TreeHelperClass();
 
@@ -357,16 +359,22 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 		simpleSharpeRatio.addReturn(0);
 		lastSellPrice = 0.0;
 		lastBuyPrice = 0.0;
-		StartSellQuantity = -1.0;
-		StartBuyQuantity = -1.0;
-		for (int i = 1; i < testingEvents.length; i++) {
+		
+		double lastUpDCCend = 0.0;
+		for (int i = 1; i < testingEvents.length /* Bad name this is actually output*/; i++) {
 
 			// tradedPosition = currentPosition - (currentPosition %
 			// standardLot);
 			// remainingQuantity = currentPosition - tradedPosition;
 
 			int tradePoint = 0;
-			Double dcPt = new Double(gpprediction[i]);
+			Double dcPt = 0.0;
+			if (testingEvents[i].overshoot == null ||testingEvents[i].overshoot.end == testingEvents[i].overshoot.start )
+				;
+			else		
+				dcPt = new Double(HelperClass.estimateOSlength(i, testingEvents,
+					upwardTrendTreeString,  downwardTrendTreeString,
+					 bestUpWardEventTree,  bestDownWardEventTree  ));
 			Double zeroOs = new Double(0.0);
 
 			if (testingEvents[i] == null)
@@ -377,7 +385,7 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 										// overshoot
 				tradePoint = testingEvents[i].end;
 			else
-				tradePoint = testingEvents[i].end + (int) Math.ceil(gpprediction[i]);
+				tradePoint = testingEvents[i].end + (int) Math.ceil(dcPt);
 
 			if (i + 1 > testingEvents.length - 1)
 				continue;
@@ -385,7 +393,8 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 			if (testingEvents[i + 1] == null)
 				continue;
 
-			if (tradePoint > testingEvents[i + 1].end) // If a new DC is
+			int nextEventEndPOint = HelperClass.getNextDirectionaChangeEndPoint(testingEvents,  tradePoint);
+			if (tradePoint > nextEventEndPOint) // If a new DC is
 															// encountered
 															// before the
 															// estimation point
@@ -427,13 +436,7 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 						zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity *myPrice;
 						
 						if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) ){
-		//				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) 
-		//						&& (((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-		//								(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
-									
-									if (StartSellQuantity <= -1.0)
-										StartSellQuantity = OpeningPosition;
-							
+	
 							lastSellPrice = myPrice;
 							OpeningPosition = askQuantity;
 							isPositionOpen = true;
@@ -442,7 +445,7 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 							tradedPrice.add(new Double(myPrice));
 							anticipatedTrendMap.put(testingEvents[i].start, tradePoint);
 							anticipatedTrend.add(anticipatedTrendMap);
-							
+							lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + testingEvents[i].end).bidPrice);
 							if (testingEvents[i].overshoot == null || testingEvents[i].overshoot.length() < 1)
 								actualTrendMap.put(testingEvents[i].start, testingEvents[i].end );
 							else
@@ -464,13 +467,9 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 						bidQuantity = (bidQuantity - transactionCost) * myPrice;
 						zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
 						
-						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)){
-	//					if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-	//							&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-	//									(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
-											
-									if (StartBuyQuantity <= -1.0)
-										StartBuyQuantity = OpeningPosition;
+						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
+								&& myPrice < lastUpDCCend ){
+							
 									
 							lastBuyPrice = myPrice;
 							//OpeningPosition = bidQuantity;
@@ -498,6 +497,18 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 							+ FReader.dataRecordInFileArray.size() + " . Trading ended");
 					break;
 
+				}
+				catch (IndexOutOfBoundsException exception ){
+					System.out.println(" DCCurvePerfectForesight: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
+							+ " is beyond the size of price array  " + 
+							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
+					break;
+				}
+				catch (Exception exception ){
+					System.out.println(" DCCurvePerfectForesight: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
+							+ " is beyond the size of price array  " + 
+							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
+					break;
 				}
 
 			}
@@ -596,38 +607,43 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 		double DD = 0;// DrawDown
 		lastSellPrice = 0.0;
 		lastBuyPrice = 0.0;
-		StartSellQuantity = -1.0;
-		StartBuyQuantity = -1.0;
+	
 		double lastUpDCCend = 0.0;
-		for (int i = 1; i < trainingEvents.length; i++) {
+		for (int i = 1; i < trainingOutputEvents.length; i++) {
 
 			int tradePoint = 0;
 			
-			Double dcPt = new Double(trainingGpPrediction[i]);
+			
+			
+			Double dcPt = new Double(HelperClass.estimateOSlength(i, trainingOutputEvents,
+					upwardTrendTreeString,  downwardTrendTreeString,
+					 bestUpWardEventTree,  bestDownWardEventTree  ));
 			Double zeroOs = new Double(0.0);
 
-			if (trainingEvents[i] == null)
+			if (trainingOutputEvents[i] == null)
 				continue;
 
 			if (dcPt.equals(zeroOs)) // Skip DC classified as not having
 										// overshoot
 			{
-				tradePoint = trainingEvents[i].end;
+				tradePoint = trainingOutputEvents[i].end;
 				
 			}
 			else
 			{
-				tradePoint = trainingEvents[i].end + (int) Math.ceil(trainingGpPrediction[i]);
+				tradePoint = trainingOutputEvents[i].end + (int) Math.ceil(dcPt);
 				
 					
 			}
-			if (i + 1 > trainingEvents.length - 1)
+			if (i + 1 > trainingOutputEvents.length - 1)
 				continue;
 
-			if (trainingEvents[i + 1] == null)
+			if (trainingOutputEvents[i + 1] == null)
 				continue;
 
-			if (tradePoint > trainingEvents[i + 1].end) // If a new DC is
+			int nextEventEndPOint = HelperClass.getNextDirectionaChangeEndPoint(trainingOutputEvents,  tradePoint);
+			
+			if (tradePoint > nextEventEndPOint) // If a new DC is
 															// encountered
 															// before the
 															// estimation point
@@ -649,7 +665,7 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 				System.out.println(e.getMessage());
 				continue;
 			}
-			if (trainingEvents[i].type == Type.Upturn && !isPositionOpen) {
+			if (trainingOutputEvents[i].type == Type.Upturn && !isPositionOpen) {
 				// Now position is in quote currency
 				// I sell base currency in bid price
 				double askQuantity = trainingOpeningPosition;
@@ -663,44 +679,30 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 				askQuantity =  (askQuantity -transactionCost) *myPrice;
 				zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity *myPrice;
 				
-				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)
-						/* && myPrice >= magnitude*/){
-//				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) 
-//						&& (((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-//								(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
-							
-							if (StartSellQuantity <= -1.0)
-								StartSellQuantity = OpeningPosition;
+				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){
+			
 					
 					lastSellPrice = myPrice;
 					trainingOpeningPosition = askQuantity;
 					isPositionOpen = true;
-					lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get(trainingEvents[i].end).bidPrice);
+					lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get(trainingOutputEvents[i].end).bidPrice);
 					
 				}
-			} else if (trainingEvents[i].type == Type.Downturn && isPositionOpen) {
+			} else if (trainingOutputEvents[i].type == Type.Downturn && isPositionOpen) {
 				// Now position is in base currency
 				// I buy base currency
 				double bidQuantity = trainingOpeningPosition;
 				double zeroTransactionCostBidQuantity = trainingOpeningPosition;
 				double transactionCostPrice = 0.0;
 				myPrice = Double.parseDouble(fileMember2.bidPrice);
-				
-				
 				transactionCost = bidQuantity * (0.025/100);
 				transactionCostPrice = transactionCost * myPrice;
 				bidQuantity =  (bidQuantity -transactionCost) *myPrice;
 				zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity *myPrice;
 				
 				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-						/*&& myPrice < lastUpDCCend*/){
-//				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity) 
-//						&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-//								(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
-									
-							if (StartBuyQuantity <= -1.0)
-								StartBuyQuantity = OpeningPosition;
-							
+						&&  myPrice < lastUpDCCend){
+		
 					lastBuyPrice = myPrice;
 					trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) /myPrice;
 					lastClosedPosition = trainingOpeningPosition;
@@ -724,45 +726,10 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 		
 
 		for (int outputIndex = 0; outputIndex < trainingEvents.length - 2; outputIndex++) {
-			String foo = "";
 			
-			if (Const.splitDatasetByTrendType) {
-				if (trainingEvents[outputIndex].type == Type.Upturn) {
-					foo = upwardTrendTreeString;		
-					numberOfUpwardEvent++;
-					isUpwardEvent = true;
-					
-				} else if (trainingEvents[outputIndex].type == Type.Downturn) {
-					foo = downwardTrendTreeString;
-					numberOfDownwardEvent++;
-					isUpwardEvent = false;
-				} else {
-					System.out.println("DCCurvePErfectForesight - DCCurvePErfectForesight - Invalid event");
-					continue;
-				}
-
-			} else {
-				foo = trendTreeString;
-			}
-
-			foo = foo.replace("X0", Integer.toString(trainingEvents[outputIndex].length()));
-			//foo = foo.replace("X1", Double.toString(trainingEvents[outputIndex].high - trainingEvents[outputIndex].low) );
-			double eval = 0.0;
-			
-			
-			if (trainingEvents[outputIndex].overshoot == null
-					|| trainingEvents[outputIndex].overshoot.end == trainingEvents[outputIndex].overshoot.start) {
-				;
-			} else {
-				if (trainingEvents[outputIndex].type == Type.Upturn) {
-					eval = bestUpWardEventTree.eval(trainingEvents[outputIndex].length());
-				} else if (trainingEvents[outputIndex].type == Type.Downturn) {
-					eval = bestDownWardEventTree.eval(trainingEvents[outputIndex].length());
-				}
-				
-			}
-
-			trainingGpPrediction[outputIndex] = eval;
+			trainingGpPrediction[outputIndex] = HelperClass.estimateOSlength(outputIndex, trainingEvents,
+					upwardTrendTreeString,  downwardTrendTreeString,
+					 bestUpWardEventTree,  bestDownWardEventTree );
 			
 		}
 
@@ -821,5 +788,7 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 		
 		return rtnCode;
 	}
+	
+	
 
 }

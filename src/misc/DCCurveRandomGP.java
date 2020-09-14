@@ -16,7 +16,7 @@ import java.util.Vector;
 import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.GP.TreeHelperClass;
-
+import dc.ga.HelperClass;
 import dc.ga.PreProcess;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
@@ -40,7 +40,7 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 	 *            the name of the file where GP tree is stored
 	 */
 	public void build(Double[] values, double delta, String GPTreeFileName, Event[] trainingEvents,
-			PreProcess preprocess) {
+			Event[] trainingOutput,PreProcess preprocess) {
 
 		String thresholdStr = String.format("%.8f", delta);
 		thresholdString = thresholdStr;
@@ -49,6 +49,7 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 			return;
 
 		this.trainingEvents = Arrays.copyOf(trainingEvents, trainingEvents.length);
+		this.trainingOutputEvents =  Arrays.copyOf(trainingOutput, trainingOutput.length);
 		
 		
 		if (upwardTrendTreeString != null && !upwardTrendTreeString.isEmpty() && 
@@ -408,13 +409,9 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 	//	System.out.println("classification: current processor count " + SymbolicRegression.currentProcessorCounter);
 		lastSellPrice = 0.0;
 		lastBuyPrice = 0.0;
-		StartSellQuantity = -1.0;
-		StartBuyQuantity = -1.0;
+		double lastUpDCCend = 0.0;
 		for (int i = 1; i < testingEvents.length; i++) {
 
-			// tradedPosition = currentPosition - (currentPosition %
-			// standardLot);
-			// remainingQuantity = currentPosition - tradedPosition;
 
 			Double dcPt = new Double(predictionWithClassifier[i]);
 			Double zeroOs = new Double(0.0);
@@ -435,8 +432,12 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 
 			if (testingEvents[i + 1] == null)
 				continue;
+			
+			
+			int nextEventEndPOint = HelperClass.getNextDirectionaChangeEndPoint(testingEvents,  tradePoint);
 
-			if (tradePoint > testingEvents[i + 1].end) // If a new DC is
+
+			if (tradePoint > nextEventEndPOint) // If a new DC is
 															// encountered
 															// before the
 															// estimation point
@@ -476,13 +477,8 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 						
 						
 						if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){
-		//				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) 
-		//						&& (((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-		//								(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
+								
 									
-									if (StartSellQuantity <= -1.0)
-										StartSellQuantity = OpeningPosition;
-							
 							lastSellPrice = myPrice;
 							OpeningPosition = askQuantity;
 							isPositionOpen = true;
@@ -491,6 +487,7 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 							tradedPrice.add(new Double(myPrice));
 							anticipatedTrendMap.put(testingEvents[i].start, tradePoint);
 							anticipatedTrend.add(anticipatedTrendMap);
+							lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + testingEvents[i].end).bidPrice);
 							
 							if (testingEvents[i].overshoot == null || testingEvents[i].overshoot.length() < 1)
 								actualTrendMap.put(testingEvents[i].start, testingEvents[i].end );
@@ -512,18 +509,9 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 						transactionCostPrice = transactionCost * myPrice;
 						bidQuantity = (bidQuantity - transactionCost) * myPrice;
 						zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
-						// transactionCost = trainingOpeningPosition *
-						// (0.025/100);
-						// trainingOpeningPosition = (trainingOpeningPosition
-						// -transactionCost) /myPrice;
 
-						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)){
-	//					if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-	//							&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-	//									(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
-											
-									if (StartBuyQuantity <= -1.0)
-										StartBuyQuantity = OpeningPosition;
+						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
+								&&  myPrice < lastUpDCCend){										
 									
 							lastBuyPrice = myPrice;
 							OpeningPosition = (OpeningPosition - transactionCost) / myPrice;
@@ -544,10 +532,22 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 						}
 					}
 				} catch (ArrayIndexOutOfBoundsException exception) {
-					System.out.println(" DCCurveClassiifcation: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
+					System.out.println(" DCCurveRandomGP: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
 							+ " is beyond the size of price array  " + 
 							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
 					break;	
+				}
+				catch (IndexOutOfBoundsException exception ){
+					System.out.println(" DCCurveRandomGP: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
+							+ " is beyond the size of price array  " + 
+							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
+					break;
+				}
+				catch (Exception exception ){
+					System.out.println(" DCCurveRandomGP: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
+							+ " is beyond the size of price array  " + 
+							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
+					break;
 				}
 			}
 		}
@@ -637,124 +637,8 @@ public class DCCurveRandomGP  extends DCCurveRegression{
 
 	@Override
 	double trainingTrading(PreProcess preprocess) {
-		boolean isPositionOpen = false;
-		double myPrice = 0.0;
-		double lastClosedPosition = 0.0;
-		double transactionCost = 0.025 / 100;
 		
-		lastSellPrice = 0.0;
-		lastBuyPrice = 0.0;
-		StartSellQuantity = -1.0;
-		StartBuyQuantity = -1.0;
-		for (int i = 1; i < trainingEvents.length; i++) {
-
-			Double dcPt = new Double(trainingGpPrediction[i]);
-			Double zeroOs = new Double(0.0);
-			int tradePoint = 0;
-
-			if (trainingEvents[i] == null)
-				continue;
-			if (dcPt.equals(zeroOs)) // Skip DC classified as not having
-										// overshoot
-				tradePoint = trainingEvents[i].end;
-			else
-				tradePoint = trainingEvents[i].end + (int) Math.floor(trainingGpPrediction[i]) + 1;
-
-			if (i + 1 > trainingEvents.length - 1)
-				continue;
-
-			if (trainingEvents[i + 1] == null)
-				continue;
-
-			if (tradePoint > trainingEvents[i + 1].start) // If a new DC is
-															// encountered
-															// before the
-															// estimation point
-															// skip trading
-				continue;
-
-			FReader freader = new FReader();
-			FileMember2 fileMember2 = freader.new FileMember2();
-
-			if (tradePoint >= FReader.dataRecordInFileArray.size()) {
-				continue;
-			}
-
-			// I am opening my position in base currency
-			try {
-			fileMember2 = FReader.dataRecordInFileArray.get(tradePoint);
-			}
-			catch (ArrayIndexOutOfBoundsException e){
-				System.out.println(e.getMessage());
-				continue;
-			}
-			
-
-			if (trainingEvents[i].type == Type.Upturn && !isPositionOpen) {
-				// Now position is in quote currency
-				// I sell base currency in bid price
-				// I sell base currency in bid price
-				double askQuantity = trainingOpeningPosition;
-				double zeroTransactionCostAskQuantity = trainingOpeningPosition;
-				double transactionCostPrice = 0.0;
-				myPrice = Double.parseDouble(fileMember2.askPrice);
-				
-				
-				transactionCost = askQuantity * (0.025/100);
-				transactionCostPrice = transactionCost * myPrice;
-				askQuantity =  (askQuantity -transactionCost) *myPrice;
-				zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity *myPrice;
-				
-				
-				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) ){
-//				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) 
-//						&& (((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-//								(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
-							
-							if (StartSellQuantity <= -1.0)
-								StartSellQuantity = OpeningPosition;
-					
-					lastSellPrice = myPrice;
-					trainingOpeningPosition = askQuantity;
-					isPositionOpen = true;
-				}
-
-			} else if (trainingEvents[i].type == Type.Downturn && isPositionOpen) {
-				// Now position is in base currency
-				// I buy base currency
-				double bidQuantity = trainingOpeningPosition;
-				double zeroTransactionCostBidQuantity = trainingOpeningPosition;
-				double transactionCostPrice = 0.0;
-				myPrice = Double.parseDouble(fileMember2.bidPrice);
-				
-				
-				transactionCost = bidQuantity * (0.025/100);
-				transactionCostPrice = transactionCost * myPrice;
-				bidQuantity =  (bidQuantity -transactionCost) *myPrice;
-				zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity *myPrice;
-				
-				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)){
-//				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity) 
-//						&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-//								(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
-									
-							if (StartBuyQuantity <= -1.0)
-								StartBuyQuantity = OpeningPosition;
-							
-					lastBuyPrice = myPrice;
-					trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) /myPrice;
-					lastClosedPosition = trainingOpeningPosition;
-					isPositionOpen = false;
-				}
-			}
-
-		}
-
-		if (isPositionOpen) {
-			trainingOpeningPosition = lastClosedPosition;
-		}
-
-		return trainingOpeningPosition;
+		return Double.MIN_VALUE;
 
 	}
 

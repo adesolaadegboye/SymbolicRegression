@@ -16,7 +16,7 @@ import java.util.Vector;
 import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.GP.TreeHelperClass;
-
+import dc.ga.HelperClass;
 import dc.ga.PreProcess;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
@@ -40,6 +40,7 @@ public class DCCurveCifre extends DCCurveRegression {
 	 *            the name of the file where GP tree is stored
 	 */
 	public void build(Double[] values, double delta, String GPTreeFileName, Event[] trainingEevents,
+			 Event[] trainingOutput,
 			PreProcess preprocess) {
 
 		String thresholdStr = String.format("%.8f", delta);
@@ -48,169 +49,20 @@ public class DCCurveCifre extends DCCurveRegression {
 			return;
 
 		trainingEvents = Arrays.copyOf(trainingEevents, trainingEevents.length);
+		trainingOutputEvents =  Arrays.copyOf(trainingOutput, trainingOutput.length);
 		
 		if (upwardTrendTreeString != null && !upwardTrendTreeString.isEmpty() && 
 				downwardTrendTreeString != null && !downwardTrendTreeString.isEmpty()){
 			return;
 			
 		}
-
-		if (Const.splitDatasetByTrendType) {
-
-			// get upward dc first
-
-			String gpTreeName = Const.UPWARD_EVENT_STRING + thresholdStr + Const.FUNCTION_NODE_DEFINITION
-					+ ".txt";
-			String thisLine = null;
-
-			Vector<Event> trendOfChoiceVec = new Vector<Event>();
-
-			for (int i = 0; i < trainingEevents.length; i++) {
-				if (trainingEevents[i].type == Type.Upturn) {
-					trendOfChoiceVec.add(trainingEevents[i]);
-				}
-			}
-
-			System.out.println("upward event for classifier " + trendOfChoiceVec.size());
-			Event[] uptrendEvent = trendOfChoiceVec.toArray(new Event[trendOfChoiceVec.size()]);
-			if (Const.REUSE_EXISTING_TREE) {
-
-				try {
-					// open input stream test.txt for reading purpose.
-					BufferedReader br = new BufferedReader(
-							new FileReader(Const.log.publicFolder + gpTreeName));
-					while ((thisLine = br.readLine()) != null) {
-						Const.thresholdGPStringUpwardMap.put(delta, thisLine);
-						// System.out.println(thisLine);
-					}
-				} catch (FileNotFoundException fileNotFound) {
-					;
-				} catch (IOException io) {
-					;
-				} catch (Exception e) {
-					;
-				}
-			} else {
-				FWriter writer = new FWriter(Const.log.publicFolder + gpTreeName);
-			}
-
-			TreeHelperClass treeHelperClass = new TreeHelperClass();
-			if (Const.thresholdGPStringUpwardMap.containsKey(delta)) {
-				gpTreeInFixNotation = Const.thresholdGPStringUpwardMap.get(delta);
-				upwardTrendTreeString = gpTreeInFixNotation;
-
-			} else {
-				if (treeHelperClass.bestTreesInRuns != null)
-					treeHelperClass.bestTreesInRuns.clear();
-				// SymbolicRegression.log.save("Testing.txt", "test");
-				treeHelperClass.getBestTreesForThreshold(uptrendEvent, Const.POP_SIZE, 1, Const.MAX_GENERATIONS,
-						thresholdStr);
-
-				if (treeHelperClass.bestTreesInRuns.isEmpty() || treeHelperClass.bestTreesInRuns.size() < 1) {
-					System.out.println("TreeHelperClass.bestTreesInRuns.isEmpty()");
-					System.exit(-1);
-				}
-				// get best tree
-				Comparator<AbstractNode> comparator = Collections.reverseOrder();
-				Collections.sort(treeHelperClass.bestTreesInRuns, comparator);
-				AbstractNode tree = treeHelperClass.bestTreesInRuns.get(treeHelperClass.bestTreesInRuns.size() - 1);
-				String treeAsInfixNotationString = tree.printAsInFixFunction();
-
-				bestUpWardEventTree = treeHelperClass.bestTreesInRuns.get(treeHelperClass.bestTreesInRuns.size() - 1);
-				upwardTrendTreeString = bestUpWardEventTree.printAsInFixFunction();
-				//System.out.println("Best tree up:" + SymbolicRegression.file_Name + "->" + tree.getPerfScore());
-				//System.out.println("Best tree structure" + treeAsInfixNotationString);
-
-				curve_bestTreesInRunsUpward.setSize(treeHelperClass.bestTreesInRuns.size());
-				Collections.copy(curve_bestTreesInRunsUpward, treeHelperClass.bestTreesInRuns);
-				// SymbolicRegression.log.save(gpTreeName,
-				// treeAsInfixNotationString);
-
-			}
-
-			// Downward trend GP here
-			thresholdStr = String.format("%.8f", delta);
-			gpTreeName = Const.DOWNWARD_EVENT_STRING + thresholdStr + Const.FUNCTION_NODE_DEFINITION
-					+ "_prefectForesight.txt";
-			thisLine = null;
-			trendOfChoiceVec.clear();
-
-			for (int i = 0; i < trainingEevents.length; i++) {
-				if (trainingEevents[i].type == Type.Downturn) {
-					trendOfChoiceVec.add(trainingEevents[i]);
-				}
-			}
-
-			Event[] downtrendEvent = trendOfChoiceVec.toArray(new Event[trendOfChoiceVec.size()]);
-
-			if (Const.REUSE_EXISTING_TREE) {
-
-				try {
-					// open input stream test.txt for reading purpose.
-					BufferedReader br = new BufferedReader(
-							new FileReader(Const.log.publicFolder + gpTreeName));
-					while ((thisLine = br.readLine()) != null) {
-						Const.thresholdGPStringDownwardMap.put(delta, thisLine);
-						// System.out.println(thisLine);
-					}
-				} catch (FileNotFoundException fileNotFound) {
-					System.out.println(
-							Const.log.publicFolder + gpTreeName + " not found. Will rebuild GP tree.");
-					if (treeHelperClass.bestTreesInRuns != null)
-						treeHelperClass.bestTreesInRuns.clear();
-
-					// fileNotFound.printStackTrace();
-				} catch (IOException io) {
-					System.out.println("IO excption occured. Will loading" + Const.log.publicFolder
-							+ gpTreeName + ". Will rebuild GP tree.");
-					// io.printStackTrace();
-				} catch (Exception e) {
-					System.out.println("Unknown error occured. Will loading" + Const.log.publicFolder
-							+ gpTreeName + ". Will rebuild GP tree.");
-					// e.printStackTrace();
-				}
-			} else {
-				FWriter writer = new FWriter(Const.log.publicFolder + gpTreeName);
-
-			}
-
-			if (Const.thresholdGPStringDownwardMap.containsKey(delta)) {
-				gpTreeInFixNotation = Const.thresholdGPStringDownwardMap.get(delta);
-				downwardTrendTreeString = gpTreeInFixNotation;
-			} else {
-				if (treeHelperClass.bestTreesInRuns != null)
-					treeHelperClass.bestTreesInRuns.clear();
-				// SymbolicRegression.log.save("DownLoadTesting.txt",
-				// "test");
-				treeHelperClass.getBestTreesForThreshold(downtrendEvent, Const.POP_SIZE, 1, Const.MAX_GENERATIONS,
-						thresholdStr);
-
-				if (treeHelperClass.bestTreesInRuns.isEmpty() || treeHelperClass.bestTreesInRuns.size() < 1) {
-					System.out.println("TreeHelperClass.bestTreesInRuns.isEmpty()");
-					System.exit(-1);
-				}
-
-				// get best tree
-				Comparator<AbstractNode> comparator = Collections.reverseOrder();
-				Collections.sort(treeHelperClass.bestTreesInRuns, comparator);
-				AbstractNode tree = treeHelperClass.bestTreesInRuns.get(treeHelperClass.bestTreesInRuns.size() - 1);
-				String treeAsInfixNotationString = tree.printAsInFixFunction();
-
-				bestDownWardEventTree = treeHelperClass.bestTreesInRuns.get(treeHelperClass.bestTreesInRuns.size() - 1);
-				// System.out.println("Best tree" + tree.getPerfScore() + "
-				// worst tree"+
-				// TreeHelperClass.bestTreesInRuns.get(0).getPerfScore()) ;
-				downwardTrendTreeString = bestDownWardEventTree.printAsInFixFunction();
-			//	System.out.println("Best tree down:" + SymbolicRegression.file_Name + "->" + tree.getPerfScore());
-			//	System.out.println("Best tree structure" + treeAsInfixNotationString);
-
-				curve_bestTreesInRunsDownward.setSize(treeHelperClass.bestTreesInRuns.size());
-				Collections.copy(curve_bestTreesInRunsDownward, treeHelperClass.bestTreesInRuns);
-				// SymbolicRegression.log.save(gpTreeName,
-				// treeAsInfixNotationString);
-			}
-
+		else
+		{
+			System.out.println("Please evolve GP Trees under perfect foresight... exiting");
+			System.exit(-1);
 		}
+
+		
 	}
 
 	/**
@@ -238,7 +90,7 @@ public class DCCurveCifre extends DCCurveRegression {
 
 		for (int outputIndex = 0; outputIndex < testingEvents.length; outputIndex++) {
 			String foo = "";
-			if (Const.splitDatasetByTrendType) {
+		
 				if (testingEvents[outputIndex].type == Type.Upturn) {
 					foo = upwardTrendTreeString;
 					numberOfUpwardEvent++;
@@ -251,27 +103,12 @@ public class DCCurveCifre extends DCCurveRegression {
 					System.out.println("DCCurveCifre - DCCurveCifre - Invalid event");
 					continue;
 				}
-			} else {
-				foo = trendTreeString;
-			}
+			
 
 			foo = foo.replace("X0", Integer.toString(testingEvents[outputIndex].length()));
 			foo = foo.replace("X1", Double.toString(testingEvents[outputIndex].high - testingEvents[outputIndex].low) );
 			double eval = 0.0;
 			
-			if ((testingEvents[outputIndex].overshoot == null || testEvents[outputIndex].overshoot.length() == 0)) {
-				// Event eventOverShootCopy = new
-				// Event(this.GPtestEvents[outputIndex].start,
-				// this.GPtestEvents[outputIndex].end,
-				// this.GPtestEvents[outputIndex].type);
-				// this.GPtestEvents[outputIndex].overshoot= eventOverShootCopy;
-				// if (isUpwardEvent)
-				// numberOfNegativeUpwardEventGP++;
-				// else
-				// numberOfNegativeDownwardEventGP++;
-			}
-
-
 			if (testingEvents[outputIndex].type == Type.Upturn) {
 				
 				eval = bestUpWardEventTree.eval(testingEvents[outputIndex].length());
@@ -282,11 +119,6 @@ public class DCCurveCifre extends DCCurveRegression {
 				System.out.println("DCCurveCifre - DCCurveCifre - Invalid event");
 				continue;
 			}
-			
-			
-			
-			
-
 			gpprediction[outputIndex] = eval;
 
 		}
@@ -370,8 +202,7 @@ public class DCCurveCifre extends DCCurveRegression {
 
 		lastSellPrice = 0.0;
 		lastBuyPrice = 0.0;
-		StartSellQuantity = -1.0;
-		StartBuyQuantity = -1.0;
+		
 		double lastUpDCCend = 0.0;
 		for (int i = 1; i < testingEvents.length; i++) {
 
@@ -386,7 +217,9 @@ public class DCCurveCifre extends DCCurveRegression {
 			if (testingEvents[i + 1] == null)
 				continue;
 
-			if (tradePoint > testingEvents[i + 1].start) // If a new DC is
+			int nextEventEndPOint = HelperClass.getNextDirectionaChangeEndPoint(testingEvents,  tradePoint);
+
+			if (tradePoint > nextEventEndPOint) // If a new DC is
 															// encountered
 															// before the
 															// estimation point
@@ -432,13 +265,7 @@ public class DCCurveCifre extends DCCurveRegression {
 						// -transactionCost) *myPrice;
 
 						if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) ){
-					//	if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) 
-					//			&& (((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-					//					(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
-							
-							if (StartSellQuantity <= -1.0)
-								StartSellQuantity = OpeningPosition;
-							
+						
 							OpeningPosition = askQuantity;
 							
 							lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + testingEvents[i].end).bidPrice);
@@ -470,20 +297,11 @@ public class DCCurveCifre extends DCCurveRegression {
 						transactionCostPrice = transactionCost * myPrice;
 						bidQuantity = (bidQuantity - transactionCost) * myPrice;
 						zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
-						// transactionCost = trainingOpeningPosition *
-						// (0.025/100);
-						// trainingOpeningPosition = (trainingOpeningPosition
-						// -transactionCost) /myPrice;
-
+						
 						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
 								&& myPrice < lastUpDCCend){
-				//		if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-				//				&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-				//				(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
+								
 									
-									if (StartBuyQuantity <= -1.0)
-										StartBuyQuantity = OpeningPosition;
-					
 							lastBuyPrice = myPrice;
 							OpeningPosition = (OpeningPosition - transactionCost) / myPrice;
 							
@@ -510,6 +328,18 @@ public class DCCurveCifre extends DCCurveRegression {
 							+ " . Trading ended");
 					break;
 
+				}
+				catch (IndexOutOfBoundsException exception ){
+					System.out.println(" DCCurveCifre: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
+							+ " is beyond the size of price array  " + 
+							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
+					break;
+				}
+				catch (Exception exception ){
+					System.out.println(" DCCurveCifre: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
+							+ " is beyond the size of price array  " + 
+							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
+					break;
 				}
 
 			}
@@ -601,117 +431,8 @@ public class DCCurveCifre extends DCCurveRegression {
 
 	@Override
 	double trainingTrading(PreProcess preprocess) {
-		boolean isPositionOpen = false;
-		double myPrice = 0.0;
-		double lastClosedPosition = 0.0;
-		double transactionCost = 0.025 / 100;
-		double DD = 0;// DrawDown
 		
-		lastSellPrice = 0.0;
-		lastBuyPrice = 0.0;
-		StartSellQuantity = -1.0;
-		StartBuyQuantity = -1.0;
-		for (int i = 1; i < trainingEvents.length; i++) {
-
-			// if ( gpprediction[i] == 0) // don't Skip DC classified GP build
-			// using all DCs
-			// continue;
-
-			int tradePoint = trainingEvents[i].end + (int) trainingGpPrediction[i];
-
-			if (trainingEvents[i] == null)
-				continue;
-
-			if (i + 1 > trainingEvents.length - 1)
-				continue;
-
-			if (trainingEvents[i + 1] == null)
-				continue;
-
-			if (tradePoint > trainingEvents[i + 1].start) // If a new DC is
-															// encountered
-															// before the
-															// estimation point
-															// skip trading
-				continue;
-
-			FReader freader = new FReader();
-			FileMember2 fileMember2 = freader.new FileMember2();
-
-			if (tradePoint >= FReader.dataRecordInFileArray.size()) {
-				continue;
-			}
-
-			// I am opening my position in base currency
-			try {
-			fileMember2 = FReader.dataRecordInFileArray.get(tradePoint);
-			}
-			catch (ArrayIndexOutOfBoundsException e){
-				System.out.println(e.getMessage());
-				continue;
-			}
-			if (trainingEvents[i].type == Type.Upturn && !isPositionOpen) {
-				// Now position is in quote currency
-				// I sell base currency in bid price
-				double askQuantity = trainingOpeningPosition;
-				double zeroTransactionCostAskQuantity = trainingOpeningPosition;
-				double transactionCostPrice = 0.0;
-				myPrice = Double.parseDouble(fileMember2.askPrice);
-
-				transactionCost = askQuantity * (0.025 / 100);
-				transactionCostPrice = transactionCost * myPrice;
-				askQuantity = (askQuantity - transactionCost) * myPrice;
-				zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity * myPrice;
-				
-				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){
-			//	if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)
-			//			&& (((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-			//					(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
-					
-					if (StartSellQuantity <= -1.0)
-						StartSellQuantity = OpeningPosition;
-					lastSellPrice = myPrice;
-					trainingOpeningPosition = askQuantity;
-					isPositionOpen = true;
-				}
-			} else if (trainingEvents[i].type == Type.Downturn && isPositionOpen) {
-				// Now position is in base currency
-				// I buy base currency
-				double bidQuantity = trainingOpeningPosition;
-				double zeroTransactionCostBidQuantity = trainingOpeningPosition;
-				double transactionCostPrice = 0.0;
-				myPrice = Double.parseDouble(fileMember2.bidPrice);
-
-				transactionCost = bidQuantity * (0.025 / 100);
-				transactionCostPrice = transactionCost * myPrice;
-				bidQuantity = (bidQuantity - transactionCost) * myPrice;
-				zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
-				// transactionCost = trainingOpeningPosition * (0.025/100);
-				// trainingOpeningPosition = (trainingOpeningPosition
-				// -transactionCost) /myPrice;
-
-				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)){
-		//		if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-		//				&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-		//						(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
-									
-							if (StartBuyQuantity <= -1.0)
-								StartBuyQuantity = OpeningPosition;
-									
-					lastBuyPrice = myPrice;
-					trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) /myPrice;
-					lastClosedPosition = trainingOpeningPosition;
-					isPositionOpen = false;
-				}
-			}
-
-		}
-
-		if (isPositionOpen) {
-			trainingOpeningPosition = lastClosedPosition;
-		}
-
-		return trainingOpeningPosition;
+		return Double.MIN_VALUE;
 
 	}
 

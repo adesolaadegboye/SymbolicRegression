@@ -103,7 +103,7 @@ public class SimpleSharpeRatio {
     public double calulateSharpeRatio(){
     
     	if (returnsList.size() < 2)
-    		return -5.0;
+    		return 0.0;
     	stats.clear();
     	for (int i =0; i < returnsList.size(); i++)
     	{
@@ -122,6 +122,13 @@ public class SimpleSharpeRatio {
         return sharpeRatio;
 
     }
+    
+    public void removeLastElementFromreturnsList(){
+    	if(!returnsList.isEmpty())
+    	    returnsList.remove(returnsList.size()-1) ;
+    	
+    }
+    
 
 }
 

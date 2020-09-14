@@ -4,7 +4,7 @@ public class SimpleDrawDown {
 
 	private double Peak; 
     private double Trough; 
-    private double MaxDrawDown; 
+    private double MaxDrawDown = 0.0; 
 
     public double getPeak(){
     	return Peak;

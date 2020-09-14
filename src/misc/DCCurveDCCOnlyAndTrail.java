@@ -25,7 +25,8 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 	 * @param GPTreeFileName
 	 *            the name of the file where GP tree is stored
 	 */
-	public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, PreProcess preprocess) {
+	public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, 
+			Event[] trainingOutput,PreProcess preprocess) {
 		String thresholdStr = String.format("%.8f", delta);
 		thresholdString = thresholdStr;
 
@@ -33,6 +34,7 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 			return;
 
 		trainingEvents = Arrays.copyOf(events, events.length);
+		this.trainingOutputEvents =  Arrays.copyOf(trainingOutput, trainingOutput.length);
 
 	}
 
@@ -79,8 +81,8 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 		simpleSharpeRatio.addReturn(0);
 		lastSellPrice = 0.0;
 		lastBuyPrice = 0.0;
-		StartSellQuantity = -1.0;
-		StartBuyQuantity = -1.0;
+		double lastUpDCCend = 0.0;
+		
 		for (int i = 1; i < testingEvents.length - 1; i++) {
 			int tradePoint = testingEvents[i].end;
 
@@ -138,18 +140,13 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 							zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity * myPrice;
 
 							if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){
-		//					if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)
-		//							&& (((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-		//									(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
-								
-								if (StartSellQuantity <= -1.0)
-									StartSellQuantity = OpeningPosition;
-								
+							
 								lastSellPrice = myPrice;
 								OpeningPosition = askQuantity;
 								isPositionOpen = true;
 								positionArrayQuote.add(new Double(OpeningPosition));
-
+								lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + testingEvents[i].end).bidPrice);
+								
 								tradedPrice.add(new Double(myPrice));
 								anticipatedTrendMap.put(testingEvents[i].start, tradePointCointer);
 								anticipatedTrend.add(anticipatedTrendMap);
@@ -176,14 +173,10 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 							bidQuantity = (bidQuantity - transactionCost) * myPrice;
 							zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
 
-							if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)){
-			//				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-			//						&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-			//								(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
-												
-										if (StartBuyQuantity <= -1.0)
-											StartBuyQuantity = OpeningPosition;
+							if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
+									&& myPrice < lastUpDCCend){
 										
+									
 								lastBuyPrice = myPrice;
 								OpeningPosition = (OpeningPosition - transactionCost) / myPrice;
 
@@ -301,132 +294,9 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 
 	@Override
 	double trainingTrading(PreProcess preprocess) {
-		boolean isPositionOpen = false;
-		double myPrice = 0.0;
-		double lastClosedPosition = 0.0;
-		double transactionCost = 0.025 / 100;
-		lastSellPrice = 0.0;
-		lastBuyPrice = 0.0;
-		StartSellQuantity = -1.0;
-		StartBuyQuantity = -1.0;
-		for (int i = 1; i < trainingEvents.length; i++) {
+		
 
-			int tradePoint = 0;
-
-			if (trainingEvents[i] == null)
-				continue;
-
-			if (i + 1 > trainingEvents.length - 1)
-				continue;
-
-			if (trainingEvents[i + 1] == null)
-				continue;
-
-			if (tradePoint > trainingEvents[i + 1].start) // If a new DC is
-															// encountered
-															// before the
-															// estimation point
-															// skip trading
-				continue;
-
-			FReader freader = new FReader();
-			FileMember2 fileMember2 = freader.new FileMember2();
-			// fileMember2.Day = GPtestEvents[i].endDate;
-			// fileMember2.time = GPtestEvents[i].endTime;
-			// fileMember2.price = GPtestEvents[i].endPrice;
-
-			if (tradePoint > FReader.dataRecordInFileArray.size() - 1) {
-				continue;
-			}
-
-			boolean isActionTaken = false;
-
-			for (int tradePointCointer = tradePoint; tradePointCointer < trainingEvents[i
-					+ 1].start; tradePointCointer++) {
-				if (isActionTaken) {
-					break;
-				}
-				
-				// I am opening my position in base currency
-				try {
-				fileMember2 = FReader.dataRecordInFileArray.get(tradePointCointer);
-				}
-				catch (ArrayIndexOutOfBoundsException e){
-					System.out.println(e.getMessage());
-					continue;
-				}
-				
-				
-				if (trainingEvents[i].type == Type.Upturn && !isPositionOpen) {
-					// Now position is in quote currency
-					// I sell base currency in bid price
-
-					// I sell base currency in bid price
-					double askQuantity = trainingOpeningPosition;
-					double zeroTransactionCostAskQuantity = trainingOpeningPosition;
-					double transactionCostPrice = 0.0;
-					myPrice = Double.parseDouble(fileMember2.askPrice);
-
-					transactionCost = askQuantity * (0.025 / 100);
-					transactionCostPrice = transactionCost * myPrice;
-					askQuantity = (askQuantity - transactionCost) * myPrice;
-					zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity * myPrice;
-					// transactionCost = trainingOpeningPosition * (0.025/100);
-					// trainingOpeningPosition = (trainingOpeningPosition
-					// -transactionCost) *myPrice;
-
-					if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){
-//					if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)
-//							&& (((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-//									(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
-						
-						if (StartSellQuantity <= -1.0)
-							StartSellQuantity = OpeningPosition;
-						
-						lastSellPrice = myPrice;
-						trainingOpeningPosition = askQuantity;
-						isPositionOpen = true;
-						isActionTaken = true;
-					}
-				} else if (trainingEvents[i].type == Type.Downturn && isPositionOpen) {
-					
-					// Now position is in base currency
-					// I buy base currency
-					double bidQuantity = trainingOpeningPosition;
-					double zeroTransactionCostBidQuantity = trainingOpeningPosition;
-					double transactionCostPrice = 0.0;
-					myPrice = Double.parseDouble(fileMember2.bidPrice);
-
-					transactionCost = bidQuantity * (0.025 / 100);
-					transactionCostPrice = transactionCost * myPrice;
-					bidQuantity = (bidQuantity - transactionCost) * myPrice;
-					zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
-
-					if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)){
-	//				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-	//						&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-	//								(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
-										
-								if (StartBuyQuantity <= -1.0)
-									StartBuyQuantity = OpeningPosition;
-								
-						lastBuyPrice = myPrice;
-						trainingOpeningPosition = (trainingOpeningPosition - transactionCost) / myPrice;
-						lastClosedPosition = trainingOpeningPosition;
-						isPositionOpen = false;
-						isActionTaken = true;
-					}
-				}
-
-			}
-
-		}
-
-		if (isPositionOpen) {
-			trainingOpeningPosition = lastClosedPosition;
-		}
-
-		return trainingOpeningPosition;
+		return Double.MIN_VALUE;
 
 	}
 

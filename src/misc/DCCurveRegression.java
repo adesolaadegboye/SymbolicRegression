@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
@@ -21,14 +22,19 @@ import dc.GP.Const;
 import dc.ga.PreProcess;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
+import dc.io.FReader;
 import dc.io.FReader.FileMember2;
 
 public abstract class DCCurveRegression {
 	
 	Event[] testingEvents;
 	Event[] trainingEvents;
+	Event[] trainingOutputEvents;
 	
 
+	List<FReader.FileMember2> testDataList = new ArrayList<FReader.FileMember2>();
+	List<FReader.FileMember2> trainingDataList = new ArrayList<FReader.FileMember2>();
+	
 	protected double[] gpprediction;
 	protected double[] predictionWithClassifier;
 	
@@ -36,9 +42,6 @@ public abstract class DCCurveRegression {
 	
 	double predictionRmse;
 	protected double OpeningPosition = 500000.00;
-	
-	protected double StartSellQuantity = -1.0;
-	protected double StartBuyQuantity = -1.0;
 	
 	protected double standardLot = 10000.00;
 	protected double trainingOpeningPosition = 500000.00;
@@ -175,7 +178,7 @@ public abstract class DCCurveRegression {
 	
 	abstract public String getDCCurveName();
 
-	abstract public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, PreProcess preprocess);
+	abstract public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, Event[] output, PreProcess preprocess);
 	
 	/**
 	 * 
@@ -477,4 +480,38 @@ public abstract class DCCurveRegression {
 
 
 	}
+	
+	public void setMarketdataListTraining(int counter){
+		
+		for (int i = 0; i < counter; i++) {
+			trainingDataList.add(FReader.dataRecordInFileArray.get(i));
+		}
+	}
+	
+	public List<FReader.FileMember2>  getMarketDataTraining(){
+		List<FReader.FileMember2> bidAskprice;
+		bidAskprice =  new ArrayList<FReader.FileMember2>(trainingDataList);
+		return bidAskprice;
+	}
+	
+	public List<FReader.FileMember2>  getMarketDataTest(){
+		List<FReader.FileMember2> bidAskprice;
+		bidAskprice =  new ArrayList<FReader.FileMember2>(testDataList);
+		return bidAskprice;
+	}
+	
+	public void setMarketdataListTest(int counter){
+		if (trainingDataList.isEmpty()){
+			
+			System.out.println("trainingDataList.isEmpty() existing");
+			System.exit(-1);
+		}
+		
+		int trainingDataSize = trainingDataList.size();
+		for (int i = trainingDataSize; i < (counter + trainingDataSize); i++) {
+			testDataList.add(FReader.dataRecordInFileArray.get(i));
+		}
+		
+	}
+	
 }

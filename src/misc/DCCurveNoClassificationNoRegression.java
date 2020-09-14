@@ -26,7 +26,8 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 	 * @param GPTreeFileName
 	 *            the name of the file where GP tree is stored
 	 */
-	public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, PreProcess preprocess) {
+	public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, 
+			Event[] trainingOutput,PreProcess preprocess) {
 		String thresholdStr = String.format("%.8f", delta);
 		thresholdString = thresholdStr;
 		
@@ -35,6 +36,7 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 		
 	
 		trainingEvents =  Arrays.copyOf(events, events.length) ;
+		this.trainingOutputEvents =  Arrays.copyOf(trainingOutput, trainingOutput.length);
 	}
 
 	public void testbuild(int lastTrainingPricePosition, Double[] values, double delta, Event[] testEvents,
@@ -79,8 +81,7 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 		simpleSharpeRatio.addReturn(0);
 		lastSellPrice = 0.0;
 		lastBuyPrice = 0.0;
-		StartSellQuantity = -1.0;
-		StartBuyQuantity = -1.0;
+		
 		double lastUpDCCend = 0.0;
 		for (int i = 1; i < testingEvents.length - 1; i++) {
 			int tradePoint = 0;
@@ -126,13 +127,7 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 						// -transactionCost) *myPrice;
 
 						if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){
-	//					if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)
-	//							&& (((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-	//									(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
-							
-							if (StartSellQuantity <= -1.0)
-								StartSellQuantity = OpeningPosition;
-							
+	//				
 							lastSellPrice = myPrice;
 							OpeningPosition = askQuantity;
 							isPositionOpen = true;
@@ -141,7 +136,8 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 							tradedPrice.add(new Double(myPrice));
 							anticipatedTrendMap.put(testingEvents[i].start, tradePoint);
 							anticipatedTrend.add(anticipatedTrendMap);
-
+							lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + testingEvents[i].end).bidPrice);
+							
 							if (testingEvents[i].overshoot == null || testingEvents[i].overshoot.length() < 1)
 								actualTrendMap.put(testingEvents[i].start, testingEvents[i].end);
 							else
@@ -167,14 +163,9 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 						// trainingOpeningPosition = (trainingOpeningPosition
 						// -transactionCost) /myPrice;
 
-						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)){
-//						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-//								&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-//										(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
-											
-									if (StartBuyQuantity <= -1.0)
-										StartBuyQuantity = OpeningPosition;
-									
+						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
+								&& myPrice < lastUpDCCend){
+								
 							lastBuyPrice = myPrice;
 							OpeningPosition = (OpeningPosition - transactionCost) / myPrice;
 							
@@ -199,6 +190,18 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 							+ FReader.dataRecordInFileArray.size() + " . Trading ended");
 					break;
 
+				}
+				catch (IndexOutOfBoundsException exception ){
+					System.out.println(" DCCurveNoClassificationNoRegression: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
+							+ " is beyond the size of price array  " + 
+							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
+					break;
+				}
+				catch (Exception exception ){
+					System.out.println(" DCCurveNoClassificationNoRegression: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
+							+ " is beyond the size of price array  " + 
+							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
+					break;
 				}
 
 			}
@@ -297,8 +300,8 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 		double transactionCost = 0.025 / 100;
 		lastSellPrice = 0.0;
 		lastBuyPrice = 0.0;
-		StartSellQuantity = -1.0;
-		StartBuyQuantity = -1.0;
+		
+		
 		for (int i = 1; i < trainingEvents.length; i++) {
 			
 			int tradePoint = 0;
@@ -336,20 +339,12 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 				transactionCostPrice = transactionCost * myPrice;
 				askQuantity = (askQuantity - transactionCost) * myPrice;
 				zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity * myPrice;
-				// transactionCost = trainingOpeningPosition * (0.025/100);
-				// trainingOpeningPosition = (trainingOpeningPosition
-				// -transactionCost) *myPrice;
-
+				
+				
 				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){
-//				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)
-//						&& (((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-//						(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
-					
-					if (StartSellQuantity <= -1.0)
-						StartSellQuantity = OpeningPosition;
-			
-					lastSellPrice = myPrice;
 
+					lastSellPrice = myPrice;
+				
 					trainingOpeningPosition = askQuantity;
 					isPositionOpen = true;
 				}
@@ -365,18 +360,10 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 				transactionCostPrice = transactionCost * myPrice;
 				bidQuantity = (bidQuantity - transactionCost) * myPrice;
 				zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
-				// transactionCost = trainingOpeningPosition * (0.025/100);
-				// trainingOpeningPosition = (trainingOpeningPosition
-				// -transactionCost) /myPrice;
+			
 
 				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)){
-//				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-//						&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-//							(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
-									
-							if (StartBuyQuantity <= -1.0)
-								StartBuyQuantity = OpeningPosition;
-							
+					
 					lastBuyPrice = myPrice;
 					trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) /myPrice;
 					lastClosedPosition = trainingOpeningPosition;

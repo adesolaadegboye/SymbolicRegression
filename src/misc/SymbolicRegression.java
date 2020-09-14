@@ -104,6 +104,10 @@ public class SymbolicRegression {
 	Map<String, Event[]> trainingEventsArrayMF = new LinkedHashMap<String, Event[]>();
 	Map<String, Event[]> trainingEventsArrayOlsen = new LinkedHashMap<String, Event[]>();
 	
+	Map<String, Event[]> trainingOutputArray = new LinkedHashMap<String, Event[]>();
+	Map<String, Event[]> trainingOutputArrayMF = new LinkedHashMap<String, Event[]>();
+	Map<String, Event[]> trainingOutputArrayOlsen = new LinkedHashMap<String, Event[]>();
+	
 	static int currentProcessorCounter;
 		
 	int currentGeneration;
@@ -168,6 +172,9 @@ public class SymbolicRegression {
 		Const.MAX_DEPTH = maxDepth;
 		// Const.EVOLUTION_RATIO = reproductionRatio;
 		Const.file_Name = filename;
+		
+		int trainingDataPtCount = 0;
+		int testDataPtCount = 0;
 
 		TrainingDay = trainingIndexStart;
 		THRESHOLDS = new double[Const.NUMBER_OF_THRESHOLDS];// Adesola change
@@ -202,12 +209,14 @@ public class SymbolicRegression {
 				counter++;
 			}
 		}
+		trainingDataPtCount= counter;
 		ar = new ArrayList<Double[]>();
 		for (int i = testIndexStart; i <= testIndexEnd; i++) {
 			// System.out.println("Print " + i);
 			ar.add(days.get(i));
 		}
 		size = 0;
+		
 		for (Double[] d : ar)
 			size += d.length;
 		test = new Double[size];
@@ -218,6 +227,7 @@ public class SymbolicRegression {
 				counter++;
 			}
 		}
+		testDataPtCount=counter;
 		// budget = 100000;
 
 		int timeSeriesDataPt = training.length;
@@ -356,6 +366,7 @@ public class SymbolicRegression {
 		Const.log.save("selectedThresholdsTraining.txt", selectedThresholds);
 
 		Event[] copiedArray;
+		Event[] copiedOutputArray;
 
 		for (int runCount = 0; runCount < 1; runCount++) {
 			// select threshold via perfect foresight
@@ -373,15 +384,21 @@ public class SymbolicRegression {
 				copiedArray = Arrays.copyOf(dCEventGenerator.getEvents(), dCEventGenerator.getEvents().length);
 				trainingEventsArray.put(thresholdStr, copiedArray);
 
+				copiedOutputArray = Arrays.copyOf(dCEventGenerator.getOutput(), dCEventGenerator.getEvents().length);
+				trainingOutputArray.put(thresholdStr, copiedOutputArray);
+				
 				if (copiedArray.length < 10)
 					continue;
 
 				curvePerfectForesight[i].filename = filename;
-				curvePerfectForesight[i].build(training, THRESHOLDS[i], gpFileName, copiedArray, null);
+				curvePerfectForesight[i].build(training, THRESHOLDS[i], gpFileName, copiedArray, copiedOutputArray, null);
 				curvePerfectForesight[i].estimateTraining(null); // null because
 																	// not doing
 																	// classification
-
+				
+				//curvePerfectForesight[i].trainingOutputEvents
+				curvePerfectForesight[i].setMarketdataListTraining(trainingDataPtCount);
+				curvePerfectForesight[i].setMarketdataListTest(testDataPtCount);
 				double perfectForcastTrainingReturn = curvePerfectForesight[i].trainingTrading(null);
 				perfectForecastReturnMap.put(THRESHOLDS[i], perfectForcastTrainingReturn);
 		
@@ -394,6 +411,12 @@ public class SymbolicRegression {
 				trainingEventsArrayOlsen.put(k, Arrays.copyOf(v, v.length));
 				
 			});
+			
+			trainingOutputArray.forEach((k, v) -> {
+				trainingOutputArrayMF.put(k, Arrays.copyOf(v, v.length));
+				trainingOutputArrayOlsen.put(k, Arrays.copyOf(v, v.length));
+				
+			});
 
 			for (int i = 0; i < THRESHOLDS.length; i++) { // The arrays all have
 				// same size
@@ -404,17 +427,21 @@ public class SymbolicRegression {
 				String gpFileNamePrefix = gpDaysMap.get(trainingIndexStart);
 				String gpFileName = gpFileNamePrefix + "_" + thresholdStr + ".txt";
 
+				
 				copiedArray = trainingEventsArrayMF.get(thresholdStr);
+				copiedOutputArray = trainingOutputArrayMF.get(thresholdStr);
+				
 				if (copiedArray.length < 10)
 					continue;
 
 				curvePerfectForesightMF[i].filename = filename;
-				curvePerfectForesightMF[i].build(training, THRESHOLDS[i], gpFileName, copiedArray, null);
+				curvePerfectForesightMF[i].build(training, THRESHOLDS[i], gpFileName, copiedArray,copiedOutputArray, null);
 				curvePerfectForesightMF[i].estimateTraining(null); // null
 																	// because
 				// not doing
 				// classification
-
+				curvePerfectForesightMF[i].setMarketdataListTraining(trainingDataPtCount);
+				curvePerfectForesightMF[i].setMarketdataListTest(testDataPtCount);
 				double perfectForcastTrainingReturn = curvePerfectForesightMF[i].trainingTrading(null);
 				perfectForecastMFReturnMap.put(THRESHOLDS[i], perfectForcastTrainingReturn);
 
@@ -429,14 +456,19 @@ public class SymbolicRegression {
 				String gpFileName = gpFileNamePrefix + "_" + thresholdStr + ".txt";
 
 				copiedArray = trainingEventsArrayOlsen.get(thresholdStr);
+				copiedOutputArray = trainingEventsArrayOlsen.get(thresholdStr);
+				
 				if (copiedArray.length < 10)
 					continue;
 				curvePerfectForesightOlsen[i].filename = filename;
-				curvePerfectForesightOlsen[i].build(training, THRESHOLDS[i], gpFileName, copiedArray, null);
+				curvePerfectForesightOlsen[i].build(training, THRESHOLDS[i], gpFileName, copiedArray, copiedOutputArray,null);
 				curvePerfectForesightOlsen[i].estimateTraining(null); // null
 																		// because
 				// not doing
+				
 				// classification
+				curvePerfectForesightOlsen[i].setMarketdataListTraining(trainingDataPtCount);
+				curvePerfectForesightOlsen[i].setMarketdataListTest(testDataPtCount);
 				double perfectForcastTrainingReturn = curvePerfectForesightOlsen[i].trainingTrading(null);
 				perfectForecastOlsenReturnMap.put(THRESHOLDS[i], perfectForcastTrainingReturn);
 			}
@@ -617,7 +649,14 @@ public class SymbolicRegression {
 				curveCifre[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
 				curveCifre[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
 				curveCifre[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays.copyOf(
-						trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length), null);
+						trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length), 
+						Arrays.copyOf(
+								trainingOutputArray.get(thresholdStr), trainingOutputArray.get(thresholdStr).length),
+						null);
+				curveCifre[i].setMarketdataListTraining(trainingDataPtCount);
+				curveCifre[i].setMarketdataListTest(testDataPtCount);
+				
+				
 				curveCifre[i].estimateTraining(null);
 
 				
@@ -630,29 +669,45 @@ public class SymbolicRegression {
 				curveClassifcation[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
 				curveClassifcation[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays
 						.copyOf(trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length),
+						Arrays.copyOf(
+								trainingOutputArray.get(thresholdStr), trainingOutputArray.get(thresholdStr).length),
 						preprocess[i]);
+				curveClassifcation[i].setMarketdataListTraining(trainingDataPtCount);
+				curveClassifcation[i].setMarketdataListTest(testDataPtCount);
 				curveClassifcation[i].estimateTraining(preprocess[i]);
 					
 				
 				curveRandomGP[i].filename = filename;
 				// Assign perfect foresight regression Model here
 				curveRandomGP[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays.copyOf(
-						trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length), null);
+						trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length),
+						Arrays.copyOf(
+								trainingOutputArray.get(thresholdStr), trainingOutputArray.get(thresholdStr).length),
+						null);
+
 				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
 						&& !regressionModelGP[1].isEmpty())
 					curveRandomGP[i].assignPerfectForesightRegressionModel(regressionModelGP);
 				curveRandomGP[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
 				curveRandomGP[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
+				curveRandomGP[i].setMarketdataListTraining(trainingDataPtCount);
+				curveRandomGP[i].setMarketdataListTest(testDataPtCount);
 				curveRandomGP[i].estimateTraining(null);
 
 				curveDCCOnlyAndTrailGP[i].filename = filename;
 				curveDCCOnlyAndTrailGP[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays.copyOf(
-						trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length), null);
+						trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length), 
+						Arrays.copyOf(
+								trainingOutputArray.get(thresholdStr), trainingOutputArray.get(thresholdStr).length),
+						null);
+				
 				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
 						&& !regressionModelGP[1].isEmpty())
 					curveDCCOnlyAndTrailGP[i].assignPerfectForesightRegressionModel(regressionModelGP);
 				curveDCCOnlyAndTrailGP[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
 				curveDCCOnlyAndTrailGP[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
+				curveDCCOnlyAndTrailGP[i].setMarketdataListTraining(trainingDataPtCount);
+				curveDCCOnlyAndTrailGP[i].setMarketdataListTest(testDataPtCount);
 				curveDCCOnlyAndTrailGP[i].estimateTraining(null);
 				
 				
@@ -660,12 +715,18 @@ public class SymbolicRegression {
 				curveNoClassificationNoRegressionGP[i].filename = filename;
 				curveNoClassificationNoRegressionGP[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays
 						.copyOf(trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length),
+						Arrays.copyOf(
+								trainingOutputArray.get(thresholdStr), trainingOutputArray.get(thresholdStr).length),
 						null);
+				
 				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
 						&& !regressionModelGP[1].isEmpty())
 					curveNoClassificationNoRegressionGP[i].assignPerfectForesightRegressionModel(regressionModelGP);
 				curveNoClassificationNoRegressionGP[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
 				curveNoClassificationNoRegressionGP[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
+				curveNoClassificationNoRegressionGP[i].setMarketdataListTraining(trainingDataPtCount);
+				curveNoClassificationNoRegressionGP[i].setMarketdataListTest(testDataPtCount);
+				
 				curveNoClassificationNoRegressionGP[i].estimateTraining(null);
 
 				thresholdStr = String.format("%.8f", SELECTED_THRESHOLDS_MF[i]);
@@ -691,7 +752,13 @@ public class SymbolicRegression {
 					curveMF[i].assignPerfectForesightRegressionModel(regressionModelMF);
 
 				curveMF[i].build(training, SELECTED_THRESHOLDS_MF[i], gpFileName, Arrays.copyOf(
-						trainingEventsArrayMF.get(thresholdStr), trainingEventsArrayMF.get(thresholdStr).length), null);
+						trainingEventsArrayMF.get(thresholdStr), trainingEventsArrayMF.get(thresholdStr).length), 
+						Arrays.copyOf(
+								trainingOutputArrayMF.get(thresholdStr), trainingOutputArrayMF.get(thresholdStr).length),
+						null);
+				
+				curveMF[i].setMarketdataListTraining(trainingDataPtCount);
+				curveMF[i].setMarketdataListTest(testDataPtCount);
 				curveMF[i].estimateTraining(null);
 
 				curveClassifcationMF[i].filename = filename;
@@ -703,6 +770,8 @@ public class SymbolicRegression {
 //A						Arrays.copyOf(trainingEventsArrayMF.get(thresholdStr),
 //A								trainingEventsArrayMF.get(thresholdStr).length),
 //A						preprocessMF[i]);
+//				curveClassifcationMF[i].setMarketdataListTraining(trainingDataPtCount);
+//				curveClassifcationMF[i].setMarketdataListTest(testDataPtCount);
 //A				curveClassifcationMF[i].estimateTraining(preprocessMF[i]);
 				
 				
@@ -712,19 +781,32 @@ public class SymbolicRegression {
 					 curveRandomMF[i].assignPerfectForesightRegressionModel(regressionModelMF);
 
 				curveRandomMF[i].build(training, SELECTED_THRESHOLDS_MF[i], gpFileName, Arrays.copyOf(
-						trainingEventsArrayMF.get(thresholdStr), trainingEventsArrayMF.get(thresholdStr).length), null);
+						trainingEventsArrayMF.get(thresholdStr), trainingEventsArrayMF.get(thresholdStr).length),
+						Arrays.copyOf(
+								trainingOutputArrayMF.get(thresholdStr), trainingOutputArrayMF.get(thresholdStr).length),
+						null);
+				
 				curveRandomMF[i].estimateTraining(null);
 
 				curveDCCOnlyAndTrailMF[i].filename = filename;
 				curveDCCOnlyAndTrailMF[i].build(training, SELECTED_THRESHOLDS_MF[i], gpFileName, Arrays.copyOf(
-						trainingEventsArrayMF.get(thresholdStr), trainingEventsArrayMF.get(thresholdStr).length), null);
+						trainingEventsArrayMF.get(thresholdStr), trainingEventsArrayMF.get(thresholdStr).length), 
+						Arrays.copyOf(
+								trainingOutputArrayMF.get(thresholdStr), trainingOutputArrayMF.get(thresholdStr).length),
+						null);
+				curveDCCOnlyAndTrailMF[i].setMarketdataListTraining(trainingDataPtCount);
+				curveDCCOnlyAndTrailMF[i].setMarketdataListTest(testDataPtCount);
 				curveDCCOnlyAndTrailMF[i].estimateTraining(null);
 
 				curveNoClassificationNoRegressionMF[i].filename = filename;
 				curveNoClassificationNoRegressionMF[i].build(training, SELECTED_THRESHOLDS_MF[i], gpFileName,
 						Arrays.copyOf(trainingEventsArrayMF.get(thresholdStr),
 								trainingEventsArrayMF.get(thresholdStr).length),
+						Arrays.copyOf(
+								trainingOutputArrayMF.get(thresholdStr), trainingOutputArrayMF.get(thresholdStr).length),
 						null);
+				curveNoClassificationNoRegressionMF[i].setMarketdataListTraining(trainingDataPtCount);
+				curveNoClassificationNoRegressionMF[i].setMarketdataListTest(testDataPtCount);
 				curveNoClassificationNoRegressionMF[i].estimateTraining(null);
 
 				thresholdStr = String.format("%.8f", SELECTED_THRESHOLDS_OLSEN[i]);
@@ -750,7 +832,11 @@ public class SymbolicRegression {
 				curveOlsen[i].build(training, SELECTED_THRESHOLDS_OLSEN[i], gpFileName,
 						Arrays.copyOf(trainingEventsArrayOlsen.get(thresholdStr),
 								trainingEventsArrayOlsen.get(thresholdStr).length),
+						Arrays.copyOf(trainingOutputArrayOlsen.get(thresholdStr),
+								trainingOutputArrayOlsen.get(thresholdStr).length),
 						null);
+				curveOlsen[i].setMarketdataListTraining(trainingDataPtCount);
+				curveOlsen[i].setMarketdataListTest(testDataPtCount);
 				curveOlsen[i].estimateTraining(null);
 
 			
@@ -763,6 +849,8 @@ public class SymbolicRegression {
 //A						Arrays.copyOf(trainingEventsArrayOlsen.get(thresholdStr),
 //A								trainingEventsArrayOlsen.get(thresholdStr).length),
 //A						preprocessOlsen[i]);
+//A				curveClassificationOlsen[i].setMarketdataListTraining(trainingDataPtCount);
+//A				curveClassificationOlsen[i].setMarketdataListTest(testDataPtCount);
 //A				curveClassificationOlsen[i].estimateTraining(preprocessOlsen[i]);
 
 				curveRandomOlsen[i].filename = filename;
@@ -773,21 +861,33 @@ public class SymbolicRegression {
 				curveRandomOlsen[i].build(training, SELECTED_THRESHOLDS_OLSEN[i], gpFileName,
 						Arrays.copyOf(trainingEventsArrayOlsen.get(thresholdStr),
 								trainingEventsArrayOlsen.get(thresholdStr).length),
+						Arrays.copyOf(trainingOutputArrayOlsen.get(thresholdStr),
+								trainingOutputArrayOlsen.get(thresholdStr).length),
 						null);
+				curveRandomOlsen[i].setMarketdataListTraining(trainingDataPtCount);
+				curveRandomOlsen[i].setMarketdataListTest(testDataPtCount);
 				curveRandomOlsen[i].estimateTraining(null);
 
 				curveDCCOnlyAndTrailOlsen[i].filename = filename;
 				curveDCCOnlyAndTrailOlsen[i].build(training, SELECTED_THRESHOLDS_OLSEN[i], gpFileName,
 						Arrays.copyOf(trainingEventsArrayOlsen.get(thresholdStr),
 								trainingEventsArrayOlsen.get(thresholdStr).length),
+						Arrays.copyOf(trainingOutputArrayOlsen.get(thresholdStr),
+								trainingOutputArrayOlsen.get(thresholdStr).length),
 						null);
+				curveDCCOnlyAndTrailOlsen[i].setMarketdataListTraining(trainingDataPtCount);
+				curveDCCOnlyAndTrailOlsen[i].setMarketdataListTest(testDataPtCount);
 				curveDCCOnlyAndTrailOlsen[i].estimateTraining(null);
 
 				curveNoClassificationNoRegressionOlsen[i].filename = filename;
 				curveNoClassificationNoRegressionOlsen[i].build(training, SELECTED_THRESHOLDS_OLSEN[i], gpFileName,
 						Arrays.copyOf(trainingEventsArrayOlsen.get(thresholdStr),
 								trainingEventsArrayOlsen.get(thresholdStr).length),
+						Arrays.copyOf(trainingOutputArrayOlsen.get(thresholdStr),
+								trainingOutputArrayOlsen.get(thresholdStr).length),
 						null);
+				curveNoClassificationNoRegressionOlsen[i].setMarketdataListTraining(trainingDataPtCount);
+				curveNoClassificationNoRegressionOlsen[i].setMarketdataListTest(testDataPtCount);
 				curveNoClassificationNoRegressionOlsen[i].estimateTraining(null);
 
 				
