@@ -368,6 +368,8 @@ public class DCCurveMF  extends DCCurveRegression{
 		return simpleDrawDown.getTrough();
 	}
 	
+	@Override
+	public 
 	double getMaxMddBase(){
 		return simpleDrawDown.getMaxDrawDown();
 	}

@@ -56,4 +56,11 @@ public class SimpleDrawDown {
                 MaxDrawDown = tmpDrawDown;
         }
     }
+    
+    public void clearMDD(){
+    	Peak = 0.0; 
+        Trough = 0.0; 
+        MaxDrawDown = 0.0; 
+        
+    }
 }

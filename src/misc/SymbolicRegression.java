@@ -33,6 +33,7 @@ import dc.GP.TreeOperation;
 import dc.GP.Const.treeStructurePostcreate;
 
 import dc.ga.GA;
+import dc.ga.HelperClass;
 import dc.ga.PreProcess;
 
 import static dc.ga.DCCurve.Type.Downturn;
@@ -392,6 +393,7 @@ public class SymbolicRegression {
 
 				curvePerfectForesight[i].filename = filename;
 				curvePerfectForesight[i].build(training, THRESHOLDS[i], gpFileName, copiedArray, copiedOutputArray, null);
+				curvePerfectForesight[i].estimateTrainingUsingOutputData(null) ;
 				curvePerfectForesight[i].estimateTraining(null); // null because
 																	// not doing
 																	// classification
@@ -480,10 +482,10 @@ public class SymbolicRegression {
 			SELECTED_THRESHOLDS_OLSEN = new double[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 			
 			SELECTED_THRESHOLDS_CLASSIFICATION_ONLY = new double[Const.NUMBER_OF_SELECTED_THRESHOLDS];
-			List<Entry<Double, Double>> greatest = findGreatest(perfectForecastReturnMap,
+			List<Entry<Double, Double>> greatest = HelperClass.findGreatest(perfectForecastReturnMap,
 					Const.NUMBER_OF_SELECTED_THRESHOLDS); // best
 			
-			List<Entry<Double, Double>> least = findLeast( perfectForecastCombineRegressionMap,
+			List<Entry<Double, Double>> least = HelperClass.findLeast( perfectForecastCombineRegressionMap,
 					Const.NUMBER_OF_SELECTED_THRESHOLDS);
 			// 5
 			// thresholds
@@ -498,7 +500,7 @@ public class SymbolicRegression {
 			}
 
 			greatest.clear();
-			greatest = findGreatest(perfectForecastMFReturnMap, Const.NUMBER_OF_SELECTED_THRESHOLDS); // best
+			greatest = HelperClass.findGreatest(perfectForecastMFReturnMap, Const.NUMBER_OF_SELECTED_THRESHOLDS); // best
 																										// 5
 																										// thresholds
 			tradingThresholdCount = 0;
@@ -511,7 +513,7 @@ public class SymbolicRegression {
 			}
 
 			greatest.clear();
-			greatest = findGreatest(perfectForecastOlsenReturnMap, Const.NUMBER_OF_SELECTED_THRESHOLDS); // best
+			greatest = HelperClass.findGreatest(perfectForecastOlsenReturnMap, Const.NUMBER_OF_SELECTED_THRESHOLDS); // best
 			// 5
 			// thresholds
 			tradingThresholdCount = 0;
@@ -646,8 +648,19 @@ public class SymbolicRegression {
 				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
 						&& !regressionModelGP[1].isEmpty())
 					curveCifre[i].assignPerfectForesightRegressionModel(regressionModelGP);
-				curveCifre[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
-				curveCifre[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
+				
+				for (int thresholdCounter = 0; thresholdCounter < curvePerfectForesight.length; thresholdCounter++) {
+					String thisThresholdStr = String.format("%.8f", SELECTED_THRESHOLDS[i]);
+					if (thisThresholdStr
+							.equalsIgnoreCase(curvePerfectForesight[thresholdCounter].getThresholdString())) {
+						curveCifre[i].bestDownWardEventTree = curvePerfectForesight[thresholdCounter].bestDownWardEventTree.clone();
+						curveCifre[i].bestUpWardEventTree = curvePerfectForesight[thresholdCounter].bestUpWardEventTree.clone();
+
+						break;
+					}
+				}
+				
+				
 				curveCifre[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays.copyOf(
 						trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length), 
 						Arrays.copyOf(
@@ -665,8 +678,20 @@ public class SymbolicRegression {
 				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
 						&& !regressionModelGP[1].isEmpty())
 					curveClassifcation[i].assignPerfectForesightRegressionModel(regressionModelGP);
-				curveClassifcation[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
-				curveClassifcation[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
+				
+
+				for (int thresholdCounter = 0; thresholdCounter < curvePerfectForesight.length; thresholdCounter++) {
+					String thisThresholdStr = String.format("%.8f", SELECTED_THRESHOLDS[i]);
+					if (thisThresholdStr
+							.equalsIgnoreCase(curvePerfectForesight[thresholdCounter].getThresholdString())) {
+						curveClassifcation[i].bestDownWardEventTree = curvePerfectForesight[thresholdCounter].bestDownWardEventTree.clone();
+						curveClassifcation[i].bestUpWardEventTree = curvePerfectForesight[thresholdCounter].bestUpWardEventTree.clone();
+
+						break;
+					}
+				}
+				
+				
 				curveClassifcation[i].build(training, SELECTED_THRESHOLDS[i], gpFileName, Arrays
 						.copyOf(trainingEventsArray.get(thresholdStr), trainingEventsArray.get(thresholdStr).length),
 						Arrays.copyOf(
@@ -688,8 +713,20 @@ public class SymbolicRegression {
 				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
 						&& !regressionModelGP[1].isEmpty())
 					curveRandomGP[i].assignPerfectForesightRegressionModel(regressionModelGP);
-				curveRandomGP[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
-				curveRandomGP[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
+				
+				for (int thresholdCounter = 0; thresholdCounter < curvePerfectForesight.length; thresholdCounter++) {
+					String thisThresholdStr = String.format("%.8f", SELECTED_THRESHOLDS[i]);
+					if (thisThresholdStr
+							.equalsIgnoreCase(curvePerfectForesight[thresholdCounter].getThresholdString())) {
+						curveRandomGP[i].bestDownWardEventTree = curvePerfectForesight[thresholdCounter].bestDownWardEventTree.clone();
+						curveRandomGP[i].bestUpWardEventTree = curvePerfectForesight[thresholdCounter].bestUpWardEventTree.clone();
+
+						break;
+					}
+				}
+				
+				
+				
 				curveRandomGP[i].setMarketdataListTraining(trainingDataPtCount);
 				curveRandomGP[i].setMarketdataListTest(testDataPtCount);
 				curveRandomGP[i].estimateTraining(null);
@@ -704,8 +741,19 @@ public class SymbolicRegression {
 				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
 						&& !regressionModelGP[1].isEmpty())
 					curveDCCOnlyAndTrailGP[i].assignPerfectForesightRegressionModel(regressionModelGP);
-				curveDCCOnlyAndTrailGP[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
-				curveDCCOnlyAndTrailGP[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
+				
+				for (int thresholdCounter = 0; thresholdCounter < curvePerfectForesight.length; thresholdCounter++) {
+					String thisThresholdStr = String.format("%.8f", SELECTED_THRESHOLDS[i]);
+					if (thisThresholdStr
+							.equalsIgnoreCase(curvePerfectForesight[thresholdCounter].getThresholdString())) {
+						curveDCCOnlyAndTrailGP[i].bestDownWardEventTree = curvePerfectForesight[thresholdCounter].bestDownWardEventTree.clone();
+						curveDCCOnlyAndTrailGP[i].bestUpWardEventTree = curvePerfectForesight[thresholdCounter].bestUpWardEventTree.clone();
+
+						break;
+					}
+				}
+				
+				
 				curveDCCOnlyAndTrailGP[i].setMarketdataListTraining(trainingDataPtCount);
 				curveDCCOnlyAndTrailGP[i].setMarketdataListTest(testDataPtCount);
 				curveDCCOnlyAndTrailGP[i].estimateTraining(null);
@@ -722,8 +770,18 @@ public class SymbolicRegression {
 				if (regressionModelGP[0] != null && !regressionModelGP[0].isEmpty() && regressionModelGP[1] != null
 						&& !regressionModelGP[1].isEmpty())
 					curveNoClassificationNoRegressionGP[i].assignPerfectForesightRegressionModel(regressionModelGP);
-				curveNoClassificationNoRegressionGP[i].bestDownWardEventTree = curvePerfectForesight[i].bestDownWardEventTree.clone();
-				curveNoClassificationNoRegressionGP[i].bestUpWardEventTree = curvePerfectForesight[i].bestUpWardEventTree.clone();
+				
+				for (int thresholdCounter = 0; thresholdCounter < curvePerfectForesight.length; thresholdCounter++) {
+					String thisThresholdStr = String.format("%.8f", SELECTED_THRESHOLDS[i]);
+					if (thisThresholdStr
+							.equalsIgnoreCase(curvePerfectForesight[thresholdCounter].getThresholdString())) {
+						curveNoClassificationNoRegressionGP[i].bestDownWardEventTree = curvePerfectForesight[thresholdCounter].bestDownWardEventTree.clone();
+						curveNoClassificationNoRegressionGP[i].bestUpWardEventTree = curvePerfectForesight[thresholdCounter].bestUpWardEventTree.clone();
+
+						break;
+					}
+				}
+				
 				curveNoClassificationNoRegressionGP[i].setMarketdataListTraining(trainingDataPtCount);
 				curveNoClassificationNoRegressionGP[i].setMarketdataListTest(testDataPtCount);
 				
@@ -1809,77 +1867,9 @@ public class SymbolicRegression {
 
 	}
 
-	private static <K, V extends Comparable<? super V>> List<Entry<K, V>> findGreatest(Map<K, V> map, int n) {
-		Comparator<? super Entry<K, V>> comparator = new Comparator<Entry<K, V>>() {
-			@Override
-			public int compare(Entry<K, V> e0, Entry<K, V> e1) {
-				V v0 = e0.getValue();
-				V v1 = e1.getValue();
-				return v0.compareTo(v1);
-			}
-		};
-		PriorityQueue<Entry<K, V>> highest = new PriorityQueue<Entry<K, V>>(n, comparator);
-		for (Entry<K, V> entry : map.entrySet()) {
-			highest.offer(entry);
-			while (highest.size() > n) {
-				highest.poll();
-			}
-		}
-
-		List<Entry<K, V>> result = new ArrayList<Map.Entry<K, V>>();
-		while (highest.size() > 0) {
-			result.add(highest.poll());
-		}
-		return result;
-	}
 	
-	private static <K, V extends Comparable<? super V>> List<Entry<K, V>> findLeast(Map<K, V> map, int n) {
-		Comparator<? super Entry<K, V>> comparator = new Comparator<Entry<K, V>>() {
-			@Override
-			public int compare(Entry<K, V> e0, Entry<K, V> e1) {
-				V v0 = e0.getValue();
-				V v1 = e1.getValue();
-				return (v0.compareTo(v1) * -1);
-			}
-		};
-		PriorityQueue<Entry<K, V>> least = new PriorityQueue<Entry<K, V>>(n, comparator);
-		for (Entry<K, V> entry : map.entrySet()) {
-			least.offer(entry);
-			while (least.size() > n) {
-				least.poll();
-			}
-		}
-
-		List<Entry<K, V>> result = new ArrayList<Map.Entry<K, V>>();
-		while (least.size() > 0) {
-			result.add(least.poll());
-		}
-		return result;
-	}
 
 
-	// Generic function to find the index of an element in an object array in
-	// Java
-	public static <T> int find(T[] a, T target) {
-		return IntStream.range(0, a.length).filter(i -> target.equals(a[i])).findFirst().orElse(-1); // return
-																										// -1
-																										// if
-																										// target
-																										// is
-																										// not
-																										// found
-	}
-
-	// Function to find the index of an element in a primitive array in Java
-	public static int find(double[] a, double target) {
-		return IntStream.range(0, a.length).filter(i -> target == a[i]).findFirst().orElse(-1); // return
-																								// -1
-																								// if
-																								// target
-																								// is
-																								// not
-																								// found
-	}
 }
 
 /*

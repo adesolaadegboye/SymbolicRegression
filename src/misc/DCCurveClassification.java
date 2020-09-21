@@ -24,7 +24,6 @@ import dc.ga.DCCurve.Type;
 import files.FWriter;
 
 public class DCCurveClassification extends DCCurveRegression {
-
 	public DCCurveClassification() {
 		super();
 	}
@@ -43,7 +42,7 @@ public class DCCurveClassification extends DCCurveRegression {
 
 		String thresholdStr = String.format("%.8f", delta);
 		thresholdString = thresholdStr;
-		
+		thresholdValue = delta;
 		if (trainingEvents == null || trainingEvents.length < 1)
 			return;
 
@@ -52,8 +51,7 @@ public class DCCurveClassification extends DCCurveRegression {
 		
 		
 
-		if (upwardTrendTreeString != null && !upwardTrendTreeString.isEmpty() && 
-				downwardTrendTreeString != null && !downwardTrendTreeString.isEmpty()){
+		if (bestDownWardEventTree != null && bestUpWardEventTree != null ){
 			return;
 			
 		}
@@ -176,6 +174,7 @@ public class DCCurveClassification extends DCCurveRegression {
 	}
 
 	@Override
+	public
 	double trade(PreProcess preprocess) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
@@ -333,8 +332,14 @@ public class DCCurveClassification extends DCCurveRegression {
 			tradedPrice.remove(tradedPrice.size() - 1);
 			anticipatedTrend.remove(anticipatedTrend.size() - 1);
 			actualTrend.remove(actualTrend.size() - 1);
-			OpeningPosition = positionArrayBase.get(positionArrayBase.size() - 1);
-			positionArrayQuote.remove(positionArrayQuote.size() - 1);
+			if (!positionArrayBase.isEmpty())
+				OpeningPosition = positionArrayBase.get(positionArrayBase.size() - 1);
+			else
+				OpeningPosition = OpeningPositionHist;
+			
+			if (!positionArrayQuote.isEmpty())
+				positionArrayQuote.remove(positionArrayQuote.size() - 1);
+			
 			isPositionOpen = false;
 		}
 		
@@ -343,69 +348,7 @@ public class DCCurveClassification extends DCCurveRegression {
 		return OpeningPosition;
 	}
 
-	double getMddPeak() {
-		return simpleDrawDown.getPeak();
-	}
-
-	double getMddTrough() {
-		return simpleDrawDown.getTrough();
-	}
-
-	double getMaxMddBase() {
-		return simpleDrawDown.getMaxDrawDown();
-	}
-
-	double getMddPeakQuote() {
-		return simpleDrawDownQuote.getPeak();
-	}
-
-	double getMddTroughQuote() {
-		return simpleDrawDownQuote.getTrough();
-	}
-
-	double getMaxMddQuote() {
-		return simpleDrawDownQuote.getMaxDrawDown();
-	}
-
-	int getNumberOfQuoteCcyTransactions() {
-
-		return positionArrayQuote.size() - 1;
-	}
-
-	int getNumberOfBaseCcyTransactions() {
-
-		return positionArrayBase.size() - 1;
-	}
-
-	double getBaseCCyProfit() {
-		double profit = 0.00;
-		ArrayList<Double> profitList = new ArrayList<Double>();
-		if (positionArrayBase.size() == 1)
-			return 0.00;
-		for (int profitLossCount = 1; profitLossCount < positionArrayBase.size(); profitLossCount++) {
-			double profitCalculation = positionArrayBase.get(profitLossCount)
-					- positionArrayBase.get(profitLossCount - 1) / positionArrayBase.get(profitLossCount - 1);
-			profitList.add(profitCalculation);
-		}
-		profit = profitList.stream().mapToDouble(i -> i.doubleValue()).sum();
-		return profit;
-	}
-
-	double getQuoteCCyProfit() {
-		double profit = 0.00;
-		ArrayList<Double> profitList = new ArrayList<Double>();
-		if (positionArrayQuote.size() == 1)
-			return 0.00;
-		// Start from 3rd element because first element is zero
-		for (int profitLossCount = 1; profitLossCount < positionArrayQuote.size(); profitLossCount++) {
-			double profitCalculation = positionArrayQuote.get(profitLossCount)
-					- positionArrayQuote.get(profitLossCount - 1) / positionArrayQuote.get(profitLossCount - 1);
-			profitList.add(profitCalculation);
-		}
-		profit = profitList.stream().mapToDouble(i -> i.doubleValue()).sum();
-		return profit;
-	}
-
+	
 	@Override
 	public String getDCCurveName() {
 
@@ -420,6 +363,7 @@ public class DCCurveClassification extends DCCurveRegression {
 	}
 
 	@Override
+	public
 	void estimateTraining(PreProcess preprocess) {
 		trainingGpPrediction = new double[trainingEvents.length];
 		

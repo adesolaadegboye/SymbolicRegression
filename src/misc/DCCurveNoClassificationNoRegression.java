@@ -230,7 +230,8 @@ public class DCCurveNoClassificationNoRegression extends DCCurveRegression {
 		return simpleDrawDown.getTrough();
 	}
 
-	double getMaxMddBase() {
+	@Override
+	public double getMaxMddBase() {
 		return simpleDrawDown.getMaxDrawDown();
 	}
 

@@ -46,6 +46,9 @@ public class SimpleSharpeRatio {
     	returns =  rtn;
     }
     
+   
+    
+    
     public double getMovingSharpeRatio(){
     	if (returnsList.size() < 5){
     		
@@ -123,10 +126,33 @@ public class SimpleSharpeRatio {
 
     }
     
+    public void rmoveAllReturns(){
+    	returnsList.clear();
+    	returns = -1;
+    	
+    }
+    
     public void removeLastElementFromreturnsList(){
     	if(!returnsList.isEmpty())
     	    returnsList.remove(returnsList.size()-1) ;
     	
+    }
+    
+    
+    public double calulateVariance(){
+        
+    	if (returnsList.size() < 2)
+    		return 0.0;
+    	stats.clear();
+    	for (int i =0; i < returnsList.size(); i++)
+    	{
+    		stats.addValue(returnsList.get(i));
+    	}
+    	
+    
+        
+        return stats.getVariance();
+
     }
     
 

@@ -16,9 +16,7 @@ import java.util.Vector;
 
 import dc.GP.AbstractNode;
 import dc.GP.Const;
-
-
-
+import dc.ga.HelperClass;
 import dc.ga.PreProcess;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
@@ -39,9 +37,13 @@ public abstract class DCCurveRegression {
 	protected double[] predictionWithClassifier;
 	
 	protected double[] trainingGpPrediction;
+	protected double[] trainingGpPredictionUsingOutputData;
 	
 	double predictionRmse;
 	protected double OpeningPosition = 500000.00;
+	
+	double OpeningPositionHist = 0.0;
+	double trainingOpeningPositionHist = 0.0;
 	
 	protected double standardLot = 10000.00;
 	protected double trainingOpeningPosition = 500000.00;
@@ -72,14 +74,14 @@ public abstract class DCCurveRegression {
 	int numberOfNegativeUpwardEventGP;
 	int numberOfNegativeDownwardEventGP;
 
-	AbstractNode gptree = null;
-	AbstractNode bestUpWardEventTree = null;
-	AbstractNode bestUpWardEventMagnitudeTree = null;
-	AbstractNode bestDownWardEventTree = null;
-	AbstractNode bestDownWardEventMagnitudeTree = null;
+	public AbstractNode gptree = null;
+	public AbstractNode bestUpWardEventTree = null;
+	public AbstractNode bestUpWardEventMagnitudeTree = null;
+	public AbstractNode bestDownWardEventTree = null;
+	public AbstractNode bestDownWardEventMagnitudeTree = null;
 	
-	AbstractNode bestclassifierBasedUpWardEventTree = null;
-	AbstractNode bestclassifierBasedDownWardEventTree = null;
+	public AbstractNode bestclassifierBasedUpWardEventTree = null;
+	public AbstractNode bestclassifierBasedDownWardEventTree = null;
 	
 	protected String upwardTrendTreeString = null;
 	protected String upwardTrendMagnitudeTreeString = null;
@@ -143,7 +145,11 @@ public abstract class DCCurveRegression {
 	
 	private String DCCurveName = null;
 	
-	
+	protected double   thresholdValue = -0.1;
+	protected boolean  isSelectedThresholdFromCandidateList = false;
+	protected double   associatedWeight = 0.0;
+	protected double   varianceValue = 0.0;
+	protected double   tradingReturnValaue = 0.0;
 	
 	protected abstract double calculateSD();
 	//protected abstract double getMax();
@@ -246,23 +252,9 @@ public abstract class DCCurveRegression {
 	}
 	
 	abstract double trade(PreProcess preprocess);
-	
-	abstract double getMddPeak();
-	
-	abstract double getMddTrough();
 
-	abstract double getMddPeakQuote();
 	
-	abstract double getMddTroughQuote();
-	
-	abstract double getMaxMddBase();
-	abstract double getMaxMddQuote();
-	
-	abstract int getNumberOfQuoteCcyTransactions();
-	
-	abstract int getNumberOfBaseCcyTransactions();
-	abstract double getBaseCCyProfit();
-	abstract double getQuoteCCyProfit();
+
 	public abstract String getActualTrend();
 	public abstract String getPredictedTrend();
 	
@@ -397,7 +389,7 @@ public abstract class DCCurveRegression {
 	  return minValue;
 	}
 	
-	protected double getSharpRatio(){
+	public double getSharpRatio(){
 		return simpleSharpeRatio.calulateSharpeRatio();
 	}
 	
@@ -445,13 +437,22 @@ public abstract class DCCurveRegression {
 		if (positionArrayBase.size() > 1){
 			//Calculate sharp ratio start from 1 as it is a moving window
 			for(int srCount = 1 ; srCount < positionArrayBase.size(); srCount++ ){
-				simpleSharpeRatio.addReturn(positionArrayBase.get(srCount) - positionArrayBase.get(srCount-1) );
+				simpleSharpeRatio.addReturn(positionArrayBase.get(srCount) - positionArrayBase.get(srCount-1)) ;
+				simpleDrawDown.Calculate(positionArrayBase.get(srCount-1));
 			}
+			simpleDrawDown.Calculate(positionArrayBase.get(positionArrayBase.size() -1));
 		}
+		
+		
+		
+		
 	//	else if (positionArrayBase.size() == 1)
 	//		simpleSharpeRatio.addReturn(positionArrayBase.get(0) - OpeningPosition);
 		// closingPosition = currentPosition-initialPosition;
-		for (LinkedHashMap<Integer, Integer> map : actualTrend) {
+	/*
+	 * not in use at the moment
+	  	for (LinkedHashMap<Integer, Integer> map : actualTrend) {
+	 
 			int key = map.keySet().iterator().next();
 			int value = map.get(key);
 
@@ -466,19 +467,35 @@ public abstract class DCCurveRegression {
 			predictedTrendString = predictedTrendString + Double.toString(key) + " ," + Double.toString(value) + "\n";
 
 		}
+*/
+		
 
-		for (int profitLossCount = 0; profitLossCount < positionArrayBase.size(); profitLossCount++) {
-			simpleDrawDown.Calculate(positionArrayBase.get(profitLossCount));
-		}
-
+		/*
+		 * 
+		 * 
+		 not in use at the moment
 		for (int profitLossCount = 0; profitLossCount < positionArrayQuote.size(); profitLossCount++) {
 			simpleDrawDownQuote.Calculate(positionArrayQuote.get(profitLossCount));
 		}
-
+*/
 		peakMDD = simpleDrawDown.getMaxDrawDown();
-		peakMDDQuote = simpleDrawDownQuote.getMaxDrawDown();
+	//	peakMDDQuote = simpleDrawDownQuote.getMaxDrawDown();
 
 
+	}
+	
+	public void clearSharpRatio(){
+		simpleSharpeRatio.rmoveAllReturns();
+	}
+	
+	public double getVariance(){
+		return simpleSharpeRatio.calulateVariance();
+	}
+	
+	public void refreshMDD(){
+		simpleDrawDown.clearMDD();
+		simpleDrawDownQuote.clearMDD();
+		
 	}
 	
 	public void setMarketdataListTraining(int counter){
@@ -514,4 +531,193 @@ public abstract class DCCurveRegression {
 		
 	}
 	
+	public void  setOpeningPosition (double position)
+	{
+		OpeningPosition = position;
+	}
+	
+	
+	public double  getOpeningPosition ()
+	{
+		return OpeningPosition;
+	}
+	
+	public void  setOpeningPositionHist (double position)
+	{
+		OpeningPositionHist = position;
+	}
+	
+	
+	public double  getOpeningPositionHist ()
+	{
+		return OpeningPositionHist;
+	}  
+	
+	public void  setTrainingOpeningPositionHist (double position)
+	{
+		trainingOpeningPositionHist = position;
+	}
+	
+	
+	public double  getTrainingOpeningPositionHist ()
+	{
+		return trainingOpeningPositionHist;
+	} 
+	
+	public void  setTrainingOpeningPosition (double position)
+	{
+		trainingOpeningPosition = position;
+	}
+	
+	
+	public double  getTrainingOpeningPosition ()
+	{
+		return trainingOpeningPosition;
+	} 
+	
+	double getMddPeak() {
+		return simpleDrawDown.getPeak();
+	}
+
+	double getMddTrough() {
+		return simpleDrawDown.getTrough();
+	}
+
+	public double getMaxMddBase() {
+		return simpleDrawDown.getMaxDrawDown();
+	}
+
+	double getMddPeakQuote() {
+		return simpleDrawDownQuote.getPeak();
+	}
+
+	double getMddTroughQuote() {
+		return simpleDrawDownQuote.getTrough();
+	}
+
+	double getMaxMddQuote() {
+		return simpleDrawDownQuote.getMaxDrawDown();
+	}
+
+	int getNumberOfQuoteCcyTransactions() {
+
+		return positionArrayQuote.size() - 1;
+	}
+	
+	public void resetNumberOfQuoteCcyTransaction(){
+		positionArrayQuote.clear();
+	}
+	
+	int getNumberOfBaseCcyTransactions() {
+
+		return positionArrayBase.size() - 1;
+	}
+	
+	public void resetNumberOfBaseCcyTransaction(){
+		positionArrayBase.clear();
+	}
+
+	double getBaseCCyProfit() {
+		double profit = 0.00;
+		ArrayList<Double> profitList = new ArrayList<Double>();
+		if (positionArrayBase.size() == 1)
+			return 0.00;
+		for (int profitLossCount = 1; profitLossCount < positionArrayBase.size(); profitLossCount++) {
+			double profitCalculation = positionArrayBase.get(profitLossCount)
+					- positionArrayBase.get(profitLossCount - 1) / positionArrayBase.get(profitLossCount - 1);
+			profitList.add(profitCalculation);
+		}
+		profit = profitList.stream().mapToDouble(i -> i.doubleValue()).sum();
+		return profit;
+	}
+
+	double getQuoteCCyProfit() {
+		double profit = 0.00;
+		ArrayList<Double> profitList = new ArrayList<Double>();
+		if (positionArrayQuote.size() == 1)
+			return 0.00;
+		// Start from 3rd element because first element is zero
+		for (int profitLossCount = 1; profitLossCount < positionArrayQuote.size(); profitLossCount++) {
+			double profitCalculation = positionArrayQuote.get(profitLossCount)
+					- positionArrayQuote.get(profitLossCount - 1) / positionArrayQuote.get(profitLossCount - 1);
+			profitList.add(profitCalculation);
+		}
+		profit = profitList.stream().mapToDouble(i -> i.doubleValue()).sum();
+		return profit;
+	}
+	
+	public void setAssociatedWeight(double weight){
+		associatedWeight = weight;
+	}
+	
+	public double getAssociatedWeight(){
+		return associatedWeight ;
+	}
+	
+	
+	public void setThresholdValue(double value){
+		thresholdValue = value;
+	}
+	public double  getThresholdValue(){
+		return thresholdValue;
+	}
+	
+	
+	public void setIsSelectedThresholdFromCandidateList(boolean value){
+		isSelectedThresholdFromCandidateList = value;
+	}
+	public boolean  getIsSelectedThresholdFromCandidateList(){
+		return isSelectedThresholdFromCandidateList;
+	}
+	
+	
+	public void setVarianceValue(double value){
+		varianceValue = value;
+	}
+	public double  getVarianceValue(){
+		return simpleSharpeRatio.calulateVariance();
+	}
+	
+	public void setTradingReturnValaue(double value){
+		tradingReturnValaue = value;
+	}
+	public double  getTradingReturnValue(){
+		return tradingReturnValaue;
+	}
+	
+	public int getNumberOfTransactions(){
+		return positionArrayBase.size();
+	}
+	
+	public void clearPositionArrayBase(){
+		positionArrayBase.clear();
+	}
+	
+	public void clearPositionArrayQuote(){
+		positionArrayQuote.clear();
+	}
+	
+	public void clearActualTrendString(){
+		actualTrendString =  "";
+	}
+	
+	
+	
+	public void clearPredictedTrendString(){
+		predictedTrendString =  "";
+	}
+	
+	public void estimateTrainingUsingOutputData(PreProcess preprocess) {
+		trainingGpPredictionUsingOutputData = new double[trainingOutputEvents.length];
+		
+
+		for (int outputIndex = 0; outputIndex < trainingOutputEvents.length - 2; outputIndex++) {
+			
+			trainingGpPredictionUsingOutputData[outputIndex] = HelperClass.estimateOSlength(outputIndex, trainingOutputEvents,
+					 bestUpWardEventTree,  bestDownWardEventTree );
+			
+		}
+
+	}
+
 }
