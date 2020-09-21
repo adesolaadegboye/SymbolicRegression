@@ -21,8 +21,8 @@ public final class Const {
 	 public static int NEGATIVE_EXPRESSION_REPLACEMENT=2;
 	 public static boolean LINEAR_FUNCTIONALITY_ONLY=false;
 	 public static int POP_SIZE = 500;
-	 public static int NUMBER_OF_THRESHOLDS = 100; //100;
-	 public static int ELISTISM_COUNT = 10;
+	 public static int NUMBER_OF_THRESHOLDS =  100;
+	 public static int ELISTISM_COUNT = 1;
 	 public static int MAX_GENERATIONS = 37;
 	 public static int MAX_GP_GENERATIONS = 37;
 	 public static int TOURNAMENT_SIZE = 7;
