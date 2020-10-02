@@ -14,6 +14,7 @@ public class TechnicalAnaysisBaseTrading {
 	
 	protected List<Tick> bidTicks = null;
 	protected List<Tick> askTicks = null;
+	protected List<Tick> ticks = null;
 	
 	protected String productName="";  //e.g. FX_USD_GBP
 	protected double startPosition ;
@@ -68,9 +69,7 @@ public class TechnicalAnaysisBaseTrading {
 				zeroTransactionCostAskQuantity  = zeroTransactionCostAskQuantity * myPrice;
 				
 				
-				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) &&
-						(((lastSellPrice > 0.0) ? ((myPrice >= lastSellPrice) ? true : false): true ) ||
-						(StartSellQuantity > -1.0  ? ((StartSellQuantity <= askQuantity) ? true : false) : true  ))) {
+				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) ) {
 					
 					
 					
@@ -105,14 +104,11 @@ public class TechnicalAnaysisBaseTrading {
 				//startPosition =  (startPosition -  transactionCost)/ myPrice;
 				
 				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity) 
-					&& (( lastBuyPrice > 0.0 ? ((myPrice <= lastBuyPrice ) ? true :false ): true )||
-							(StartBuyQuantity > -1.0  ? ((StartBuyQuantity > bidQuantity) ? true: false) : true  ))) {
+					/*&& myPrice < lastSellPrice */ ) {
 								
 						if (StartBuyQuantity <= -1.0)
 							StartBuyQuantity = startPosition;
 								
-				lastBuyPrice = myPrice;
-				
 				
 					startPosition =  (startPosition -  transactionCost)/ myPrice;
 					Order myOrder = Order.buyAt(fullOrder.get(i).getIndex(), fullOrder.get(i).getPrice(),Decimal.valueOf(startPosition) );

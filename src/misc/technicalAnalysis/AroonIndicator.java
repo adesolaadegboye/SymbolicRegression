@@ -5,6 +5,7 @@ import java.util.List;
 
 import eu.verdelhan.ta4j.BaseStrategy;
 import eu.verdelhan.ta4j.BaseTimeSeries;
+import eu.verdelhan.ta4j.Decimal;
 import eu.verdelhan.ta4j.Order;
 import eu.verdelhan.ta4j.Order.OrderType;
 import eu.verdelhan.ta4j.Rule;
@@ -13,17 +14,20 @@ import eu.verdelhan.ta4j.Tick;
 import eu.verdelhan.ta4j.TimeSeries;
 import eu.verdelhan.ta4j.TimeSeriesManager;
 import eu.verdelhan.ta4j.TradingRecord;
-import eu.verdelhan.ta4j.indicators.EMAIndicator;
+import eu.verdelhan.ta4j.indicators.AroonDownIndicator;
+import eu.verdelhan.ta4j.indicators.AroonUpIndicator;
+import eu.verdelhan.ta4j.indicators.RSIIndicator;
 import eu.verdelhan.ta4j.indicators.helpers.ClosePriceIndicator;
 import eu.verdelhan.ta4j.trading.rules.AndRule;
 import eu.verdelhan.ta4j.trading.rules.CrossedDownIndicatorRule;
 import eu.verdelhan.ta4j.trading.rules.CrossedUpIndicatorRule;
 import eu.verdelhan.ta4j.trading.rules.OverIndicatorRule;
+import eu.verdelhan.ta4j.trading.rules.StopLossRule;
 import eu.verdelhan.ta4j.trading.rules.UnderIndicatorRule;
 
-public class ExponentialMovingAverageFX  extends TechnicalAnaysisBaseTrading{
+public class AroonIndicator  extends TechnicalAnaysisBaseTrading{
 
-	public ExponentialMovingAverageFX(List<Tick> bidTicks, List<Tick> askTicks, String name, double openPosition){
+	public AroonIndicator(List<Tick> bidTicks, List<Tick> askTicks, String name, double openPosition){
 		
 		if (bidTicks != null)
 			this.bidTicks =  new ArrayList<>(bidTicks);
@@ -59,44 +63,39 @@ public class ExponentialMovingAverageFX  extends TechnicalAnaysisBaseTrading{
 	        if (bidSeries == null ) {
 	            throw new IllegalArgumentException("Series cannot be null");
 	        }
-
+	        
 	        ClosePriceIndicator bidPrice = new ClosePriceIndicator(bidSeries);
 	        ClosePriceIndicator askPrice = new ClosePriceIndicator(askSeries);
-	        EMAIndicator emaBid5 = new EMAIndicator(bidPrice, 5);
-	        EMAIndicator emaBid20 = new EMAIndicator(bidPrice, 20);
-	        EMAIndicator emaBid50 = new EMAIndicator(bidPrice, 50);
+	        
+
+	        AroonUpIndicator bidaroonUp = new AroonUpIndicator(bidSeries,25);
+	        AroonUpIndicator askaroonUp = new AroonUpIndicator(askSeries,25);
+	        
+	        
+	        AroonDownIndicator  askaroonDown = new AroonDownIndicator(askSeries,25);
+	        AroonDownIndicator  bidaroonDown = new AroonDownIndicator(bidSeries,25);
+	        
+	        
+	        RSIIndicator bidRsi = new RSIIndicator(bidPrice, 14);
+	        RSIIndicator askRsi = new RSIIndicator(askPrice, 14);
+	        
+	        
+	        Rule entryRule = new OverIndicatorRule(askaroonUp,
+	        		askaroonDown).and(new CrossedUpIndicatorRule(askRsi,
+	                Decimal.valueOf(30)));
 
 	        
-	        EMAIndicator emaAsk5 = new EMAIndicator(askPrice, 5);
-	        EMAIndicator emaAsk20 = new EMAIndicator(askPrice, 20);
-	        EMAIndicator emaAsk50 = new EMAIndicator(askPrice, 50);
 	        
-	       // Buy when the five-period EMA crosses from below 
-	       // to above the 20-period EMA, and the price, five, and 
-	       // 20-period EMAs are above the 50 EMA.
+	        Rule stopLoss = new StopLossRule(bidPrice, Decimal.valueOf(15));
+
+	        Rule exitRule = new AndRule(new OverIndicatorRule(bidaroonDown,
+	        		bidaroonUp), new CrossedDownIndicatorRule(bidRsi, Decimal
+	                .valueOf(70))).or(stopLoss);
 	        
-	        Rule entryRule2 = new OverIndicatorRule(emaBid5, emaBid50) // Bull trend
-	                .and(new OverIndicatorRule(emaBid20, emaBid50))
-	                		.and(new OverIndicatorRule(bidPrice, emaBid50)); // Signal
-	            
-	       Rule entryRule1 = new CrossedUpIndicatorRule(emaBid5, emaBid20); // Trend
-            
-	      
-	       
-	      // For a sell trade, sell when the five-period EMA crosses 
-	      //from above to below the 20-period EMA, and both EMAs and the 
-	       //price are below the 50-period EMA.
-	       
-	       Rule exitRule1 = new CrossedDownIndicatorRule(emaAsk5, emaAsk20); // Trend
-	       Rule exitRule2 = new UnderIndicatorRule(emaAsk5, emaBid50) // Bull trend
-	                .and(new UnderIndicatorRule(emaAsk20, emaAsk50))
-	                		.and(new UnderIndicatorRule(askPrice, emaAsk50)); // Signal
-	       
-	       
-	      
+	   
 	       Strategy fxBuySellSignals = new BaseStrategy(
-	    		   entryRule1,
-	    		   exitRule1
+	    		   entryRule,
+	    		   exitRule
 	        );
 	        
 	       

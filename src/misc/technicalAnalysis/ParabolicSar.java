@@ -5,6 +5,7 @@ import java.util.List;
 
 import eu.verdelhan.ta4j.BaseStrategy;
 import eu.verdelhan.ta4j.BaseTimeSeries;
+import eu.verdelhan.ta4j.Decimal;
 import eu.verdelhan.ta4j.Order;
 import eu.verdelhan.ta4j.Order.OrderType;
 import eu.verdelhan.ta4j.Rule;
@@ -14,6 +15,7 @@ import eu.verdelhan.ta4j.TimeSeries;
 import eu.verdelhan.ta4j.TimeSeriesManager;
 import eu.verdelhan.ta4j.TradingRecord;
 import eu.verdelhan.ta4j.indicators.EMAIndicator;
+import eu.verdelhan.ta4j.indicators.ParabolicSarIndicator;
 import eu.verdelhan.ta4j.indicators.helpers.ClosePriceIndicator;
 import eu.verdelhan.ta4j.trading.rules.AndRule;
 import eu.verdelhan.ta4j.trading.rules.CrossedDownIndicatorRule;
@@ -21,9 +23,9 @@ import eu.verdelhan.ta4j.trading.rules.CrossedUpIndicatorRule;
 import eu.verdelhan.ta4j.trading.rules.OverIndicatorRule;
 import eu.verdelhan.ta4j.trading.rules.UnderIndicatorRule;
 
-public class ExponentialMovingAverageFX  extends TechnicalAnaysisBaseTrading{
+public class ParabolicSar  extends TechnicalAnaysisBaseTrading{
 
-	public ExponentialMovingAverageFX(List<Tick> bidTicks, List<Tick> askTicks, String name, double openPosition){
+	public ParabolicSar(List<Tick> bidTicks, List<Tick> askTicks, String name, double openPosition){
 		
 		if (bidTicks != null)
 			this.bidTicks =  new ArrayList<>(bidTicks);
@@ -60,39 +62,18 @@ public class ExponentialMovingAverageFX  extends TechnicalAnaysisBaseTrading{
 	            throw new IllegalArgumentException("Series cannot be null");
 	        }
 
-	        ClosePriceIndicator bidPrice = new ClosePriceIndicator(bidSeries);
-	        ClosePriceIndicator askPrice = new ClosePriceIndicator(askSeries);
-	        EMAIndicator emaBid5 = new EMAIndicator(bidPrice, 5);
-	        EMAIndicator emaBid20 = new EMAIndicator(bidPrice, 20);
-	        EMAIndicator emaBid50 = new EMAIndicator(bidPrice, 50);
-
+	        ParabolicSarIndicator bidPrice = new ParabolicSarIndicator(bidSeries,8);
+	        ParabolicSarIndicator askPrice = new ParabolicSarIndicator(askSeries,8);
 	        
-	        EMAIndicator emaAsk5 = new EMAIndicator(askPrice, 5);
-	        EMAIndicator emaAsk20 = new EMAIndicator(askPrice, 20);
-	        EMAIndicator emaAsk50 = new EMAIndicator(askPrice, 50);
-	        
-	       // Buy when the five-period EMA crosses from below 
-	       // to above the 20-period EMA, and the price, five, and 
-	       // 20-period EMAs are above the 50 EMA.
-	        
-	        Rule entryRule2 = new OverIndicatorRule(emaBid5, emaBid50) // Bull trend
-	                .and(new OverIndicatorRule(emaBid20, emaBid50))
-	                		.and(new OverIndicatorRule(bidPrice, emaBid50)); // Signal
-	            
-	       Rule entryRule1 = new CrossedUpIndicatorRule(emaBid5, emaBid20); // Trend
-            
 	      
+	        Rule entryRule1 = new OverIndicatorRule(askPrice, Decimal.valueOf(8)); // Bull trend
+	                
+	                		
+	     
 	       
-	      // For a sell trade, sell when the five-period EMA crosses 
-	      //from above to below the 20-period EMA, and both EMAs and the 
-	       //price are below the 50-period EMA.
+	     
 	       
-	       Rule exitRule1 = new CrossedDownIndicatorRule(emaAsk5, emaAsk20); // Trend
-	       Rule exitRule2 = new UnderIndicatorRule(emaAsk5, emaBid50) // Bull trend
-	                .and(new UnderIndicatorRule(emaAsk20, emaAsk50))
-	                		.and(new UnderIndicatorRule(askPrice, emaAsk50)); // Signal
-	       
-	       
+	       Rule exitRule1 = new UnderIndicatorRule(bidPrice, Decimal.valueOf(8)); // Trend
 	      
 	       Strategy fxBuySellSignals = new BaseStrategy(
 	    		   entryRule1,
