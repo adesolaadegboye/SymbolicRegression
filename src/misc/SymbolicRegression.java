@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -19,61 +20,34 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Random;
-
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.IntStream;
-
 import dc.GP.AbstractNode;
-import dc.GP.Add;
 import dc.GP.Const;
-
 import dc.GP.TreeHelperClass;
 import dc.GP.TreeOperation;
 import dc.GP.Const.treeStructurePostcreate;
-
-import dc.ga.GA;
 import dc.ga.HelperClass;
 import dc.ga.PreProcess;
-
-import static dc.ga.DCCurve.Type.Downturn;
-import static dc.ga.DCCurve.Type.DownwardOvershoot;
-import static dc.ga.DCCurve.Type.Upturn;
-import static dc.ga.DCCurve.Type.UpwardOvershoot;
-
 import dc.ga.DCCurve.Event;
-import dc.ga.DCCurve.Type;
 import dc.io.FReader;
 import dc.io.Logger;
-import eu.verdelhan.ta4j.BaseStrategy;
 import eu.verdelhan.ta4j.BaseTick;
-import eu.verdelhan.ta4j.BaseTimeSeries;
-import eu.verdelhan.ta4j.Order;
-import eu.verdelhan.ta4j.Strategy;
 import eu.verdelhan.ta4j.Tick;
-import eu.verdelhan.ta4j.TimeSeries;
-import eu.verdelhan.ta4j.TimeSeriesManager;
-import eu.verdelhan.ta4j.TradingRecord;
-import eu.verdelhan.ta4j.indicators.EMAIndicator;
-import eu.verdelhan.ta4j.indicators.SMAIndicator;
-import eu.verdelhan.ta4j.indicators.helpers.ClosePriceIndicator;
-import eu.verdelhan.ta4j.indicators.statistics.StandardDeviationIndicator;
-import eu.verdelhan.ta4j.trading.rules.OverIndicatorRule;
-import eu.verdelhan.ta4j.trading.rules.UnderIndicatorRule;
 import files.FWriter;
+import misc.technicalAnalysis.AroonIndicator;
+import misc.technicalAnalysis.BolingerBAndS;
+import misc.technicalAnalysis.CommodityChannelIndexIndicator;
 import misc.technicalAnalysis.ExponentialMovingAverageFX;
 import misc.technicalAnalysis.MovingMomentum;
+import misc.technicalAnalysis.ParabolicSar;
+import misc.technicalAnalysis.PriceRateOfChangeIndicator;
 import misc.technicalAnalysis.RelativeStrengthIndex;
+import misc.technicalAnalysis.SimpleMovingAverage;
+import misc.technicalAnalysis.StochOscillatorKIndicator;
 import misc.technicalAnalysis.TechnicalAnaysisBaseTrading;
-import weka.core.Instances;
+import misc.technicalAnalysis.WilliamR;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
-import java.util.PriorityQueue;
 
 public class SymbolicRegression {
 
@@ -183,12 +157,7 @@ public class SymbolicRegression {
 
 		gpDaysMap = FReader.loadDataMap(filename);
 
-		for (int i = 0; i < THRESHOLDS.length; i++) {
-			THRESHOLDS[i] = (0.005 + (0.0025 * i)) / 100.0;
-			String thresholdStr = String.format("%.8f", THRESHOLDS[i]);
-			// System.out.println(thresholdStr);
-		}
-
+		
 		// System.out.println("Loading directional changes data...");
 
 		// loads the data
@@ -244,7 +213,7 @@ public class SymbolicRegression {
 			bidTicks.add(new BaseTick(klDateTIme, 0.0, 0.0, 0.0,
 					Double.parseDouble(FReader.dataRecordInFileArray.get(timeSeriesCount).bidPrice), 0.0));
 			askTicks.add(new BaseTick(klDateTIme, 0.0, 0.0, 0.0,
-					Double.parseDouble(FReader.dataRecordInFileArray.get(timeSeriesCount).askPrice), 0.0));
+							Double.parseDouble(FReader.dataRecordInFileArray.get(timeSeriesCount).askPrice), 0.0));
 
 			// System.out.println(bidTicks.get(0).toString());
 		}
@@ -258,13 +227,125 @@ public class SymbolicRegression {
 				500000.00);
 		TechnicalAnaysisBaseTrading mcadTrading = new MovingMomentum(bidTicks, askTicks, fileNameWithoutExtension,
 				500000.00);
+		
+		TechnicalAnaysisBaseTrading bollingerBAndS = new BolingerBAndS(bidTicks, askTicks, fileNameWithoutExtension,
+				500000.00);
+		
+		TechnicalAnaysisBaseTrading commodityChannelIndexIndicator = new CommodityChannelIndexIndicator(bidTicks, askTicks, fileNameWithoutExtension,
+				500000.00);
+		
+		TechnicalAnaysisBaseTrading simpleMovingAverage = new SimpleMovingAverage(bidTicks, askTicks, fileNameWithoutExtension,
+				500000.00);
+		
+		TechnicalAnaysisBaseTrading parabolicSar = new ParabolicSar(bidTicks, askTicks, fileNameWithoutExtension,
+				500000.00);
+		
+		TechnicalAnaysisBaseTrading aroonIndicator = new AroonIndicator(bidTicks, askTicks, fileNameWithoutExtension,
+				500000.00);
+		
+		TechnicalAnaysisBaseTrading stochOscillatorKIndicator = new StochOscillatorKIndicator(bidTicks, askTicks, fileNameWithoutExtension,
+				500000.00);
+		
+		
+		
+		TechnicalAnaysisBaseTrading williamR = new WilliamR(bidTicks, askTicks, fileNameWithoutExtension,
+				500000.00);
+		
+		
+		
+		TechnicalAnaysisBaseTrading priceRateOfChangeIndicator = new PriceRateOfChangeIndicator(bidTicks, askTicks, fileNameWithoutExtension,
+				500000.00);
+		
 		rsiTrading.getOrders();
 		mcadTrading.getOrders();
 		emaTrading.getOrders();
+		bollingerBAndS.getOrders();
+		commodityChannelIndexIndicator.getOrders();
+		simpleMovingAverage.getOrders();
+		parabolicSar.getOrders();
+		aroonIndicator.getOrders();
+		stochOscillatorKIndicator.getOrders();
+		williamR.getOrders();
+		priceRateOfChangeIndicator.getOrders();
+		
+		
 		double rsiTradeResult = rsiTrading.trade();
 		double mcadTradeResult = mcadTrading.trade();
 		double emaTradeResult = ((ExponentialMovingAverageFX) emaTrading).trade();
+		double bollingerBAndSResult =  bollingerBAndS.trade();
+		double commodityChannelIndexIndicatorResult = commodityChannelIndexIndicator.trade();
+		double simpleMovingAverageResult =  simpleMovingAverage.trade();
+		double parabolicSarResult = parabolicSar.trade();
+		double aroonIndicatorResult = aroonIndicator.trade();
+		double stochOscillatorKIndicatorResult =  stochOscillatorKIndicator.trade();
+		double williamRResult = williamR.trade();
+		double priceRateOfChangeIndicatorResult = priceRateOfChangeIndicator.trade();
+		
+		
+		String TechnicalIndicatorMDD = "Dataset \t bollinger \t "
+				+ "commodityChannelIndexIndicatorResult \t SMA  "
+				+ "\t parabolicSarResult \t aroon \t StochastichOscillatorK \t"
+				+ " williamR \t ROC "
+				+ "\t RSI \t EMA \t MACD  ";
+		
+		FWriter TechnicalIndicatorMDDWriter = new FWriter(Const.log.publicFolder + "TechnicalIndicatorMDDBaseCcy.txt");
+		Const.log.save("TechnicalIndicatorMDDBaseCcy.txt", TechnicalIndicatorMDD);
+		
+		for (int printCount = 0  ; printCount < 5 ; printCount++ ){
+		
+		TechnicalIndicatorMDD = filename + " \t" 
+				+ bollingerBAndS.getMaxMddBase() + "\t"
+				+ commodityChannelIndexIndicator.getMaxMddBase() + "\t"
+				+ simpleMovingAverage.getMaxMddBase() + "\t"
+				+ parabolicSar.getMaxMddBase() + "\t"
+				+ aroonIndicator.getMaxMddBase() + "\t"
+				+ stochOscillatorKIndicator.getMaxMddBase() +"\t"
+				+ williamR.getMaxMddBase() + "\t"
+				+ priceRateOfChangeIndicator.getMaxMddBase() + "\t"
+				+ rsiTrading.getMaxMddBase() + "\t" + emaTrading.getMaxMddBase() + "\t" + mcadTrading.getMaxMddBase();
+		Const.log.save("TechnicalIndicatorMDDBaseCcy.txt", TechnicalIndicatorMDD);
+		}
+		
+		String TechnicalIndicatorReturn = "Dataset \t bollinger \t "
+				+ "commodityChannelIndexIndicatorResult \t SMA  "
+				+ "\t parabolicSarResult \t aroon \t StochastichOscillatorK \t"
+				+ " williamR \t ROC "
+				+ "\t RSI \t EMA \t MACD  ";
+		FWriter TechnicalIndicatorReturnWriter = new FWriter(Const.log.publicFolder + "TechnicalIndicatorSimpleTradingResult.txt");
+		Const.log.save("TechnicalIndicatorSimpleTradingResult.txt", TechnicalIndicatorReturn);
+		
+		
+		DecimalFormat df = new DecimalFormat("#.####");
+		df.setRoundingMode(RoundingMode.CEILING);
+	
+		for (int printCount = 0  ; printCount < 5 ; printCount++ ){
+			
+		
+		TechnicalIndicatorReturn = filename + " \t" 
+				+ df.format((( bollingerBAndSResult - 500000)/500000) * 100) + "\t"
+				+ df.format(((commodityChannelIndexIndicatorResult - 500000)/500000) * 100) + "\t"
+				+ df.format(((simpleMovingAverageResult  - 500000)/500000) * 100 )+ "\t"
+				+ df.format(((parabolicSarResult - 500000)/ 500000) * 100) + "\t"
+				+ df.format(((aroonIndicatorResult - 500000)/ 500000) * 100) + "\t"
+				+ df.format(((stochOscillatorKIndicatorResult  - 500000)/500000) * 100) +"\t"
+				+ df.format(((williamRResult - 500000)/500000) * 100) + "\t"
+				+ df.format(((priceRateOfChangeIndicatorResult - 500000)/500000) * 100) + "\t"
+				+ df.format(((rsiTradeResult - 500000)/500000) * 100) + "\t"
+				+ df.format(((emaTradeResult - 500000)/500000) * 100) + "\t"
+				+ df.format(((mcadTradeResult - 500000)/500000) * 100);
+		Const.log.save("TechnicalIndicatorSimpleTradingResult.txt", TechnicalIndicatorReturn);
+		}
+		
+	
+		System.exit(0);
+		for (int i = 0; i < THRESHOLDS.length; i++) {
+			THRESHOLDS[i] = (0.005 + (0.0025 * i)) / 100.0;
+			String thresholdStr = String.format("%.8f", THRESHOLDS[i]);
+			// System.out.println(thresholdStr);
+		}
 
+		
+		
 		curvePerfectForesight = new DCCurvePerfectForesight[THRESHOLDS.length];
 		curvePerfectForesightMF = new DCCurvePerfectForesightMF[THRESHOLDS.length];
 		curvePerfectForesightOlsen = new DCCurvePerfectForesightOlsen[THRESHOLDS.length];
@@ -1213,7 +1294,7 @@ public class SymbolicRegression {
 					Const.log.publicFolder + "SimpleTradingResult.txt");
 			Const.log.save("SimpleTradingResult.txt", SimpleTradingResult);
 
-			FWriter sharpRatioWriter = new FWriter(Const.log.publicFolder + "sharpRatio.txt");
+			FWriter sharpRatioWriter = new FWriter(Const.log.publicFolder + "SharpRatio.txt");
 			Const.log.save("SharpRatio.txt", SimpleTradingResult);
 
 			String mDD = "Dataset \t PerfectForesight+GP \t GP \t Classifier+GP  "

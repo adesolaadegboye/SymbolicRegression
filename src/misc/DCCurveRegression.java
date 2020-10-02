@@ -25,9 +25,9 @@ import dc.io.FReader.FileMember2;
 
 public abstract class DCCurveRegression {
 	
-	Event[] testingEvents;
-	Event[] trainingEvents;
-	Event[] trainingOutputEvents;
+	public Event[] testingEvents;
+	public Event[] trainingEvents;
+	public Event[] trainingOutputEvents;
 	
 
 	List<FReader.FileMember2> testDataList = new ArrayList<FReader.FileMember2>();
@@ -145,7 +145,7 @@ public abstract class DCCurveRegression {
 	
 	private String DCCurveName = null;
 	
-	protected double   thresholdValue = -0.1;
+	public double   thresholdValue = -0.1;
 	protected boolean  isSelectedThresholdFromCandidateList = false;
 	protected double   associatedWeight = 0.0;
 	protected double   varianceValue = 0.0;

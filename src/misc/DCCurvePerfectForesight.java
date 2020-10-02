@@ -765,7 +765,18 @@ public class DCCurvePerfectForesight extends DCCurveRegression {
 
 	}
 	
-	
+	public void estimateTrainingUsingOutputData(PreProcess preprocess) {
+		trainingGpPredictionUsingOutputData = new double[trainingOutputEvents.length];
+		
+
+		for (int outputIndex = 0; outputIndex < trainingOutputEvents.length - 2; outputIndex++) {
+			
+			trainingGpPredictionUsingOutputData[outputIndex] = HelperClass.estimateOSlength(outputIndex, trainingOutputEvents,
+					 bestUpWardEventTree,  bestDownWardEventTree );
+			
+		}
+
+	}
 
 	@Override
 	public void estimateTraining(PreProcess preprocess) {
