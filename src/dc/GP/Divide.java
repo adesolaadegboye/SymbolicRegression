@@ -75,6 +75,38 @@ public class Divide extends AbstractNode implements Cloneable {
 			return Double.MAX_VALUE;
 		}
 	}
+	
+	@Override
+	public double eval(double inVal, double magnitude) {
+		if (this.children.get(0) != null && this.children.get(1) != null){
+			double value1 = (this.children.get(0)).eval(inVal,magnitude);
+			double value2 = (this.children.get(1)).eval(inVal,magnitude);
+			
+			if  ( value2 == Double.MAX_VALUE || value2 == Double.NEGATIVE_INFINITY ||
+					value2 == Double.POSITIVE_INFINITY || value2 ==  Double.NaN ||
+					Double.isInfinite(value2) || Double.isNaN(value2) ||
+					value1 == Double.MAX_VALUE || value1 == Double.NEGATIVE_INFINITY ||
+					value1 == Double.POSITIVE_INFINITY || value1 ==  Double.NaN ||
+					Double.isInfinite(value1) || Double.isNaN(value1)	
+										)
+					return Double.MAX_VALUE;
+			
+			double value3 = value1/ value2;
+			//System.out.println( value1+ " " +value2  + " "+value3);
+			
+			
+			if  ( value3 == Double.MAX_VALUE || value3 == Double.NEGATIVE_INFINITY ||
+				value3 == Double.POSITIVE_INFINITY || value3 ==  Double.NaN ||
+				 Double.isInfinite(value3) || Double.isNaN(value3))
+				return Double.MAX_VALUE;
+			else
+				return  value3;
+		}
+		else {
+			System.out.println( "left and right not defined in Divide");
+			return Double.MAX_VALUE;
+		}
+	}
 
 	@Override
 	public String getLabel() {
@@ -101,7 +133,8 @@ public class Divide extends AbstractNode implements Cloneable {
 	      //  this.children.clear();
 	        return  ((Divide)divide);
 	}
-
+	
+	
 	@Override
 	public int getNumChildren() {
 		
@@ -331,26 +364,6 @@ public class Divide extends AbstractNode implements Cloneable {
 		
 	}
 
-	@Override
-	public double eval(double inVal, double magnitude) {
-		if (this.children.get(0) != null && this.children.get(1) != null){
-			double value1 = (this.children.get(0)).eval(inVal,magnitude);
-			double value2 = (this.children.get(1)).eval(inVal,magnitude);
-			double value3 = value1/ value2;
-			//System.out.println( value1+ " " +value2  + " "+value3);
-			
-			
-			if  ( value3 == Double.MAX_VALUE || value3 == Double.NEGATIVE_INFINITY ||
-					value3 == Double.POSITIVE_INFINITY || value3 ==  Double.NaN)
-				return 1000000000.0;
-			else
-				return  value3;
-		}
-		else {
-			System.out.println( "left and right not defined in Divide");
-			return 1000000000.0;
-		}
-	}
-
+	
 	
 }

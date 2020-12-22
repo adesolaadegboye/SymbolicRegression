@@ -322,17 +322,32 @@ public class Cosine extends AbstractNode implements Cloneable{
 	@Override
 	public double eval(double inVal, double magnitude) {
 		if (this.children.get(0) != null ){
-			double evalValue = Math.cos((this.children.get(0)).eval(inVal,magnitude));
-			//System.out.println( evalValue );
+			double var1 = (this.children.get(0)).eval(inVal,magnitude);
+			if (Double.isNaN(var1)){
+				System.out.println(TreeHelperClass.printTreeToString(this, 0));
+					System.out.println("Is NAN");
+			}
+			
+			if  ( inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
+					inVal == Double.POSITIVE_INFINITY || inVal ==  Double.NaN ||
+					Double.compare(inVal, 0.0)  < 0  || Double.isInfinite(inVal) || Double.isNaN(inVal) ||
+					var1 == Double.MAX_VALUE || var1 == Double.NEGATIVE_INFINITY ||
+					var1 == Double.POSITIVE_INFINITY || var1 ==  Double.NaN ||
+					Double.compare(var1, 0.0)  < 0  || Double.isInfinite(var1) || Double.isNaN(var1))
+				return Double.MAX_VALUE;
+			
+			double evalValue = Math.cos(var1);
+		
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
-					evalValue == Double.POSITIVE_INFINITY || evalValue ==  Double.NaN)
-				return 1000000000.0;
+					evalValue == Double.POSITIVE_INFINITY || evalValue ==  Double.NaN ||
+					 Double.isInfinite(evalValue)  || Double.isNaN(evalValue))
+				return Double.MAX_VALUE;
 			else
 				return evalValue;
 		}
 		else {
 			System.out.println( "left not defined in Cosine");
-			return -1.0;
+			return Double.MAX_VALUE;
 		}
 	}
 }

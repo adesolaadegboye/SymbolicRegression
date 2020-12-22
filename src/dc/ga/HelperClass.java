@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Random;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
@@ -262,6 +263,54 @@ public class HelperClass {
 		}
 		return result;
 	}
+	public  static boolean isPreviousDirectionalChangeEventSameAsCurrentDCEvent(Event[] output, int pointInTime){
+	
+		Event previousEvent = null;
+		Event currentEvent =  null;
+		try{
+			
+			currentEvent = output[pointInTime];
+			previousEvent = output[pointInTime-1];
+		}
+		catch(ArrayIndexOutOfBoundsException e){
+			return false;
+		}	
+		
+		if (previousEvent.type !=currentEvent.type )
+			return false;
+		else 
+			return true;
+		
+	}
+	public  static boolean isNextDirectionalChangeEventSameDirectionButDifferentLength(Event[] output, int pointInTime){
+		Event nextEvent = null;
+		Event currentEvent =  null;
+		try{
+			
+			currentEvent = output[pointInTime];
+		}
+		catch(ArrayIndexOutOfBoundsException e){
+			return false;
+		}	
+		
+		try{
+			for (int i = pointInTime+1; i < output.length; i++ ){
+				nextEvent = output[i] ;
+				if (nextEvent.type !=currentEvent.type )
+					return false;	
+				
+				if (nextEvent.type ==currentEvent.type && !nextEvent.equals(currentEvent)   )
+						return true;
+	
+			}
+		}
+		catch(NullPointerException e){
+			System.err.println(e);
+			return false;
+		}
+		
+		return false;
+	}
 	
 	public  static int getNextDirectionaChangeEndPoint(Event[] output, int pointInTime){
 		
@@ -274,10 +323,16 @@ public class HelperClass {
 		catch(ArrayIndexOutOfBoundsException e){
 			return Integer.MAX_VALUE;
 		}	
-		for (int i = pointInTime+1; i < output.length; i++ ){
-			nextEvent = output[i] ;
-			if (nextEvent.type !=currentEvent.type )
-				break;	
+		
+		try{
+			for (int i = pointInTime+1; i < output.length; i++ ){
+				nextEvent = output[i] ;
+				if (nextEvent.type !=currentEvent.type )
+					break;	
+			}
+		}
+		catch(NullPointerException e){
+			return -1;
 		}
 		
 		if (nextEvent ==  null || nextEvent.type ==currentEvent.type  )
@@ -304,6 +359,33 @@ public class HelperClass {
 
 		return eval;
 		
+	}
+	
+	public static double getRandomDoubleBetweenRange(double min, double max) {
+		if (min >= max) {
+			throw new IllegalArgumentException("getRandomDoubleBetweenRange: max must be greater than min");
+		}
+		double x = min + (max - min) * new Random().nextDouble();
+
+		// double x = (Math.random(). *((max-min)+1))+min;
+		return x;
+	}
+	
+	// To use: ObjectTypeInMapValue  OTIMV = mostFrequentElement(map.values());
+	public static <E> E mostFrequentElement(Iterable<E> iterable) {
+	    Map<E, Integer> freqMap = new HashMap<>();
+	    E mostFreq = null;
+	    int mostFreqCount = -1;
+	    for (E e : iterable) {
+	        Integer count = freqMap.get(e);
+	        freqMap.put(e, count = (count == null ? 1 : count+1));
+	        // maintain the most frequent in a single pass.
+	        if (count > mostFreqCount) {
+	            mostFreq = e;
+	            mostFreqCount = count;
+	        }
+	    }
+	    return mostFreq;
 	}
 
 }

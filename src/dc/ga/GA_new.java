@@ -20,20 +20,26 @@ package dc.ga;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.commons.math3.util.FastMath;
+import java.util.stream.Collectors;
+
+
 
 import java.util.Random;
 import java.util.Vector;
@@ -43,38 +49,87 @@ import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
+
 import dc.io.FReader;
 import dc.io.Logger;
-import dc.io.FReader.FileMember2;
+
 
 import misc.DCCurveClassification;
 
 import misc.DCCurvePerfectForesight;
 
 import misc.DCEventGenerator;
-import misc.SimpleDrawDown;
-import misc.SimpleSharpeRatio;
-import weka.core.Instances;
-import weka.core.matrix.Maths;
+import misc.Orders;
+
+
 import dc.ga.PreProcess;
 
 public class GA_new {
+
+	Orders[] orderArrayTraining;
+	Orders[] orderArrayTest;
 	int numberOfThresholds;
-	protected static double[] THRESHOLDS;
+
 	protected static double[] CANDIDATE_THRESHOLDS;
+	// Map<Double, Double [] > trainiingOrders = new LinkedHashMap<Double,
+	// Double []>();
+	// Map<Double, Double [] > testOrders = new LinkedHashMap<Double, Double
+	// []>();
+
 	double thresholdIncrement;
 	String filename = "";
 	int currentGeneration;
-
+	String singlethresholdTrainingReturnsStr;
+	String singlethresholdTestReturnsStr;
+	String singlethresholdTrainingSharpeRatioStr;
+	String singlethresholdTestSharpeRatioStr;
+	String singlethresholdTrainingMDDStr;
+	String singlethresholdTestMDDStr;
 	Double[] training;
 	Double[] test;
 
+	double[] bestIndividual;
+
 	DCCurvePerfectForesight[] curvePerfectForesight_Selected;
 	DCCurveClassification[] curveClassifcation;
+	DCCurveClassification curveClassifcationForGA;
+	DCCurvePerfectForesight curvePerfectForesight_SelectedForGA;
+	
 	ConcurrentHashMap<Integer, String> gpDaysMap = null;
 	Map<String, Event[]> trainingEventsArray = new LinkedHashMap<String, Event[]>();
 	Map<String, Event[]> trainingOutputArray = new LinkedHashMap<String, Event[]>();
 	Map<Double, Double> perfectForecastReturnMap = new HashMap<Double, Double>();
+	Map<Integer, Double> perfectForecastRatioMap = new HashMap<Integer, Double>();
+	Map<Integer, Double> perfectForecastRatioMap80 = new HashMap<Integer, Double>();
+	Map<Integer, Double> perfectForecastRatioMap70 = new HashMap<Integer, Double>();
+	Map<Integer, Double> perfectForecastRatioMap60 = new HashMap<Integer, Double>();
+	Map<Integer, Double> perfectForecastRatioMap50 = new HashMap<Integer, Double>();
+	Map<String, Integer> ThresholdChromosomMap = new HashMap<String, Integer>();
+	Map<Double, Double> traningSingleThresholdSharpRatio = new HashMap<Double, Double>();
+	int numberOfEvenThresholds = 0;
+	int totalEvents = 0;
+
+	// Map<Integer, Double> Threshold2EventLengthPredictionUp = new
+	// HashMap<Integer, Double>();
+	// Map<Integer, Double> Threshold3EventLengthPredictionUp = new
+	// HashMap<Integer, Double>();
+	// Map<Integer, Double> Threshold4EventLengthPredictionUp = new
+	// HashMap<Integer, Double>();
+	// Map<Integer, Double> Threshold5EventLengthPredictionUp = new
+	// HashMap<Integer, Double>();
+
+	// Map<Integer, Double> Threshold2EventLengthPredictionDown = new
+	// HashMap<Integer, Double>();
+	// Map<Integer, Double> Threshold3EventLengthPredictionDown = new
+	// HashMap<Integer, Double>();
+	// Map<Integer, Double> Threshold4EventLengthPredictionDown = new
+	// HashMap<Integer, Double>();
+	// Map<Integer, Double> Threshold5EventLengthPredictionDown = new
+	// HashMap<Integer, Double>();
+
+	Map<Double, Map<Integer, Double>> upGpcalc = new HashMap<Double, Map<Integer, Double>>();
+	Map<Double, Map<Integer, Double>> downGpcalc = new HashMap<Double, Map<Integer, Double>>();
+
 	double[] SELECTED_THRESHOLDS;
 	PreProcess[] preprocess = null;
 	int trainingDay = -1;
@@ -95,6 +150,8 @@ public class GA_new {
 	List<FReader.FileMember2> testDataList = new ArrayList<FReader.FileMember2>();
 	static double[][] pop;
 	double[][] newPop;
+	boolean isTrainingDataPrinted = false;
+	boolean isTestDataPrinted = false;
 
 	int POPSIZE;
 	int tournamentSize;
@@ -123,10 +180,8 @@ public class GA_new {
 									// MAX_SHORT_SELLING_QUANTITY).
 
 	protected static Random random;
-	public SimpleDrawDown simpleDrawDown = new SimpleDrawDown();
-	public SimpleSharpeRatio sharpeRatio = new SimpleSharpeRatio();
 
-	Map<Double, Double> bestfitnessReturnMap = new HashMap<Double, Double>();
+	// Map<Double, Double> bestfitnessReturnMap = new HashMap<Double, Double>();
 	List<Entry<Double, Double>> bestFitnessList = new ArrayList<Entry<Double, Double>>();;
 	protected static Logger log;
 
@@ -165,11 +220,13 @@ public class GA_new {
 			double shortSellingAllowance, double mddWeight, int xoverOperatorIndex, int mutOperatorIndex,
 			double initialThreshold) throws IOException, ParseException {
 
-		double initial = initialThreshold;// 0.01
-		THRESHOLDS = new double[numberOfThresholds];
+		//double initial = initialThreshold;// 0.01
+
 		CANDIDATE_THRESHOLDS = new double[Const.NUMBER_OF_THRESHOLDS];
-		trainingMeanRatio = new Double[THRESHOLDS.length][2];// There's only 2
-																// ratios, one
+		trainingMeanRatio = new Double[Const.NUMBER_OF_SELECTED_THRESHOLDS][2];// There's
+																				// only
+																				// 2
+		// ratios, one
 		trainingDay = trainingIndexStart; // for upward
 		// and one for
 		// downward OS
@@ -177,18 +234,14 @@ public class GA_new {
 		SELECTED_THRESHOLDS = new double[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 
 		trainingGPTrees = new AbstractNode[Const.NUMBER_OF_SELECTED_THRESHOLDS][2];// There's
-																					// only
-																					// 2
+		// only
+		// 2
 		this.filename = filename;
 		// ratios, one
 		// for upward
 		// and one for
 		// downward OS
 		// events.
-		for (int i = 0; i < THRESHOLDS.length; i++) {
-			// THRESHOLDS[i] = (initial * (i + 1)) / 100.0;
-			THRESHOLDS[i] = (initial + (thresholdIncrement * i)) / 100.0;
-		}
 
 		this.POPSIZE = POPSIZE;
 		this.MAX_GENERATIONS = MAX_GENERATIONS;
@@ -203,19 +256,27 @@ public class GA_new {
 		this.mddWeight = mddWeight;
 		this.xoverOperatorIndex = xoverOperatorIndex;
 		this.mutOperatorIndex = mutOperatorIndex;
-
-		pop = new double[POPSIZE][THRESHOLDS.length + 2];// +5 because index 0
-															// will be the
-															// quantity, index 1
-															// will be beta, and
-															// index 2 will be
-															// beta2, and index
-															// 3 will be
-															// shortSellingQuantity,
-															// beta3
-															// maximum number of
-															// positions
-		newPop = new double[POPSIZE][THRESHOLDS.length + 2];
+		
+		pop = new double[POPSIZE][Const.NUMBER_OF_SELECTED_THRESHOLDS + 4];
+		// pop = new
+		// double[POPSIZE][Const.NUMBER_OF_SELECTED_THRESHOLDS+numberOfExtraChromosom+1];//
+		// +5
+		// because
+		// index
+		// 0
+		// will be the
+		// quantity, index 1
+		// will be beta, and
+		// index 2 will be
+		// beta2, and index
+		// 3 will be
+		// shortSellingQuantity,
+		// beta3
+		// maximum number of
+		// positions
+		// newPop = new
+		// double[POPSIZE][Const.NUMBER_OF_SELECTED_THRESHOLDS+numberOfExtraChromosom+1];
+		newPop = new double[POPSIZE][Const.NUMBER_OF_SELECTED_THRESHOLDS + 4];
 
 		nRuns = 50;
 
@@ -232,7 +293,7 @@ public class GA_new {
 										// generateQuantity() method is 0.
 
 		System.out.println("Loading directional changes data...");
-
+		bestIndividual = new double[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		// loads the data
 		ArrayList<Double[]> days = FReader.loadData(filename, false);
 
@@ -285,8 +346,14 @@ public class GA_new {
 		curveClassifcation = new DCCurveClassification[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 		curvePerfectForesight_Selected = new DCCurvePerfectForesight[Const.NUMBER_OF_SELECTED_THRESHOLDS];
 
+		orderArrayTraining = new Orders[training.length];
+		orderArrayTest = new Orders[test.length];
 		gpDaysMap = FReader.loadDataMap(filename);
 
+		if (Const.NUMBER_OF_SELECTED_THRESHOLDS >= Const.NUMBER_OF_THRESHOLDS) {
+			System.out.println("Number of thresholds to select cannot be greater of equal to candidate thresholds");
+			System.exit(-1);
+		}
 		/*
 		 * Candidate threshold generation
 		 */
@@ -302,7 +369,7 @@ public class GA_new {
 		/*
 		 * Regression starts
 		 */
-		for (int i = 0; i < Const.NUMBER_OF_THRESHOLDS; i++) {
+		for (int i = 0; i < CANDIDATE_THRESHOLDS.length; i++) {
 
 			Const.splitDatasetByTrendType = true;
 			curvePerfectForesight[i] = new DCCurvePerfectForesight();
@@ -316,13 +383,14 @@ public class GA_new {
 			copiedArray = Arrays.copyOf(dCEventGenerator.getEvents(), dCEventGenerator.getEvents().length);
 			trainingEventsArray.put(thresholdStr, copiedArray);
 
-			copiedOutputArray = Arrays.copyOf(dCEventGenerator.getOutput(), dCEventGenerator.getEvents().length);
+			copiedOutputArray = Arrays.copyOf(dCEventGenerator.getOutput(), dCEventGenerator.getOutput().length);
 			trainingOutputArray.put(thresholdStr, copiedOutputArray);
 
 			if (copiedArray.length < 10)
 				continue;
 
 			curvePerfectForesight[i].filename = filename;
+
 			curvePerfectForesight[i].build(training, CANDIDATE_THRESHOLDS[i], gpFileName, copiedArray,
 					copiedOutputArray, null);
 			curvePerfectForesight[i].estimateTrainingUsingOutputData(null); // null
@@ -333,11 +401,214 @@ public class GA_new {
 			// curvePerfectForesight[i].trainingOutputEvents
 			curvePerfectForesight[i].setMarketdataListTraining(trainingDataPtCount);
 			curvePerfectForesight[i].setMarketdataListTest(testDataPtCount);
+
+			curvePerfectForesight[i].estimateTrainingUnderPerfectforesight();
+
 			double perfectForcastTrainingReturn = curvePerfectForesight[i].trainingTrading(null);
+			double sharpeRatioTraining = curvePerfectForesight[i].getSharpRatio();
 			perfectForecastReturnMap.put(CANDIDATE_THRESHOLDS[i], perfectForcastTrainingReturn);
+			traningSingleThresholdSharpRatio.put(CANDIDATE_THRESHOLDS[i], curvePerfectForesight[i].getSharpRatio());
+
+			double upwardPerf = curvePerfectForesight[i].bestUpWardEventTree.perfScore;
+			double downwardPerf = curvePerfectForesight[i].bestDownWardEventTree.perfScore;
+			double ratio = 0.0;
+			if (upwardPerf < downwardPerf)
+				ratio = upwardPerf / downwardPerf;
+			else
+				ratio = downwardPerf / upwardPerf;
+
+			if (Double.compare(upwardPerf, Double.MAX_VALUE) >= 0)
+				continue;
+
+			if (Double.compare(upwardPerf, -Double.MAX_VALUE) <= 0)
+				continue;
+
+			if (Double.compare(downwardPerf, -Double.MAX_VALUE) <= 0)
+				continue;
+
+			if (Double.compare(downwardPerf, Double.MAX_VALUE) >= 0)
+				continue;
+
+			if (Double.compare(ratio, 0.9) >= 0)
+				perfectForecastRatioMap.put(i, ratio);
+
+			if (Double.compare(ratio, 0.9) < 0 && Double.compare(ratio, 0.8) >= 0)
+				perfectForecastRatioMap80.put(i, ratio);
+
+			if (Double.compare(ratio, 0.8) < 0 && Double.compare(ratio, 0.7) >= 0)
+				perfectForecastRatioMap70.put(i, ratio);
+
+			if (Double.compare(ratio, 0.7) < 0 && Double.compare(ratio, 0.6) >= 0)
+				perfectForecastRatioMap60.put(i, ratio);
+
+			if (Double.compare(ratio, 0.6) < 0 && Double.compare(ratio, 0.5) >= 0)
+				perfectForecastRatioMap50.put(i, ratio);
+
+			System.out.println("Performance upward " + curvePerfectForesight[i].bestUpWardEventTree.perfScore
+					+ " performance downward" + curvePerfectForesight[i].bestDownWardEventTree.perfScore + " Ratio "
+					+ ratio);
 
 		}
 
+		// * To choose best ratio starts
+		/*
+		 * for (int i = 0; i < CANDIDATE_THRESHOLDS.length; i++) {
+		 * perfectForecastReturnMap.put(CANDIDATE_THRESHOLDS[i], 0.0); }
+		 * 
+		 * if (perfectForecastRatioMap.size() >
+		 * Const.NUMBER_OF_SELECTED_THRESHOLDS) { for (Map.Entry<Integer,
+		 * Double> entry : perfectForecastRatioMap.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); } } else if
+		 * ((perfectForecastRatioMap.size() + perfectForecastRatioMap80.size())
+		 * > Const.NUMBER_OF_SELECTED_THRESHOLDS) { for (Map.Entry<Integer,
+		 * Double> entry : perfectForecastRatioMap.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); }
+		 * 
+		 * for (Map.Entry<Integer, Double> entry :
+		 * perfectForecastRatioMap80.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); }
+		 * 
+		 * } else if ((perfectForecastRatioMap.size() +
+		 * perfectForecastRatioMap80.size() + perfectForecastRatioMap70.size())
+		 * > Const.NUMBER_OF_SELECTED_THRESHOLDS) { for (Map.Entry<Integer,
+		 * Double> entry : perfectForecastRatioMap.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); }
+		 * 
+		 * for (Map.Entry<Integer, Double> entry :
+		 * perfectForecastRatioMap80.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); } for
+		 * (Map.Entry<Integer, Double> entry :
+		 * perfectForecastRatioMap70.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); } } else if
+		 * ((perfectForecastRatioMap.size() + perfectForecastRatioMap80.size() +
+		 * perfectForecastRatioMap70.size() + perfectForecastRatioMap60.size())
+		 * > Const.NUMBER_OF_SELECTED_THRESHOLDS) { for (Map.Entry<Integer,
+		 * Double> entry : perfectForecastRatioMap.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); }
+		 * 
+		 * for (Map.Entry<Integer, Double> entry :
+		 * perfectForecastRatioMap80.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); } for
+		 * (Map.Entry<Integer, Double> entry :
+		 * perfectForecastRatioMap70.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); } for
+		 * (Map.Entry<Integer, Double> entry :
+		 * perfectForecastRatioMap60.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); } } else if
+		 * ((perfectForecastRatioMap.size() + perfectForecastRatioMap80.size() +
+		 * perfectForecastRatioMap70.size() + perfectForecastRatioMap60.size() +
+		 * perfectForecastRatioMap50.size()) >
+		 * Const.NUMBER_OF_SELECTED_THRESHOLDS) { for (Map.Entry<Integer,
+		 * Double> entry : perfectForecastRatioMap.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); }
+		 * 
+		 * for (Map.Entry<Integer, Double> entry :
+		 * perfectForecastRatioMap80.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); } for
+		 * (Map.Entry<Integer, Double> entry :
+		 * perfectForecastRatioMap70.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); } for
+		 * (Map.Entry<Integer, Double> entry :
+		 * perfectForecastRatioMap60.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); } for
+		 * (Map.Entry<Integer, Double> entry :
+		 * perfectForecastRatioMap50.entrySet()) { int
+		 * dcCurvePositionInCurvePerfectForesightArray = entry.getKey();
+		 * 
+		 * double perfectForcastTrainingReturn =
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray]
+		 * .trainingTrading(null); perfectForecastReturnMap.put(
+		 * curvePerfectForesight[dcCurvePositionInCurvePerfectForesightArray].
+		 * thresholdValue, perfectForcastTrainingReturn); } } else {
+		 * System.out.println(
+		 * "Program cannot proceed. Sufficcient thresholds not identified. Exiting"
+		 * ); System.exit(0); }
+		 */
+		// * To choose best ratio end
 		greatest = HelperClass.findGreatest(perfectForecastReturnMap, Const.NUMBER_OF_SELECTED_THRESHOLDS); // best
 
 		preprocess = new PreProcess[Const.NUMBER_OF_SELECTED_THRESHOLDS];
@@ -346,11 +617,13 @@ public class GA_new {
 		 */
 		int tradingThresholdCount = 0;
 		System.out.println("Selecting GP threshold");
+		int chromosomPositionCount = SELECTED_THRESHOLDS.length;
 		for (Entry<Double, Double> entry : greatest) {
 			// System.out.println(entry);
 			SELECTED_THRESHOLDS[tradingThresholdCount] = entry.getKey();
 			System.out.println(SELECTED_THRESHOLDS[tradingThresholdCount]);
 
+			chromosomPositionCount++;
 			tradingThresholdCount++;
 		}
 
@@ -365,6 +638,20 @@ public class GA_new {
 						SELECTED_THRESHOLDS[i]) == 0) {
 					curvePerfectForesight[candidateThresholdCount].setIsSelectedThresholdFromCandidateList(true);
 				}
+			}
+
+		}
+
+		// Extend chromosomes
+		int extraChromosomCounter = Const.NUMBER_OF_SELECTED_THRESHOLDS;
+		for (int thresholdChromosomeCount = 0; thresholdChromosomeCount < SELECTED_THRESHOLDS.length; thresholdChromosomeCount++) {
+
+			for (int thresholdChromosomeCount1 = thresholdChromosomeCount
+					+ 1; thresholdChromosomeCount1 < SELECTED_THRESHOLDS.length; thresholdChromosomeCount1++) {
+				ThresholdChromosomMap.put(String.valueOf(
+						SELECTED_THRESHOLDS[thresholdChromosomeCount] + SELECTED_THRESHOLDS[thresholdChromosomeCount1]),
+						extraChromosomCounter);
+				extraChromosomCounter++;
 			}
 
 		}
@@ -395,6 +682,25 @@ public class GA_new {
 			preprocess[i].runAutoWeka();
 
 		}
+
+		// For debuging
+		log.save("Training_Returns_SingleThreshold_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
+				"Filename\tThreshold1\tThreshold2\tThreshold3\tThreshold4\tThreshold5");
+
+		log.save(
+				"Training_SharpeRatio_SingleThreshold_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
+				"Filename\tThreshold1\tThreshold2\tThreshold3\tThreshold4\tThreshold5");
+
+		log.save("Training_MDD_SingleThreshold_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
+				"Filename\tThreshold1\tThreshold2\tThreshold3\tThreshold4\tThreshold5");
+		
+		log.save("Training_dataset.txt","DCstart, DCend, DCtype, DCValue, OSstart ,OSEnd, OSType");
+		log.save("Test_dataset.txt","DCstart, DCend, DCtype, DCValue, OSstart ,OSEnd, OSType");
+
+		
+		double[] singlethresholdReturns = new double[SELECTED_THRESHOLDS.length];
+		double[] singlethresholdSharpeRatio = new double[SELECTED_THRESHOLDS.length];
+		double[] singlethresholdMddRatio = new double[SELECTED_THRESHOLDS.length];
 
 		for (int i = 0; i < SELECTED_THRESHOLDS.length; i++) { // The arrays
 																// all have
@@ -447,18 +753,50 @@ public class GA_new {
 					curvePerfectForesight_Selected[i].setMarketdataListTraining(trainingDataPtCount);
 					curvePerfectForesight_Selected[i].setMarketdataListTest(testDataPtCount);
 					curvePerfectForesight_Selected[i].setIsSelectedThresholdFromCandidateList(true);
+					curvePerfectForesight_Selected[i].gpprediction = Arrays.copyOf(
+							curvePerfectForesight[thresholdCounter].gpprediction,
+							curvePerfectForesight[thresholdCounter].gpprediction.length);
+					curvePerfectForesight_Selected[i].orderArray = curvePerfectForesight[thresholdCounter].orderArray;
+					curvePerfectForesight_Selected[i].estimateTrainingUsingOutputData(null);
+					curvePerfectForesight_Selected[i]
+							.setMySharpeRatio(traningSingleThresholdSharpRatio.get(SELECTED_THRESHOLDS[i]));
+
+					double trainingReturn = curvePerfectForesight_Selected[i].trainingTrading(null);
+					singlethresholdReturns[i] = ((trainingReturn - this.budget) / this.budget) * 100;
+					singlethresholdSharpeRatio[i] = curvePerfectForesight_Selected[i].getSharpRatio();
+					singlethresholdMddRatio[i] = curvePerfectForesight_Selected[i].getMaxMddBase();
 
 					break;
 				}
 			}
 
 			// curveClassifcation[i].estimateTraining(preprocess[i]);
-		} // for (int i = 0; i < SELECTED_THRESHOLDS.length; i++) {
+
+		}
+		singlethresholdTrainingReturnsStr = filename + "\t";
+		singlethresholdTrainingSharpeRatioStr = filename + "\t";
+		singlethresholdTrainingMDDStr = filename + "\t";
+		for (int i = 0; i < SELECTED_THRESHOLDS.length; i++) {
+			singlethresholdTrainingReturnsStr = singlethresholdTrainingReturnsStr + singlethresholdReturns[i] + "\t";
+			/** For debuging **/
+
+			singlethresholdTrainingSharpeRatioStr = singlethresholdTrainingSharpeRatioStr
+					+ +singlethresholdSharpeRatio[i] + "\t";
+
+			singlethresholdTrainingMDDStr = singlethresholdTrainingMDDStr + singlethresholdMddRatio[i] + "\t";
+
+		}
 
 		/*
 		 * Prepare test set
 		 */
-
+		/**
+		 * For debuging // log.save("Test_Returns_SingleThreshold_" +
+		 * Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt", //
+		 * "Filename\tThreshold1\tThreshold2\tThreshold3\tThreshold4\tThreshold5"
+		 * );
+		 */
+		singlethresholdReturns = new double[SELECTED_THRESHOLDS.length];
 		for (int testBuildCount = 0; testBuildCount < SELECTED_THRESHOLDS.length; testBuildCount++) {
 			String thresholdStr = String.format("%.8f", SELECTED_THRESHOLDS[testBuildCount]);
 
@@ -490,30 +828,164 @@ public class GA_new {
 			curveClassifcation[testBuildCount].testbuild(training.length, this.test,
 					SELECTED_THRESHOLDS[testBuildCount], copiedTestArray, preprocess[testBuildCount]);
 
+			curveClassifcation[testBuildCount]
+					.setMySharpeRatio(traningSingleThresholdSharpRatio.get(SELECTED_THRESHOLDS[testBuildCount]));
+			double returns = curveClassifcation[testBuildCount].trade(preprocess[testBuildCount]);
+			singlethresholdReturns[testBuildCount] = ((returns - this.budget) / this.budget) * 100;
+			singlethresholdSharpeRatio[testBuildCount] = curveClassifcation[testBuildCount].getSharpRatio();
+			singlethresholdMddRatio[testBuildCount] = curveClassifcation[testBuildCount].getMaxMddBase();
+
 		} // testing GP
 
-		/// ******/////
+		singlethresholdTestReturnsStr = filename + "\t";
+		singlethresholdTestSharpeRatioStr = filename + "\t";
+		singlethresholdTestMDDStr = filename + "\t";
+		for (int i = 0; i < SELECTED_THRESHOLDS.length; i++) {
+			singlethresholdTestReturnsStr = singlethresholdTestReturnsStr + singlethresholdReturns[i] + "\t";
+
+			singlethresholdTestSharpeRatioStr = singlethresholdTestSharpeRatioStr + +singlethresholdSharpeRatio[i]
+					+ "\t";
+
+			singlethresholdTestMDDStr = singlethresholdTestMDDStr + singlethresholdMddRatio[i] + "\t";
+
+		}
+
+		/**
+		 * For debuging log.save("Test_Returns_SingleThreshold_" +
+		 * Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
+		 * filename+"\t"+singlethresholdReturns[0]+"\t"+singlethresholdReturns[1
+		 * ]+"\t"+singlethresholdReturns[2]
+		 * +"\t"+singlethresholdReturns[3]+"\t"+singlethresholdReturns[4]);
+		 **/
 
 		System.gc();
+
+		for (int i = 0; i < SELECTED_THRESHOLDS.length; i++) {
+			Map<Integer, Double> Threshold1EventLengthPredictionUp = new HashMap<Integer, Double>();
+			Map<Integer, Double> Threshold1EventLengthPredictionDown = new HashMap<Integer, Double>();
+			for (int j = 0; j < 100; j++) {
+				Threshold1EventLengthPredictionUp.put(j, curvePerfectForesight_Selected[i].bestUpWardEventTree.eval(j));
+				Threshold1EventLengthPredictionDown.put(j,
+						curvePerfectForesight_Selected[i].bestDownWardEventTree.eval(j));
+			}
+			upGpcalc.put(SELECTED_THRESHOLDS[i], Threshold1EventLengthPredictionUp);
+			downGpcalc.put(SELECTED_THRESHOLDS[i], Threshold1EventLengthPredictionDown);
+		}
+
 	}
 
 	public void reBuild() {
-
-		for (int thresholdCounter = 0; thresholdCounter < curvePerfectForesight_Selected.length; thresholdCounter++) {
-			String thisThresholdStr = String.format("%.8f", SELECTED_THRESHOLDS[thresholdCounter]);
-			curvePerfectForesight_Selected[thresholdCounter] = new DCCurvePerfectForesight();
-			curvePerfectForesight_Selected[thresholdCounter].filename = filename;
-			// Assign perfect foresight regression Model here
-			curvePerfectForesight_Selected[thresholdCounter].setThresholdValue(SELECTED_THRESHOLDS[thresholdCounter]);
-			curvePerfectForesight_Selected[thresholdCounter].bestDownWardEventTree = trainingGPTrees[thresholdCounter][0];
-			curvePerfectForesight_Selected[thresholdCounter].bestUpWardEventTree = trainingGPTrees[thresholdCounter][1];
-
-			curvePerfectForesight_Selected[thresholdCounter].build(training, SELECTED_THRESHOLDS[thresholdCounter], "",
-					trainingEventsArray.get(thisThresholdStr), trainingOutputArray.get(thisThresholdStr), null);
-			curvePerfectForesight_Selected[thresholdCounter].setMarketdataListTraining(trainingDataPtCount);
-			curvePerfectForesight_Selected[thresholdCounter].setMarketdataListTest(testDataPtCount);
-			curvePerfectForesight_Selected[thresholdCounter].setIsSelectedThresholdFromCandidateList(true);
-		}
+		/*
+		 * For rebuild GP model for (int thresholdCounter = 0; thresholdCounter
+		 * < curvePerfectForesight_Selected.length; thresholdCounter++) { //
+		 * reset trading info double threshold =
+		 * curvePerfectForesight_Selected[thresholdCounter].thresholdValue;
+		 * String filename =
+		 * curvePerfectForesight_Selected[thresholdCounter].filename; Event[]
+		 * copiedArray =
+		 * Arrays.copyOf(curvePerfectForesight_Selected[thresholdCounter].
+		 * trainingEvents,
+		 * curvePerfectForesight_Selected[thresholdCounter].trainingEvents.
+		 * length - 1); Event[] copiedOutputArray = Arrays.copyOf(
+		 * curvePerfectForesight_Selected[thresholdCounter].
+		 * trainingOutputEvents,
+		 * curvePerfectForesight_Selected[thresholdCounter].trainingOutputEvents
+		 * .length - 1);
+		 * 
+		 * curvePerfectForesight_Selected[thresholdCounter] = new
+		 * DCCurvePerfectForesight();
+		 * 
+		 * String thresholdStr = String.format("%.8f", threshold);
+		 * 
+		 * DCEventGenerator dCEventGenerator = new DCEventGenerator();
+		 * dCEventGenerator.generateEvents(training, threshold); copiedArray =
+		 * Arrays.copyOf(dCEventGenerator.getEvents(),
+		 * dCEventGenerator.getEvents().length);
+		 * trainingEventsArray.put(thresholdStr, copiedArray);
+		 * 
+		 * copiedOutputArray = Arrays.copyOf(dCEventGenerator.getOutput(),
+		 * dCEventGenerator.getOutput().length);
+		 * trainingOutputArray.put(thresholdStr, copiedOutputArray);
+		 * curvePerfectForesight_Selected[thresholdCounter].filename = filename;
+		 * 
+		 * curvePerfectForesight_Selected[thresholdCounter].build(training,
+		 * threshold, "", copiedArray, copiedOutputArray, null);
+		 * curvePerfectForesight_Selected[thresholdCounter].
+		 * estimateTrainingUsingOutputData(null); // null // because // not
+		 * doing // classification
+		 * 
+		 * // curvePerfectForesight[i].trainingOutputEvents
+		 * curvePerfectForesight_Selected[thresholdCounter].
+		 * setMarketdataListTraining(trainingDataPtCount);
+		 * curvePerfectForesight_Selected[thresholdCounter].
+		 * setMarketdataListTest(testDataPtCount);
+		 * 
+		 * curvePerfectForesight_Selected[thresholdCounter].
+		 * estimateTrainingUnderPerfectforesight();
+		 * 
+		 * curvePerfectForesight_Selected[thresholdCounter].trainingTrading(null
+		 * );
+		 * 
+		 * curvePerfectForesight_Selected[thresholdCounter].setIsPositionOpen(
+		 * false);
+		 * curvePerfectForesight_Selected[thresholdCounter].setAssociatedWeight(
+		 * 0.0);
+		 * curvePerfectForesight_Selected[thresholdCounter].setOpeningPosition(0
+		 * .0); curvePerfectForesight_Selected[thresholdCounter].
+		 * setMarketdataListTraining(trainingDataPtCount);
+		 * 
+		 * curvePerfectForesight_Selected[thresholdCounter].
+		 * setIsSelectedThresholdFromCandidateList(true);
+		 * curvePerfectForesight_Selected[thresholdCounter].
+		 * estimateTrainingUsingOutputData(null); Map<Integer, Double>
+		 * Threshold1EventLengthPredictionUp = new HashMap<Integer, Double>();
+		 * Map<Integer, Double> Threshold1EventLengthPredictionDown = new
+		 * HashMap<Integer, Double>(); for (int j = 0; j < 100; j++) {
+		 * Threshold1EventLengthPredictionUp.put(j,
+		 * curvePerfectForesight_Selected[thresholdCounter].bestUpWardEventTree.
+		 * eval(j)); Threshold1EventLengthPredictionDown.put(j,
+		 * curvePerfectForesight_Selected[thresholdCounter].
+		 * bestDownWardEventTree.eval(j)); }
+		 * upGpcalc.put(SELECTED_THRESHOLDS[thresholdCounter],
+		 * Threshold1EventLengthPredictionUp);
+		 * downGpcalc.put(SELECTED_THRESHOLDS[thresholdCounter],
+		 * Threshold1EventLengthPredictionDown);
+		 * 
+		 * curveClassifcation[thresholdCounter] = new DCCurveClassification();
+		 * curveClassifcation[thresholdCounter].setIsPositionOpen(false);
+		 * curveClassifcation[thresholdCounter].setAssociatedWeight(0.0);
+		 * curveClassifcation[thresholdCounter].setOpeningPosition(0.0);
+		 * 
+		 * curveClassifcation[thresholdCounter].setThresholdValue(threshold);
+		 * curveClassifcation[thresholdCounter].bestDownWardEventTree =
+		 * curvePerfectForesight_Selected[thresholdCounter].
+		 * bestDownWardEventTree .clone();
+		 * curveClassifcation[thresholdCounter].bestUpWardEventTree =
+		 * curvePerfectForesight_Selected[thresholdCounter].bestUpWardEventTree
+		 * .clone();
+		 * 
+		 * curveClassifcation[thresholdCounter].build(training, threshold, "",
+		 * trainingEventsArray.get(thresholdStr),
+		 * trainingOutputArray.get(thresholdStr), preprocess[thresholdCounter]);
+		 * curveClassifcation[thresholdCounter].setMarketdataListTraining(
+		 * trainingDataPtCount);
+		 * curveClassifcation[thresholdCounter].setMarketdataListTest(
+		 * testDataPtCount);
+		 * 
+		 * dCEventGenerator = new DCEventGenerator();
+		 * dCEventGenerator.generateEvents(this.test,
+		 * SELECTED_THRESHOLDS[thresholdCounter]);
+		 * 
+		 * Event[] copiedTestArray = Arrays.copyOf(dCEventGenerator.getOutput(),
+		 * dCEventGenerator.getOutput().length);
+		 * 
+		 * curveClassifcation[thresholdCounter].testbuild(training.length,
+		 * this.test, SELECTED_THRESHOLDS[thresholdCounter], copiedTestArray,
+		 * preprocess[thresholdCounter]);
+		 * 
+		 * 
+		 * } System.out.println("Done");
+		 */
 	}
 
 	public Fitness run(long seed, int currentRun) {
@@ -535,8 +1007,7 @@ public class GA_new {
 		initialisePop();
 
 		System.out.println("Generation\tBest\tWorst\tAverage");
-		log.save("Logger_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
-				"Generation\tBest\tWorst\tAverage");
+		log.save("Logger.txt", "Generation\tBest\tWorst\tAverage");
 		// MAX_GENERATIONS
 		for (int t = 0; t < MAX_GENERATIONS; t++) {
 			currentGeneration = t;
@@ -551,23 +1022,28 @@ public class GA_new {
 													// doesn't matter if I say
 													// pop[0], or pop[50] etc.
 			{
+
 				newPop[0][j] = pop[argBestFitness][j];
 			}
 
-			int elitismCounter = 0;
-			for (Entry<Double, Double> entry : bestFitnessList) {
+			if (Double.compare(fitness[argBestFitness].value, fitness[0].value) > 0)
+				System.out.println("Previous best fitnes " + fitness[0].value + " Currentbest fitness "
+						+ fitness[argBestFitness].value);
 
-				for (int j = 0; j < pop[elitismCounter].length; j++) {
-					newPop[elitismCounter][j] = pop[entry.getKey().intValue()][j];
-				}
-				elitismCounter++;
-			}
+			// int elitismCounter = 0;
+			/*
+			 * for (Entry<Double, Double> entry : bestFitnessList) {
+			 * 
+			 * for (int j = 0; j < pop[elitismCounter].length; j++) {
+			 * newPop[elitismCounter][j] = pop[entry.getKey().intValue()][j]; }
+			 * elitismCounter++; }
+			 */
 
 			report(t, fitness);
 
 			/** tournament selection and crossover **/
-			for (int p = Const.ELISTISM_COUNT; p < POPSIZE; p++)// 1 because of
-																// elitism
+			for (int p = 1; p < POPSIZE; p++)// 1 because of
+												// elitism
 			{
 				// select first
 				int first = tournament(fitness);
@@ -575,6 +1051,8 @@ public class GA_new {
 				// select second
 				int second = tournament(fitness);
 
+				if (p == 0)
+					System.out.println("Individual 0 will be updated");
 				switch (xoverOperatorIndex) {
 				case 0:
 					newPop[p] = crossover(first, second);
@@ -595,7 +1073,10 @@ public class GA_new {
 			/** point mutation **/
 			for (int p = 1; p < POPSIZE; p++)// 1 because of elitism
 			{
+				if (p == 0)
+					System.out.println("Individual 0 will be updated");
 				switch (mutOperatorIndex) {
+
 				case 0:
 					mutation(p);
 					break;
@@ -603,6 +1084,7 @@ public class GA_new {
 					mutationNonUniform(p);
 					break;
 				}
+
 			}
 
 			/** copy new pop into old pop **/
@@ -610,15 +1092,84 @@ public class GA_new {
 
 		} // end of generation loop
 
-		/** fitness evaluation **/
-		popFitnessEvaluation();
-
 		double trainFitness = bestFitness;
 		// testOutputMap.clear();
 		/** fitness evaluation in the test set, of the best individual **/
 
-		// fitness on training dc curves.
-		Fitness f = FitnessMeanThreshold(pop[argBestFitness], true);
+		Fitness f1 = fitnesser(pop[argBestFitness], false); // For reporting
+
+		log.save("Training_Returns_SingleThreshold_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
+				singlethresholdTrainingReturnsStr + "\t" + f1.Return + "\t" + numberOfEvenThresholds + "\t"
+						+ totalEvents);
+
+		log.save(
+				"Training_SharpeRatio_SingleThreshold_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
+				singlethresholdTrainingSharpeRatioStr + "\t" + f1.sharpRatio);
+
+
+		
+		if (!isTrainingDataPrinted){
+		for (Event e : curvePerfectForesight_SelectedForGA.trainingOutputEvents) {
+
+			log.save("Training_dataset.txt", e.toString());
+		}
+		
+		
+		log.save("Training_TradePointGA.txt", curvePerfectForesight_SelectedForGA.DataSetInfoString);
+	
+		int thresholdInt = 0;
+		for (int numberOfthresholds = 0 ;  numberOfthresholds< Const.NUMBER_OF_SELECTED_THRESHOLDS; numberOfthresholds++){
+			thresholdInt++;
+			log.save("Training_TradePointThreshold"+thresholdInt+".txt", curvePerfectForesight_Selected[numberOfthresholds].DataSetInfoString);
+			
+			
+			for (Event e: curvePerfectForesight_Selected[numberOfthresholds].trainingOutputEvents) {
+				
+				log.save("Training_datasetThreshold"+thresholdInt+".txt", e.toString());
+			}
+		}
+		
+		
+		isTrainingDataPrinted =  true;
+		}
+		
+		log.save("Training_MDD_SingleThreshold_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
+				singlethresholdTrainingMDDStr + "\t" + f1.MDD);
+
+		// fitness on training dc curves. //ADE replace fitness here
+		Fitness f = fitnesser(pop[argBestFitness], true);
+
+		log.save("SingleThresholdVsGAReturnComparisonTest.txt",
+				singlethresholdTestReturnsStr + "\t" + f.Return + "\t" + numberOfEvenThresholds + "\t" + totalEvents);
+
+		log.save("SingleThresholdVsGASharpeRatioComparisonTest.txt",
+				singlethresholdTestSharpeRatioStr + "\t" + f.sharpRatio);
+
+		log.save("SingleThresholdVsGAMDDComparisonTest.txt", singlethresholdTestMDDStr + "\t" + f.MDD);
+		
+		
+		if (!isTestDataPrinted){
+			for (Event e :  curveClassifcationForGA.testingEvents) {
+	
+				log.save("Test_dataset.txt",e.toString());
+			}
+			
+			
+			log.save("Test_TradePointGA.txt", curveClassifcationForGA.DataSetInfoString);
+			
+			int thresholdInt = 0;
+			for (int numberOfthresholds = 0 ;  numberOfthresholds< Const.NUMBER_OF_SELECTED_THRESHOLDS; numberOfthresholds++){
+				thresholdInt++;
+				log.save("Test_TradePointThreshold"+thresholdInt+".txt", curveClassifcation[numberOfthresholds].DataSetInfoString);
+				
+				
+				for (Event e: curveClassifcation[numberOfthresholds].testingEvents) {
+					
+					log.save("Test_datasetThreshold"+thresholdInt+".txt", e.toString());
+				}
+			}
+			isTestDataPrinted= true;
+		}
 
 		double testFitness = f.value;// original fitness
 
@@ -643,11 +1194,28 @@ public class GA_new {
 	 * 
 	 */
 	protected void initialisePop() {
-		for (int i = 0; i < POPSIZE; i++) {
-			pop[i][0] = generateQuantity(false);// first index we save the
-												// quantity
-			pop[i][1] = random.nextDouble();// beta3
-			for (int j = 2; j < pop[0].length; j++)// all columns of pop have
+
+		for (int i = 0; i < Const.NUMBER_OF_SELECTED_THRESHOLDS; i++) {
+			for (int j = 0; j < pop[0].length; j++){
+				pop[i][j] = 0.0;
+			}
+
+		}
+		for (int i = 0; i < Const.NUMBER_OF_SELECTED_THRESHOLDS; i++) {
+			for (int j = 0; j < pop[0].length; j++) {
+				if (i == j) {
+					pop[i][j] = 0.1;
+					break;
+				}
+				if (j ==  pop[0].length-4)
+					pop[i][j]  = random.nextDouble();
+			}
+
+		}
+
+		for (int i = Const.NUMBER_OF_SELECTED_THRESHOLDS; i < POPSIZE; i++) {
+
+			for (int j = 0; j < pop[0].length; j++)// all columns of pop have
 													// the same length, i.e.
 													// THRESHOLD.length+5; so it
 													// doesn't matter if I say
@@ -655,7 +1223,12 @@ public class GA_new {
 			{
 
 				pop[i][j] = random.nextDouble();
+				//if (j == pop[0].length - 2){
+				pop[i][j] =  getRandomDoubleBetweenRange(0.5, 1.0);
+				//}
+
 			}
+
 		}
 	}
 
@@ -697,21 +1270,57 @@ public class GA_new {
 	 * 
 	 * @return Fitness The array of fitness for the population
 	 */
+
+	/**
+	 * Calculates the fitness of all individuals in the population
+	 * 
+	 * @return Fitness The array of fitness for the population
+	 */
 	protected Fitness[] popFitnessEvaluation() {
 		Fitness[] fitness = new Fitness[POPSIZE];
 		bestFitness = Double.NEGATIVE_INFINITY;
 		argBestFitness = Integer.MIN_VALUE;
-		bestfitnessReturnMap.clear();
-		bestFitnessList.clear();
+
 		for (int p = 0; p < POPSIZE; p++) {
-			fitness[p] = FitnessMeanThreshold(pop[p], false);
-			bestfitnessReturnMap.put(Double.valueOf(p), fitness[p].value);
-			if (fitness[p].value > bestFitness) {
+			fitness[p] = fitnesser(pop[p], false);
+			while (true) {
+				if (Double.compare(fitness[p].value, 0.0) < 0) {
+					for (int q = 0; q < Const.NUMBER_OF_SELECTED_THRESHOLDS; q++) {
+						pop[p][q] = random.nextDouble();
+					}
+					fitness[p] = fitnesser(pop[p], false);
+				} else {
+					break;
+				}
+
+			}
+
+			if (Double.compare(fitness[p].value, bestFitness) > 0) {
 				bestFitness = fitness[p].value;
 				argBestFitness = p;
 			}
 		}
-		bestFitnessList = HelperClass.findGreatest(bestfitnessReturnMap, Const.ELISTISM_COUNT);
+		/*
+		 * if (Double.compare(fitness[0].value,fitness[argBestFitness].value )
+		 * >0) { bestFitness = fitness[0].value; argBestFitness = 0; }
+		 */
+
+		if (argBestFitness > 4) {
+			Fitness fitness1 = fitnesser(pop[0], false);
+			Fitness fitness2 = fitnesser(pop[1], false);
+			Fitness fitness3 = fitnesser(pop[2], false);
+			Fitness fitness4 = fitnesser(pop[3], false);
+			Fitness fitness5 = fitnesser(pop[4], false);
+			System.out.println(fitness[0].value + " new best is " + fitness[argBestFitness].value
+					+ " individual 1 fitness is " + fitness1.value + " individual 2 fitness is " + fitness2.value
+					+ " individual 3 fitness is " + fitness3.value + " individual 4 fitness is " + fitness4.value
+					+ " individual 5 fitness is " + fitness5.value);
+		}
+
+		//if (argBestFitness != 0) {
+		//	System.out.println("popFitnessEvaluation: After. Previous  fitness is " + fitness[0].value + " new best is "
+		//			+ fitness[argBestFitness].value);
+		//}
 		return fitness;
 	}
 
@@ -747,22 +1356,8 @@ public class GA_new {
 													// pop[0], or pop[50] etc.
 			{
 				if (random.nextDouble() > 0.5) {
-					if (j == 0)// normal quantity (0) and short-selling quantity
-								// (3)
-						newPop[individual][j] = generateQuantity(false);// if
-																		// j==0,
-																		// then
-																		// it's
-																		// the
-																		// normal
-																		// quantity,
-																		// otherwise
-																		// it's
-																		// quantity
-																		// for
-																		// short-selling
-					else// all other cases go here, even the j=1 for beta.
-						newPop[individual][j] = random.nextDouble();
+
+					newPop[individual][j] = random.nextDouble();
 				}
 			}
 		}
@@ -776,6 +1371,7 @@ public class GA_new {
 	 */
 	protected void mutationNonUniform(int individual) {
 		if (random.nextDouble() < MUTATION_PROB) {
+
 			for (int j = 0; j < pop[0].length; j++)// all columns of pop have
 													// the same length, i.e.
 													// THRESHOLD.length+5; so it
@@ -783,22 +1379,23 @@ public class GA_new {
 													// pop[0], or pop[50] etc.
 			{
 				if (random.nextDouble() > 0.5) {
-					if (j == 0)// we need to generate an integer for the
-								// quantity
-						newPop[individual][j] = (int) generateQuantity(false);
-					else {
-						// all other cases go here, even the j=1 for beta.
-						double a = 0;
-						double b = 1;
-						double r = random.nextDouble();
-						double tau = random.nextDouble() > 0.5 ? 1 : 0;
 
-						newPop[individual][j] = (tau == 1)
-								? pop[individual][j] + (b - pop[individual][j])
-										* (1 - Math.pow(r, 1 - (double) currentGeneration / MAX_GENERATIONS))
-								: pop[individual][j] - (pop[individual][j] - a)
-										* (1 - Math.pow(r, 1 - (double) currentGeneration / MAX_GENERATIONS));
-					}
+					// all other cases go here, even the j=1 for beta.
+					double a = 0;
+					double b = 1;
+					double r = getRandomNumber();
+					double tau = random.nextDouble() > 0.5 ? 1 : 0;
+
+					newPop[individual][j] = (tau == 1)
+							? pop[individual][j] + (b - pop[individual][j])
+									* (1 - Math.pow(r, 1 - (double) currentGeneration / MAX_GENERATIONS))
+							: pop[individual][j] - (pop[individual][j] - a)
+									* (1 - Math.pow(r, 1 - (double) currentGeneration / MAX_GENERATIONS));
+
+					DecimalFormat df = new DecimalFormat("#.########");
+					df.setRoundingMode(RoundingMode.CEILING);
+					double d = Double.parseDouble(df.format(newPop[individual][j]));
+					newPop[individual][j] = d;
 				}
 			}
 		}
@@ -806,6 +1403,7 @@ public class GA_new {
 
 	/**
 	 * Tournament selection
+	 * 
 	 * 
 	 * @param fitness
 	 *            The fitness array of the population
@@ -817,7 +1415,12 @@ public class GA_new {
 		int argSmallest = Integer.MIN_VALUE;
 
 		for (int i = 0; i < tournamentSize; i++) {
-			int choice = (int) Math.floor(random.nextDouble() * (double) POPSIZE);
+			int choice = 0;
+			do {
+				choice = (int) Math.floor(random.nextDouble() * (double) POPSIZE);
+			} while (choice == 0);
+			if (choice == 0)
+				System.out.println(" best selected");
 
 			double fit = fitness[choice].value;// original approach
 
@@ -854,6 +1457,7 @@ public class GA_new {
 		if (random.nextDouble() < CROSSOVER_PROB) {
 			for (int j = 0; j < offspring.length; j++) {
 				offspring[j] = random.nextDouble() > 0.5 ? pop[first][j] : pop[second][j];
+
 			}
 		} else {
 			for (int j = 0; j < offspring.length; j++) {
@@ -895,6 +1499,12 @@ public class GA_new {
 				offspring[j] = pop[second][j];
 
 			}
+
+			if (offspring[2] <= offspring[1]) {// ensuring that offspring[2]
+												// (beta2) is greater than beta
+				offspring[2] = pop[first][2] > offspring[2] ? pop[first][2] : pop[second][2];
+
+			}
 		} else {
 			for (int j = 0; j < offspring.length; j++) {
 				offspring[j] = pop[first][j];
@@ -926,24 +1536,16 @@ public class GA_new {
 
 		if (random.nextDouble() < CROSSOVER_PROB) {
 			for (int j = 0; j < offspring.length; j++) {
-				if (j == 0)// we need to generate an integer for the quantity
-					offspring[j] = (int) (0.5 * pop[first][j] + 0.5 * pop[second][j]);// obtaining
-																						// the
-																						// arithmetic
-																						// mean
-																						// of
-																						// the
-																						// two
-																						// parents
-				else
-					offspring[j] = 0.5 * pop[first][j] + 0.5 * pop[second][j];// obtaining
-																				// the
-																				// arithmetic
-																				// mean
-																				// of
-																				// the
-																				// two
-																				// parents
+
+				offspring[j] = 0.5 * pop[first][j] + 0.5 * pop[second][j];// obtaining
+																			// the
+																			// arithmetic
+																			// mean
+																			// of
+																			// the
+																			// two
+																			// parents
+
 			}
 		} else {
 			for (int j = 0; j < offspring.length; j++) {
@@ -975,22 +1577,13 @@ public class GA_new {
 														// pop[50] etc.
 
 		if (random.nextDouble() < CROSSOVER_PROB) {
-			for (int j = 0; j < offspring.length; j++) {
-				double cmin = pop[first][j] < pop[second][j] ? pop[first][j] : pop[second][j];
-				double cmax = pop[first][j] > pop[second][j] ? pop[first][j] : pop[second][j];
 
-				if (j == 0)// we need to generate an integer for the quantity
-					offspring[j] = (int) generateQuantity(false); // (
-																	// random.nextDouble()
-																	// * (cmax -
-																	// cmin) +
-																	// cmin
-																	// );//rnd
-																	// number in
-																	// the range
-																	// [cmin,
-																	// cmax]
-				else
+			double randCrossOver = random.nextDouble();
+			if (Double.compare(randCrossOver, 0.8) < 0) {
+				for (int j = 0; j < offspring.length; j++) {
+					double cmin = pop[first][j] < pop[second][j] ? pop[first][j] : pop[second][j];
+					double cmax = pop[first][j] > pop[second][j] ? pop[first][j] : pop[second][j];
+
 					offspring[j] = random.nextDouble() * (cmax - cmin) + cmin;// rnd
 																				// number
 																				// in
@@ -999,7 +1592,16 @@ public class GA_new {
 																				// [cmin,
 																				// cmax]
 
+				}
+			} else {
+				if (Double.compare(randCrossOver, 0.9) < 0) {
+					for (int j = 0; j < offspring.length; j++) {
+						offspring[j] = 0.5 * pop[first][j] + 0.5 * pop[second][j];
+					}
+				} else
+					return crossover(first, second);
 			}
+
 		} else {
 			for (int j = 0; j < offspring.length; j++) {
 				offspring[j] = pop[first][j];
@@ -1007,413 +1609,6 @@ public class GA_new {
 		}
 
 		return offspring;
-	}
-
-	/** Fitness function: (Return - Maximum DrawDown) **/
-
-	Fitness fitness(double[] individual, boolean test) {
-
-		clearTradingDetails();
-		// number of operations not successful
-		int uSell = 0;
-		int uBuy = 0;
-		int noop = 0;
-
-		Fitness fitness = new Fitness();
-		TradingClass tradeClass = new TradingClass();
-		tradeClass.baseCurrencyAmount = budget;
-		tradeClass.boughtTradeList.add(budget);
-		double totalWeight = 0.0;
-
-		// calculate total weight
-		for (int k = 0; k < SELECTED_THRESHOLDS.length; k++) {
-			totalWeight = totalWeight + individual[k + 2];
-		}
-
-		/**
-		 * defensive coding. validate that the number of selected
-		 * DCCurvePerfectforesight element match SELECTED_THRESHOLDS
-		 * 
-		 */
-
-		// assign budget
-		if (!test) {
-			double allocatedBudget = 0.0;
-			int budgetAllocatorCounter = 0;
-			for (int k = 0; k < curvePerfectForesight_Selected.length; k++) {
-				if (curvePerfectForesight_Selected[k].getIsSelectedThresholdFromCandidateList()) {
-
-					double assignedbudget = (individual[budgetAllocatorCounter + 2] / totalWeight) * budget;
-					allocatedBudget = allocatedBudget + assignedbudget;
-					curvePerfectForesight_Selected[k].setTrainingOpeningPosition(assignedbudget);
-					curvePerfectForesight_Selected[k].setTrainingOpeningPositionHist(assignedbudget);
-					curvePerfectForesight_Selected[k]
-							.setAssociatedWeight((individual[budgetAllocatorCounter + 2] / totalWeight));
-					budgetAllocatorCounter++;
-				}
-			}
-
-			int chosenThreshold = (int) ((Math.random() * (4 - 0)) + 0);
-
-			curvePerfectForesight_Selected[chosenThreshold].setTrainingOpeningPosition(
-					curvePerfectForesight_Selected[chosenThreshold].getTrainingOpeningPosition()
-							+ (budget - allocatedBudget));
-			curvePerfectForesight_Selected[chosenThreshold].setTrainingOpeningPositionHist(
-					curvePerfectForesight_Selected[chosenThreshold].getTrainingOpeningPosition()
-							+ (budget - allocatedBudget));
-
-		}
-
-		double perfectForcastTrainingReturn = 0.0;
-
-		// set budget for testing data
-		if (test) {
-			for (int j = 0; j < curvePerfectForesight_Selected.length; j++) {
-
-				for (int budgetAssigner = 0; budgetAssigner < curvePerfectForesight_Selected.length; budgetAssigner++) {
-					if (curvePerfectForesight_Selected[budgetAssigner]
-							.getThresholdValue() == curvePerfectForesight_Selected[j].getThresholdValue()) {
-						curveClassifcation[budgetAssigner]
-								.setOpeningPosition(curvePerfectForesight_Selected[j].getTrainingOpeningPositionHist());
-						curveClassifcation[budgetAssigner].setOpeningPositionHist(
-								curvePerfectForesight_Selected[j].getTrainingOpeningPositionHist());
-						perfectForcastTrainingReturn = curveClassifcation[budgetAssigner]
-								.trade(preprocess[budgetAssigner]);
-						curveClassifcation[budgetAssigner].setTradingReturnValaue(perfectForcastTrainingReturn);
-						curveClassifcation[budgetAssigner]
-								.setAssociatedWeight(curvePerfectForesight_Selected[j].getAssociatedWeight());
-					}
-				}
-
-			}
-		} else {
-			for (int j = 0; j < curvePerfectForesight_Selected.length; j++) {
-				curvePerfectForesight_Selected[j].estimateTrainingUsingOutputData(null);
-				perfectForcastTrainingReturn = curvePerfectForesight_Selected[j].trainingTrading(null);
-				curvePerfectForesight_Selected[j].setTradingReturnValaue(perfectForcastTrainingReturn);
-			}
-		}
-
-		// Calculate sharp ratio
-		double weightedReturn = 0.0;
-		double weightedVariance = 0.0;
-		double weigthedSharpRatio = 0.0;
-		double totalWealth = 0.0;
-		double totalWeightedMdd = 0.0;
-		int numOfTransactions = 0;
-		int numberOfTradingThresholds = 0;
-
-		if (test) {
-			System.out.println("In testing phase. exiting");
-			for (int j = 0; j < curveClassifcation.length; j++) {
-				totalWealth = totalWealth + curveClassifcation[j].getTradingReturnValue();
-				weightedReturn = weightedReturn + ((((curveClassifcation[j].getOpeningPositionHist()
-						- curveClassifcation[j].getTradingReturnValue())
-						/ curveClassifcation[j].getOpeningPositionHist()) * 100)
-						* curveClassifcation[j].getAssociatedWeight());
-				weightedVariance = weightedVariance
-						+ (curveClassifcation[j].getSharpRatio() * curveClassifcation[j].getAssociatedWeight());
-				totalWeightedMdd = totalWeightedMdd
-						+ (curveClassifcation[j].getMaxMddBase() * curveClassifcation[j].getAssociatedWeight());
-				numOfTransactions = numOfTransactions + curveClassifcation[j].getNumberOfTransactions();
-				numberOfTradingThresholds++;
-			}
-		} else {
-
-			for (int j = 0; j < curvePerfectForesight_Selected.length; j++) {
-
-				totalWealth = totalWealth + curvePerfectForesight_Selected[j].getTradingReturnValue();
-				weightedReturn = weightedReturn + ((((curvePerfectForesight_Selected[j].getTradingReturnValue()
-						- curvePerfectForesight_Selected[j].getTrainingOpeningPositionHist())
-						/ curvePerfectForesight_Selected[j].getTrainingOpeningPositionHist()) * 100)
-						* curvePerfectForesight_Selected[j].getAssociatedWeight());
-				weightedVariance = weightedVariance + (curvePerfectForesight_Selected[j].getSharpRatio()
-						* curvePerfectForesight_Selected[j].getAssociatedWeight());
-				totalWeightedMdd = totalWeightedMdd + (curvePerfectForesight_Selected[j].getMaxMddBase()
-						* curvePerfectForesight_Selected[j].getAssociatedWeight());
-				numOfTransactions = numOfTransactions + curvePerfectForesight_Selected[j].getNumberOfTransactions();
-				numberOfTradingThresholds++;
-			}
-		}
-
-		weigthedSharpRatio = weightedVariance;// (weightedReturn/numberOfTradingThresholds)/FastMath.sqrt(weightedVariance);
-		// System.out.println(weigthedSharpRatio);
-
-		fitness.uSell = uSell;
-		fitness.uBuy = uBuy;
-		fitness.noop = noop;
-		fitness.realisedProfit = totalWealth - budget;
-
-		fitness.MDD = totalWeightedMdd;// /numberOfMdds;
-		fitness.wealth = totalWealth;// my wealth, at the end of the
-		// transaction period
-		fitness.sharpRatio = weigthedSharpRatio;// /numberOffSharpRatio;
-		fitness.Return = 100.0 * (totalWealth - budget) / budget;
-		fitness.value = weigthedSharpRatio; // fitness.Return - (mddWeight *
-											// Math.abs(fitness.MDD)); // +
-											// fitness.sharpRatio;
-		fitness.noOfTransactions = numOfTransactions;
-		fitness.noOfShortSellingTransactions = 0;
-
-		fitness.tradingClass = tradeClass;
-
-		return fitness;
-	}
-
-	/** FitnessMeanThreshold function: (Return - Maximum DrawDown) **/
-	Fitness FitnessMeanThreshold(double[] individual, boolean test) {
-
-		clearTradingDetails();
-		// number of operations not successful
-		int uSell = 0;
-		int uBuy = 0;
-		int noop = 0;
-		double lastdccpt = 0;
-		Fitness fitness = new Fitness();
-
-		List<FReader.FileMember2> bidAskprice;
-
-		sharpeRatio = new SimpleSharpeRatio();
-		simpleDrawDown.Calculate(GA_new.budget);
-		sharpeRatio.addReturn(0.0);
-		if (test)
-			bidAskprice = new ArrayList<FReader.FileMember2>(testDataList);
-		else
-			bidAskprice = new ArrayList<FReader.FileMember2>(trainingDataList);
-
-		Double[] data = (test ? this.test : this.training);
-		double lastUpDCCend = 0.0;
-		TradingClass tradeClass = new TradingClass();
-		tradeClass.baseCurrencyAmount = budget;
-		tradeClass.boughtTradeList.add(budget);
-		double  previousBaseCCYReturn =budget;
-		
-		for (int i = 1; i < data.length; i++) {
-
-			boolean isActionsell = false;
-			
-			tradeClass.baseCurrencyAmount = budget;
-			tradeClass.boughtTradeList.add(budget);
-			double totalWeight = 0.0;
-
-			double buyCount = 0.0;
-			double sellCount = 0.0;
-
-			Vector<Double> thresholdsWithUpwardDecision = new Vector<Double>();
-			Vector<Double> thresholdsWithDownwardDecision = new Vector<Double>();
-
-			// assign budget
-			if (!test) {
-				double allocatedBudget = 0.0;
-				int budgetAllocatorCounter = 0;
-				for (int k = 0; k < curvePerfectForesight_Selected.length; k++) {
-
-					try{
-					if (curvePerfectForesight_Selected[k].trainingOutputEvents[i].type == Type.Upturn) {
-						sellCount = sellCount + individual[2 + k];
-						thresholdsWithUpwardDecision.add(curvePerfectForesight_Selected[k].thresholdValue);
-					} else if (curvePerfectForesight_Selected[k].trainingOutputEvents[i].type == Type.Downturn) {
-						buyCount = buyCount + individual[2 + k];
-						thresholdsWithDownwardDecision.add(curvePerfectForesight_Selected[k].thresholdValue);
-					}
-					}
-					catch (ArrayIndexOutOfBoundsException e){
-						continue;
-					}
-				}
-			} // set budget for testing data
-			else {
-				for (int k = 0; k < curveClassifcation.length; k++) {
-					if (curveClassifcation[k].testingEvents[i].type == Type.Upturn) {
-						sellCount = sellCount + individual[2 + k];
-						thresholdsWithUpwardDecision.add(curveClassifcation[k].thresholdValue);
-					} else if (curveClassifcation[k].testingEvents[i].type == Type.Downturn) {
-						buyCount = buyCount + individual[2 + k];
-						thresholdsWithDownwardDecision.add(curveClassifcation[k].thresholdValue);
-					}
-				}
-			}
-
-			int tradingPoint;
-			if (sellCount > buyCount)
-				tradingPoint = getTradingPoint(i, test, Type.Upturn, thresholdsWithUpwardDecision);
-			else
-				tradingPoint = getTradingPoint(i, test, Type.Downturn, thresholdsWithDownwardDecision);
-
-			if (tradingPoint > data.length)
-				continue;
-
-			if (sellCount >= buyCount) {
-				isActionsell = true;
-			} else
-				isActionsell = false;
-
-			double myPrice;
-			double tradetransactionCost;
-			if (sellCount > 0.0 && isActionsell && tradeClass.baseCurrencyAmount > 0){
-				double askQuantity = 0.0;
-				double zeroTransactionCostAskQuantity = 0.0;
-				double transactionCostPrice = 0.0;
-				
-				try {
-				myPrice = Double.parseDouble(bidAskprice.get(tradingPoint).askPrice);
-				
-				}
-				catch (ArrayIndexOutOfBoundsException e){
-					
-					continue;
-				}
-				catch (IndexOutOfBoundsException e){
-					continue;
-				}
-				catch (Exception e){
-					continue;
-				}
-				
-				tradetransactionCost = (tradeClass.baseCurrencyAmount/(individual[0])) * (transactionCost/100);
-				transactionCostPrice = tradetransactionCost * myPrice;
-				askQuantity =  ((tradeClass.baseCurrencyAmount/(individual[0])) -tradetransactionCost) *myPrice;
-				zeroTransactionCostAskQuantity = (tradeClass.baseCurrencyAmount/(individual[0])) *myPrice;
-				
-				if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity) ){
-
-					tradeClass.quoteCurrencyAmount =  tradeClass.quoteCurrencyAmount + askQuantity;
-					tradeClass.isOpenPosition = true;
-					tradeClass.soldTradeList.add(new Double(askQuantity));
-					
-					lastdccpt = tradeClass.baseCurrencyAmount;
-					tradeClass.baseCurrencyAmount=tradeClass.baseCurrencyAmount - (tradeClass.baseCurrencyAmount/(individual[0]));
-					tradeClass.quoteCurrencyTransaction++;
-					sellCount++;
-
-					lastUpDCCend = Double.parseDouble(bidAskprice.get(tradingPoint).bidPrice);
-					
-					
-				}
-
-			}
-			else if (buyCount > 0.0 && !isActionsell && tradeClass.quoteCurrencyAmount > 0){
-				double bidQuantity = 0.0;
-
-
-				double zeroTransactionCostBidQuantity = 0.0;
-				double transactionCostPrice = 0.0;
-				buyCount++;
-				
-				
-			try{	
-				myPrice = Double.parseDouble(bidAskprice.get(tradingPoint).bidPrice);
-
-			}
-			catch (ArrayIndexOutOfBoundsException e){
-				
-				continue;
-			}
-			catch (IndexOutOfBoundsException e){
-				continue;
-			}
-			catch (Exception e){
-				continue;
-			}
-				
-				tradetransactionCost =  tradeClass.quoteCurrencyAmount * (transactionCost/100);
-				transactionCostPrice = tradetransactionCost * myPrice;
-				bidQuantity =  ( tradeClass.quoteCurrencyAmount -tradetransactionCost) *myPrice;
-				zeroTransactionCostBidQuantity = tradeClass.quoteCurrencyAmount *myPrice;
-
-				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-						&& myPrice < lastUpDCCend){
-					double closeout = (tradeClass.quoteCurrencyAmount -tradetransactionCost) /myPrice;
-					
-					
-					tradeClass.baseCurrencyAmount = tradeClass.baseCurrencyAmount +closeout;
-					tradeClass.isOpenPosition = false;
-					tradeClass.quoteCurrencyAmount=0.0;
-					tradeClass.boughtTradeList.add(new Double(closeout));
-					tradeClass.baseCurrencyTransaction++;
-					simpleDrawDown.Calculate(tradeClass.baseCurrencyAmount);
-					sharpeRatio.addReturn(tradeClass.baseCurrencyAmount-previousBaseCCYReturn);
-					previousBaseCCYReturn =  tradeClass.baseCurrencyAmount;
-
-				}
-			}
-			
-				
-			
-			tradeClass.lastBidPrice = Double.parseDouble(bidAskprice.get(i).bidPrice);
-
-
-		
-		}  //int i = start; i < length; i++
-
-		/*Convert quoted transaction to based currency*/
-		if (tradeClass.baseCurrencyTransaction ==0 && tradeClass.quoteCurrencyTransaction == 0){
-			tradeClass.baseCurrencyAmount = budget;
-			tradeClass.isOpenPosition = false;
-			
-			tradeClass.quoteCurrencyTransaction++;
-			
-			fitness.wealth = tradeClass.baseCurrencyAmount;
-			fitness.Return = 0.0;
-			fitness.value = 0.0;
-		}
-		else{
-		
-			// A single transaction is dangerous, because it's based on pure luck,
-			// whether the last day's data is preferable, and can lead to a positive
-			// position. So better to avoid this,
-			// and require to have more than 1 transaction. We of course only do
-			// this for the training set (test == false); with test data, we want to
-			// have the real/true fitness, so we
-			// don't want to mess with this number - not doing search any more, no
-			// reason for penalising.
-			if (tradeClass.quoteCurrencyTransaction == 1)
-				fitness.value = -9999.00;
-			else if (tradeClass.baseCurrencyTransaction == 0)
-			{
-				fitness.value = -9999.00;
-			}
-			else
-			{
-				if (tradeClass.quoteCurrencyAmount <= 0){  //we have bought back our base currency. Hence do nothing
-					;
-				}
-				else{
-					
-					double tradetransactionCost =  tradeClass.quoteCurrencyAmount * (transactionCost/100);
-					double closeout = (tradeClass.quoteCurrencyAmount -tradetransactionCost) /tradeClass.lastBidPrice;
-					tradeClass.baseCurrencyAmount = tradeClass.baseCurrencyAmount + closeout;
-					tradeClass.isOpenPosition = false;
-					tradeClass.boughtTradeList.add(new Double(tradeClass.baseCurrencyAmount));
-					tradeClass.quoteCurrencyAmount=0.0;
-					tradeClass.baseCurrencyTransaction++;
-					sharpeRatio.addReturn(tradeClass.baseCurrencyAmount-previousBaseCCYReturn);
-					simpleDrawDown.Calculate(tradeClass.baseCurrencyAmount);
-					previousBaseCCYReturn =  tradeClass.baseCurrencyAmount;
-				}
-					
-				
-				fitness.uSell = uSell;
-				fitness.uBuy = uBuy;
-				fitness.noop = noop;
-				fitness.realisedProfit = tradeClass.baseCurrencyAmount - budget;
-				// fitness.MDD = MDD; Adesola removed
-				fitness.MDD = simpleDrawDown.getMaxDrawDown();
-				fitness.wealth = tradeClass.baseCurrencyAmount;// my wealth, at the end of the
-										// transaction period
-				fitness.sharpRatio = sharpeRatio.calulateSharpeRatio();
-				fitness.Return = 100.0 * (fitness.wealth - budget) / budget;
-				fitness.value = fitness.Return - (mddWeight * Math.abs(fitness.MDD));
-				fitness.noOfTransactions = tradeClass.baseCurrencyTransaction + tradeClass.quoteCurrencyTransaction ;
-				fitness.noOfShortSellingTransactions = 0;
-				
-			}
-			
-		}
-
-		fitness.tradingClass = tradeClass;
-
-		return fitness;
 	}
 
 	protected void report(int generation, Fitness[] fitness) {
@@ -1440,8 +1635,7 @@ public class GA_new {
 		average = average / fitness.length;
 
 		System.out.println(String.format("%d\t%12.6f\t%12.6f\t%12.6f", generation, best, worst, average));
-		log.save("Logger_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
-				String.format("%d\t%12.6f\t%12.6f\t%12.6f", generation, best, worst, average));
+		log.save("Logger.txt", String.format("%d\t%12.6f\t%12.6f\t%12.6f", generation, best, worst, average));
 		if (generation == MAX_GENERATIONS - 1)
 			System.out.println("Number of transactions of best individual in training: "
 					+ (fitness[bestIndividualIndex].noOfTransactions
@@ -1456,9 +1650,12 @@ public class GA_new {
 						f.noOfShortSellingTransactions));// saving
 		// and
 		// reporting
-		for (int transactionCount = 0; transactionCount < f.tradingClass.boughtTradeList.size(); transactionCount++) // the
-			log.save("IndicatorTransactions_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
-					String.format("Run " + i + "\t%10.6f", f.tradingClass.boughtTradeList.get(transactionCount))); // fitness,
+		// for (int transactionCount = 0; transactionCount <
+		// f.tradingClass.boughtTradeList.size(); transactionCount++) // the
+		// log.save("IndicatorTransactions_" +
+		// Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
+		// String.format("Run " + i + "\t%10.6f",
+		// f.tradingClass.boughtTradeList.get(transactionCount))); // fitness,
 
 		System.out.println();
 		System.out.println(String.format("Fitness on test set: %10.6f", f.value));
@@ -1475,39 +1672,21 @@ public class GA_new {
 		System.out.println();
 		System.out.println(">>>>> Solution:\n");
 
-		System.out.println("Quantity: " + pop[argBestFitness][0]);
-		System.out.println("Beta: " + pop[argBestFitness][1]);
-		System.out.println("Beta2: " + pop[argBestFitness][2]);
-		System.out.println("Short-selling quantity: " + pop[argBestFitness][3]);
-		System.out.println("Beta3: " + pop[argBestFitness][4]);
 		System.out.println("Threshold weights: ");
 
-		// Saving to Solutions.txt file
-		log.save("Solutions_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
-				"Quantity: " + pop[argBestFitness][0]);
-		log.save("Solutions_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
-				"Beta: " + pop[argBestFitness][1]);
-		log.save("Solutions_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
-				"Beta2: " + pop[argBestFitness][2]);
-		log.save("Solutions_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
-				"Short-selling quantity: " + pop[argBestFitness][3]);
-		log.save("Solutions_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
-				"Beta3: " + pop[argBestFitness][4]);
-		log.save("Solutions_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt", "Threshold weights: ");
-
-		for (int m = 0; m < THRESHOLDS.length; m++) {
-			System.out.println(String.format("%1.3f%%: %7.6f", THRESHOLDS[m] * 100, pop[argBestFitness][m + 2]));// +5,
-																													// coz
-																													// the
-																													// first
-																													// 5
-																													// are
-																													// quantities
-																													// and
-																													// the
+		for (int m = 0; m < SELECTED_THRESHOLDS.length; m++) {
+			System.out.println(String.format("%1.3f%%: %7.6f", SELECTED_THRESHOLDS[m] * 100, pop[argBestFitness][m]));// +5,
+			// coz
+			// the
+			// first
+			// 5
+			// are
+			// quantities
+			// and
+			// the
 			// betas
 			log.save("Solutions_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt",
-					String.format("%1.3f%%: %7.6f", THRESHOLDS[m] * 100, pop[argBestFitness][m + 2]));
+					String.format("%1.3f%%: %7.6f", SELECTED_THRESHOLDS[m] * 100, pop[argBestFitness][m]));
 		}
 	}
 
@@ -1582,7 +1761,7 @@ public class GA_new {
 		}
 
 		Const.OsFunctionEnum = Const.hashFunctionType(s[6]);
-		Const.optimisationSelectedThreshold = Const.optimisation_selected_threshold.eMedian;
+		Const.optimisationSelectedThreshold = Const.optimisation_selected_threshold.eLongest;
 
 		log = new Logger(s[1], s[3], s[4]);
 		log.delete("Solutions_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt");
@@ -1590,6 +1769,32 @@ public class GA_new {
 		log.delete("Fitness_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt");
 		log.delete("Logger_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt");
 		log.delete("IndicatorTransactions_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt");
+		log.delete("Training_Returns_SingleThreshold_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt");
+		log.delete("Test_Returns_SingleThreshold_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt");
+		log.delete("SingleThresholdVsGAReturnComparisonTraining.txt");
+		log.delete("SingleThresholdVsGAReturnComparisonTest.txt");
+		log.delete("EventLengthComparioson.txt");
+		log.delete("EventObjectComparioson.txt");
+		log.delete("SingleThresholdVsGAReturnComparisonTest.txt");
+		log.delete("Training_SharpeRatio_SingleThreshold_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum)
+				+ ".txt");
+		log.delete("Training_MDD_SingleThreshold_" + Const.hashFunctionTypeToString(Const.OsFunctionEnum) + ".txt");
+		log.delete("SingleThresholdVsGASharpeRatioComparisonTest.txt");
+		log.delete("Test_dataset.txt");
+		log.delete("Training_dataset.txt");
+		log.delete("SingleThresholdVsGAMDDComparisonTest.txt");
+		log.delete("Training_TradePointGA.txt");
+		log.delete("Test_TradePointGA.txt");
+		
+		
+		for (int numberOfthresholds = 1 ;  numberOfthresholds< Const.NUMBER_OF_SELECTED_THRESHOLDS; numberOfthresholds++){
+			
+			log.delete("Training_TradePointThreshold"+numberOfthresholds+".txt");
+			log.delete("Test_TradePointThreshold"+numberOfthresholds+".txt");
+			log.delete("Training_datasetThreshold"+numberOfthresholds+".txt");
+			log.delete("Test_datasetThreshold"+numberOfthresholds+".txt");
+			
+		}
 
 		System.out.println("Population size: " + args[1] + "\n" + "Generations: " + args[2] + "\n" + "Tournament: "
 				+ args[3] + "\n" + "Crossover prob: " + args[4] + "\n" + "Mutation prob: " + args[5] + "\n"
@@ -1673,14 +1878,13 @@ public class GA_new {
 
 		public int noOfShortSellingTransactions;
 
-		public TradingClass tradingClass = new TradingClass();
-
 	}
 
 	public static class TradingClass {
 
-		double baseCurrencyAmount;
-		double quoteCurrencyAmount;
+		double baseCurrencyAmount = 0.0;
+		double quoteCurrencyAmount = 0.0;
+		double previousBaseCurrencyAmount = 0.0;
 		List<Double> soldTradeList = new ArrayList<Double>();
 		List<Double> boughtTradeList = new ArrayList<Double>();
 		boolean isOpenPosition = false;
@@ -1695,10 +1899,10 @@ public class GA_new {
 		for (int i = 0; i < curveClassifcation.length; i++) { // The arrays
 			curveClassifcation[i].clearSharpRatio();
 			curveClassifcation[i].refreshMDD();
-			curveClassifcation[i].resetNumberOfQuoteCcyTransaction();
+
 			curveClassifcation[i].resetNumberOfBaseCcyTransaction();
 			curveClassifcation[i].clearPositionArrayBase();
-			curveClassifcation[i].clearPositionArrayQuote();
+
 			curveClassifcation[i].clearPredictedTrendString();
 			curveClassifcation[i].clearActualTrendString();
 
@@ -1710,178 +1914,762 @@ public class GA_new {
 			if (curvePerfectForesight_Selected[i].getIsSelectedThresholdFromCandidateList()) {
 				curvePerfectForesight_Selected[i].clearSharpRatio();
 				curvePerfectForesight_Selected[i].refreshMDD();
-				curvePerfectForesight_Selected[i].resetNumberOfQuoteCcyTransaction();
+
 				curvePerfectForesight_Selected[i].resetNumberOfBaseCcyTransaction();
 				curvePerfectForesight_Selected[i].clearPositionArrayBase();
-				curvePerfectForesight_Selected[i].clearPositionArrayQuote();
+
 				curvePerfectForesight_Selected[i].clearPredictedTrendString();
 				curvePerfectForesight_Selected[i].clearActualTrendString();
 			}
 		}
+
 	}
 
-	public int getTradingPoint(int physicalTimeCounter, boolean test, Type eventType,
-			Vector<Double> selectedThresholds) {
+	public int getTradingPoint(int physicalTimeCounter, boolean test, Type eventType, Vector<Double> selectedThresholds,
+			int datalength) {
 
 		int tradingPoint = -1;
 		int finalTradingPoint = -1;
 		double bestPerformanceScore = Double.MAX_VALUE;
 		double bestPerformanceScoreTemp = Double.MAX_VALUE;
-
-		DCCurveClassification[] selectedTestCurve = new DCCurveClassification[selectedThresholds.size()];
-		DCCurvePerfectForesight[] selectedTrainingCurve = new DCCurvePerfectForesight[selectedThresholds.size()];
-		PreProcess[] selectedTestClassifier = new PreProcess[selectedThresholds.size()];
+		ArrayList<Integer> predictionArray = new ArrayList<Integer>();
+		// DCCurveClassification[] selectedTestCurve = new
+		// DCCurveClassification[selectedThresholds.size()];
+		// DCCurvePerfectForesight[] selectedTrainingCurve = new
+		// DCCurvePerfectForesight[selectedThresholds.size()];
+		// PreProcess[] selectedTestClassifier = new
+		// PreProcess[selectedThresholds.size()];
 		if (test) {
+
 			for (int thresholdsCount = 0; thresholdsCount < SELECTED_THRESHOLDS.length; thresholdsCount++) {
 				for (int curveCounter = 0; curveCounter < selectedThresholds.size(); curveCounter++) {
 					if (Double.compare(selectedThresholds.get(curveCounter),
 							curveClassifcation[thresholdsCount].thresholdValue) == 0) {
-						selectedTestCurve[curveCounter] = curveClassifcation[thresholdsCount];
-						break;
-					}
-				}
-
-				for (int curveCounter = 0; curveCounter < selectedThresholds.size(); curveCounter++) {
-					if (Double.compare(preprocess[curveCounter].thresholdDbl,
-							selectedThresholds.get(curveCounter)) == 0) {
-						selectedTestClassifier[curveCounter] = preprocess[thresholdsCount];
-						break;
+						int dcEnd = curveClassifcation[thresholdsCount].testingEvents[physicalTimeCounter].end;
+						int OsLength = (int) Math.ceil(
+								curveClassifcation[thresholdsCount].predictionWithClassifier[physicalTimeCounter]);
+						tradingPoint = dcEnd + OsLength;
+						predictionArray.add(tradingPoint);
 					}
 				}
 			}
 
-			if (Arrays.asList(selectedTestCurve).subList(0, selectedTestCurve.length).contains(null)
-					|| Arrays.asList(selectedTestClassifier).subList(0, selectedTestCurve.length).contains(null)) {
-				System.out.println("Unable to find dccurve or classifier returning");
-				return -1;
-			}
+			/*
+			 * for (int thresholdsCount = 0; thresholdsCount <
+			 * SELECTED_THRESHOLDS.length; thresholdsCount++) { for (int
+			 * curveCounter = 0; curveCounter < selectedThresholds.size();
+			 * curveCounter++) { if
+			 * (Double.compare(selectedThresholds.get(curveCounter),
+			 * curveClassifcation[thresholdsCount].thresholdValue) == 0) {
+			 * selectedTestCurve[curveCounter] =
+			 * curveClassifcation[thresholdsCount]; break; } }
+			 * 
+			 * for (int curveCounterOuter = 0; curveCounterOuter <
+			 * SELECTED_THRESHOLDS.length; curveCounterOuter++) { for (int
+			 * curveCounter = 0; curveCounter < selectedThresholds.size();
+			 * curveCounter++) { if
+			 * (Double.compare(selectedThresholds.get(curveCounter),
+			 * preprocess[curveCounterOuter].thresholdDbl) == 0) {
+			 * selectedTestClassifier[curveCounter] =
+			 * preprocess[thresholdsCount]; break; } } } }
+			 * 
+			 * if (Arrays.asList(selectedTestCurve).subList(0,
+			 * selectedTestCurve.length).contains(null) ||
+			 * Arrays.asList(selectedTestClassifier).subList(0,
+			 * selectedTestCurve.length).contains(null)) { System.out.println(
+			 * "Unable to find dccurve or classifier returning"); return -1; }
+			 */
 
 		} else {
-			for (int thresholdsCount =0; thresholdsCount < SELECTED_THRESHOLDS.length; thresholdsCount++) {
+			for (int thresholdsCount = 0; thresholdsCount < SELECTED_THRESHOLDS.length; thresholdsCount++) {
 				for (int curveCounter = 0; curveCounter < selectedThresholds.size(); curveCounter++) {
 					if (Double.compare(selectedThresholds.get(curveCounter),
 							curvePerfectForesight_Selected[thresholdsCount].thresholdValue) == 0) {
-						selectedTrainingCurve[curveCounter] = curvePerfectForesight_Selected[thresholdsCount];
+						int dcEnd = curvePerfectForesight_Selected[thresholdsCount].trainingOutputEvents[physicalTimeCounter].end;
+						int OsLength = (int) Math.round(
+								curvePerfectForesight_Selected[thresholdsCount].gpprediction[physicalTimeCounter]);
+						if (OsLength > 0) {
+							tradingPoint = dcEnd + OsLength;
+							predictionArray.add(tradingPoint);
+						}
 						break;
 					}
 				}
 			}
 		}
 
-		ArrayList<Integer> predictionArray = new ArrayList<Integer>();
-		for (int curveCounter = 0; curveCounter < selectedThresholds.size(); curveCounter++) {
+		if (predictionArray.size() < 1)
+			return 0;
 
-			String classificationStr = "no";
-
-			/**
-			 * Start: Get classification decision for the data-point in the DC
-			 * trend
-			 **/
-			if (test) {
-
-				Double clsLabel = 1.0;
-				tradingPoint = selectedTestCurve[curveCounter].testingEvents[physicalTimeCounter].end;
-
-				if (physicalTimeCounter >= selectedTestCurve[curveCounter].testingEvents[selectedTestCurve[curveCounter].testingEvents.length].end) {
-					System.out.println("Threshold " + selectedTestCurve[curveCounter].thresholdValue
-							+ " does not have datapoint " + physicalTimeCounter);
-					continue;
-				}
-
-				if (selectedTestClassifier[curveCounter] != null
-						&& selectedTestClassifier[curveCounter].testInstances.get(physicalTimeCounter) != null) {
-
-					try {
-						clsLabel = selectedTestClassifier[curveCounter].autoWEKAClassifier.classifyInstance(
-								selectedTestClassifier[curveCounter].getTestInstance().get(physicalTimeCounter));
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					classificationStr = (clsLabel.toString().compareToIgnoreCase("0.0") == 0) ? "yes" : "no";
-				} else {
-					System.out.println(" invalid preprocess or testinstance. I is " + physicalTimeCounter);
-					continue;
-				}
-
-				if ((classificationStr.compareToIgnoreCase("no") == 0)) {
-					;// System.out.println("no");
-				} else {
-
-					if (eventType == Type.Upturn) {
-
-						tradingPoint = tradingPoint
-								+ (int) Math.ceil(selectedTestCurve[curveCounter].bestUpWardEventTree.eval(
-										selectedTestCurve[curveCounter].testingEvents[physicalTimeCounter].length()));
-					} else {
-						tradingPoint = tradingPoint
-								+ (int) Math.ceil(selectedTestCurve[curveCounter].bestDownWardEventTree.eval(
-										selectedTestCurve[curveCounter].testingEvents[physicalTimeCounter].length()));
-
-					}
-				}
-				
-
-			} else {
-				
-				
-				if (eventType == Type.Upturn) {
-
-					tradingPoint = tradingPoint
-							+ (int) Math.ceil(selectedTrainingCurve[curveCounter].bestUpWardEventTree.eval(
-									selectedTrainingCurve[curveCounter].trainingOutputEvents[physicalTimeCounter].length()));
-				} else {
-					tradingPoint = tradingPoint
-							+ (int) Math.ceil(selectedTrainingCurve[curveCounter].bestDownWardEventTree.eval(
-									selectedTrainingCurve[curveCounter].trainingOutputEvents[physicalTimeCounter].length()));
-
-				}
-
-			}
-			/**
-			 * End: Get classification decision for the data-point in the DC
-			 * trend
-			 **/
-
-			
-			// This is dangerous add muct never be uncommented because it
-			// is counter intuitive
-			// if (tradingPoint <
-			// curves[curveCounter].output[physicalTimeCounter].end) // We only
-			// want to trade in OS region
-			// continue;
-
-			
-			if (Const.optimisationSelectedThreshold == Const.optimisation_selected_threshold.eShortest) {
-				if (tradingPoint >= 0 && tradingPoint < finalTradingPoint)
-					finalTradingPoint = tradingPoint;
-			} else if (Const.optimisationSelectedThreshold == Const.optimisation_selected_threshold.eLongest) {
-				if (tradingPoint >= 0 && tradingPoint > finalTradingPoint)
-					finalTradingPoint = tradingPoint;
-			}
-			predictionArray.add(tradingPoint);
-		} // end for loop
-
+		Collections.sort(predictionArray);
 		if (Const.optimisationSelectedThreshold == Const.optimisation_selected_threshold.eMedian) {
-			Collections.sort(predictionArray);
+
 			if (predictionArray.size() == 1)
 				finalTradingPoint = predictionArray.get(0);
 			else if (predictionArray.size() == 2)
 				finalTradingPoint = (int) (((double) predictionArray.get(0) + (double) predictionArray.get(1)) / 2);
 			else if (predictionArray.size() == 3)
-				finalTradingPoint = predictionArray.get(2);
+				finalTradingPoint = predictionArray.get(1);
 			else if (predictionArray.size() == 4)
 				finalTradingPoint = (int) (((double) predictionArray.get(1) + (double) predictionArray.get(2)) / 2);
 			else if (predictionArray.size() == 5)
-				finalTradingPoint = predictionArray.get(4);
+				finalTradingPoint = predictionArray.get(2);
 			else
 				finalTradingPoint = -1;
 		} else if (Const.OsFunctionEnum == Const.function_code.eGP
 				&& Const.optimisationSelectedThreshold == Const.optimisation_selected_threshold.eperformanceScore) {
 
+		} else if (Const.optimisationSelectedThreshold == Const.optimisation_selected_threshold.eLongest) {
+			finalTradingPoint = predictionArray.get(predictionArray.size() - 1);
 		}
 
 		return finalTradingPoint;
+	}
+
+	Fitness fitnesser(double[] individual, boolean test) {
+
+		double sellCount = 0.0;
+		double buyCount = 0.0;
+
+		// double[] individualTemp = new double[individual.length];
+
+		if (test) {
+			numberOfEvenThresholds = 0;
+			curveClassifcationForGA = new DCCurveClassification();
+
+			curveClassifcationForGA.setIsPositionOpen(false);
+			curveClassifcationForGA.setAssociatedWeight(0.0);
+			curveClassifcationForGA.setOpeningPosition(budget);
+
+			curveClassifcationForGA.setThresholdValue(-1);
+			curveClassifcationForGA.setMarketdataListTraining(trainingDataPtCount);
+			curveClassifcationForGA.setMarketdataListTest(testDataPtCount);
+		} else {
+			numberOfEvenThresholds = 0;
+			curvePerfectForesight_SelectedForGA = new DCCurvePerfectForesight();
+			curvePerfectForesight_SelectedForGA.setAssociatedWeight(0.0);
+			curvePerfectForesight_SelectedForGA.setOpeningPosition(budget);
+
+			curvePerfectForesight_SelectedForGA.setThresholdValue(-1);
+			curvePerfectForesight_SelectedForGA.setMarketdataListTraining(trainingDataPtCount);
+			curvePerfectForesight_SelectedForGA.setMarketdataListTest(testDataPtCount);
+
+		}
+
+		Double[] data = (test ? this.test : this.training);
+		
+		totalEvents = data.length;
+		
+		if (test) {
+			curveClassifcationForGA.predictionWithClassifier = new double[data.length];
+			curveClassifcationForGA.testingEvents = new Event[data.length];
+			curveClassifcationForGA.lastTrainingPrice = training.length;
+		} else {
+			curvePerfectForesight_SelectedForGA.trainingUsingOutputData = new double[data.length];
+			curvePerfectForesight_SelectedForGA.trainingOutputEvents = new Event[data.length];
+		}
+
+		DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+		LocalDateTime now = LocalDateTime.now();
+		System.out.println("DC event creation Started :" + dtf.format(now));
+		for (int m = 0; m < data.length; m++) {
+
+			sellCount = 0.0;
+			buyCount = 0.0;
+
+			Map<Double, Event> predictionUpEventMap = new LinkedHashMap<Double, Event>();
+			Map<Double, Event> predictionDownEventMap = new LinkedHashMap<Double, Event>();
+
+			Map<Double, Double> predictionUpValueMap = new LinkedHashMap<Double, Double>();
+			Map<Double, Double> predictionDownValueMap = new LinkedHashMap<Double, Double>();
+
+			Map<Double, Orders> predictionUpOrderMap = new LinkedHashMap<Double, Orders>();
+			Map<Double, Orders> predictionDownOrderMap = new LinkedHashMap<Double, Orders>();
+
+			Map<Double, Double> sharpeRatioXweightUpMap = new LinkedHashMap<Double, Double>();
+			Map<Double, Double> sharpeRatioXweightDownMap = new LinkedHashMap<Double, Double>();
+
+			Map<Double, Double> thresholdweightUpMap = new LinkedHashMap<Double, Double>();
+			Map<Double, Double> thresholdweightDownMap = new LinkedHashMap<Double, Double>();
+
+			Vector<Double> selectedThresholdPredictionSell = new Vector<Double>();
+			Vector<Double> selectedThresholdPredictionBuy = new Vector<Double>();
+
+			Map<Double, Double> thresholdDCRunUpMap = new LinkedHashMap<Double, Double>();
+			Map<Double, Double> thresholdDCRunDownMap = new LinkedHashMap<Double, Double>();
+
+			for (int j = 0; j < SELECTED_THRESHOLDS.length; j++) {
+
+				if (test) {
+
+					Orders gpOrder = curveClassifcation[j].orderArray[m];
+
+					Event dcEvent = new Event(gpOrder.dcEventStart, gpOrder.dcEventEnd, gpOrder.eventType);
+					if (gpOrder.isOSevent) {
+						dcEvent.hasOverShoot = "yes";
+						dcEvent.overshoot = new Event(gpOrder.dcOsEventStart, gpOrder.dcOsEventEnd, gpOrder.eventType);
+						if (gpOrder.dcOsEventStart == -1)
+							System.out.println("I am here");
+					}
+
+					if (gpOrder.eventType == Type.Upturn) {
+						sellCount = sellCount + individual[j];
+							
+						if (Double.compare(individual[j],0.0) >0){
+							selectedThresholdPredictionSell.add(gpOrder.prediction);
+	
+							predictionUpEventMap.put(curveClassifcation[j].thresholdValue, dcEvent);
+							predictionUpValueMap.put(curveClassifcation[j].thresholdValue, gpOrder.prediction);
+							predictionUpOrderMap.put(curveClassifcation[j].thresholdValue, gpOrder);
+							sharpeRatioXweightUpMap.put(curveClassifcation[j].thresholdValue,
+									individual[j] * (curvePerfectForesight_Selected[j].getMySharpeRatio() / 100));
+							thresholdweightUpMap.put(curveClassifcation[j].thresholdValue, individual[j]);
+							thresholdDCRunUpMap.put(curveClassifcation[j].thresholdValue,
+									dcEvent.length() + gpOrder.prediction);
+						}
+
+					} else if (gpOrder.eventType == Type.Downturn) {
+						buyCount = buyCount + individual[j];
+
+						if (Double.compare(individual[j],0.0) >0){
+						selectedThresholdPredictionBuy.add(gpOrder.prediction);
+	
+							predictionDownEventMap.put(curveClassifcation[j].thresholdValue, dcEvent);
+							predictionDownValueMap.put(curveClassifcation[j].thresholdValue, gpOrder.prediction);
+							predictionDownOrderMap.put(curveClassifcation[j].thresholdValue, gpOrder);
+							sharpeRatioXweightDownMap.put(curveClassifcation[j].thresholdValue,
+									individual[j] * (curvePerfectForesight_Selected[j].getMySharpeRatio() / 100));
+							thresholdweightDownMap.put(curveClassifcation[j].thresholdValue, individual[j]);
+							thresholdDCRunDownMap.put(curveClassifcation[j].thresholdValue,
+									dcEvent.length() + gpOrder.prediction);
+						}
+					}
+				} else {
+
+					Orders gpOrder = curvePerfectForesight_Selected[j].orderArray[m];
+
+					Event dcEvent = new Event(gpOrder.dcEventStart, gpOrder.dcEventEnd, gpOrder.eventType);
+					if (gpOrder.isOSevent) {
+						dcEvent.hasOverShoot = "yes";
+						dcEvent.overshoot = new Event(gpOrder.dcOsEventStart, gpOrder.dcOsEventEnd, gpOrder.eventType);
+					}
+
+					if (gpOrder.eventType == Type.Upturn) {
+						sellCount = sellCount + individual[j];
+
+						if (Double.compare(individual[j],0.0) >0){
+							selectedThresholdPredictionSell.add(gpOrder.prediction);
+	
+							predictionUpEventMap.put(curvePerfectForesight_Selected[j].thresholdValue, dcEvent);
+							predictionUpValueMap.put(curvePerfectForesight_Selected[j].thresholdValue, gpOrder.prediction);
+							predictionUpOrderMap.put(curvePerfectForesight_Selected[j].thresholdValue, gpOrder);
+							sharpeRatioXweightUpMap.put(curvePerfectForesight_Selected[j].thresholdValue,
+									individual[j] * curvePerfectForesight_Selected[j].getMySharpeRatio());
+							thresholdweightUpMap.put(curvePerfectForesight_Selected[j].thresholdValue, individual[j]);
+							thresholdDCRunUpMap.put(curvePerfectForesight_Selected[j].thresholdValue,
+									dcEvent.length() + gpOrder.prediction);
+						}
+					} else if (gpOrder.eventType == Type.Downturn) {
+						buyCount = buyCount + individual[j];
+
+						if (Double.compare(individual[j],0.0) >0){
+							selectedThresholdPredictionBuy.add(gpOrder.prediction);
+	
+							predictionDownEventMap.put(curvePerfectForesight_Selected[j].thresholdValue, dcEvent);
+							predictionDownValueMap.put(curvePerfectForesight_Selected[j].thresholdValue,
+									gpOrder.prediction);
+							predictionDownOrderMap.put(curvePerfectForesight_Selected[j].thresholdValue, gpOrder);
+							sharpeRatioXweightDownMap.put(curvePerfectForesight_Selected[j].thresholdValue,
+									individual[j] * (curvePerfectForesight_Selected[j].getMySharpeRatio() / 100));
+							thresholdweightDownMap.put(curvePerfectForesight_Selected[j].thresholdValue, individual[j]);
+							thresholdDCRunDownMap.put(curvePerfectForesight_Selected[j].thresholdValue,
+									dcEvent.length() + gpOrder.prediction);
+						}
+					}
+				}
+			}
+			
+		
+			
+			Event selectedEvent = null;
+			double osPredictedLength = 0;
+			if (sellCount > buyCount) {
+				selectedEvent = null;
+				selectedEvent = getPredictatedEvent(thresholdDCRunUpMap, predictionUpValueMap, predictionUpEventMap,
+						individual, Type.Upturn);
+				if (selectedEvent.overshoot != null)
+					osPredictedLength = selectedEvent.overshoot.length();
+				else
+					osPredictedLength = 0.0;
+
+				if (test) {
+					curveClassifcationForGA.predictionWithClassifier[m] = osPredictedLength;
+					curveClassifcationForGA.testingEvents[m] = selectedEvent;
+				} else {
+					curvePerfectForesight_SelectedForGA.trainingUsingOutputData[m] = osPredictedLength;
+					curvePerfectForesight_SelectedForGA.trainingOutputEvents[m] = selectedEvent;
+				}
+
+			} else {
+
+				selectedEvent = null;
+				selectedEvent = getPredictatedEvent(thresholdDCRunDownMap, predictionDownValueMap,
+						predictionDownEventMap, individual, Type.Downturn);
+
+				if (selectedEvent.overshoot != null)
+					osPredictedLength = selectedEvent.overshoot.length();
+				else
+					osPredictedLength = 0.0;
+
+				if (test) {
+
+					curveClassifcationForGA.predictionWithClassifier[m] = osPredictedLength;
+					curveClassifcationForGA.testingEvents[m] = selectedEvent;
+
+				} else {
+					curvePerfectForesight_SelectedForGA.trainingUsingOutputData[m] = osPredictedLength;
+					curvePerfectForesight_SelectedForGA.trainingOutputEvents[m] = selectedEvent;
+				}
+
+			} // Sell and buy weight is equal hence skip
+
+		} // end of data
+		now = LocalDateTime.now();
+		System.out.println("DC event creation ended :" + dtf.format(now));
+
+		Fitness fitness = new Fitness();
+
+		double gaSingleReturn = 0.0;
+		double sharpeRatioValue = 0.0;
+		double mdd = 0.0;
+		int numOfTransactions = 0;
+
+		if (test) {
+
+			gaSingleReturn = curveClassifcationForGA.trade(null);
+			sharpeRatioValue = curveClassifcationForGA.getSharpRatio();
+			numOfTransactions = curveClassifcationForGA.getNumberOfBaseCcyTransactions();
+			mdd = curveClassifcationForGA.getMaxMddBase();
+			
+
+		} else {
+			//double single1 = curvePerfectForesight_Selected[0].trainingTradingGA(null, individual[individual.length-4]);
+			//double single1a = curvePerfectForesight_Selected[0].trainingTrading(null);
+			//double single2 = curvePerfectForesight_Selected[1].trainingTradingGA(null,  individual[individual.length-4]);
+			//double single3 = curvePerfectForesight_Selected[2].trainingTradingGA(null, individual[individual.length-4]);
+
+			//gaSingleReturn = curvePerfectForesight_SelectedForGA.trainingTradingGA(null,1.0);
+			gaSingleReturn = curvePerfectForesight_SelectedForGA.trainingTrading(null);
+			sharpeRatioValue = curvePerfectForesight_SelectedForGA.getSharpRatio();
+			numOfTransactions = curvePerfectForesight_SelectedForGA.getNumberOfBaseCcyTransactions();
+			mdd = curvePerfectForesight_SelectedForGA.getMaxMddBase();
+		}
+
+		fitness.realisedProfit = gaSingleReturn - budget;
+
+		fitness.MDD = mdd;
+
+		fitness.wealth = gaSingleReturn;// my wealth, at the end
+										// of the
+		// transaction period
+		fitness.sharpRatio = sharpeRatioValue;
+
+		fitness.Return = 100.0 * ((gaSingleReturn - budget) / budget);
+		fitness.value = fitness.sharpRatio;
+
+		fitness.noOfTransactions = numOfTransactions;
+		fitness.noOfShortSellingTransactions = 0;
+
+		// fitness.tradingClass = tradeClass;
+
+		return fitness;
+	}
+
+	double getRandomNumber() {
+
+		double num = random.nextDouble();
+		while (num == Double.MAX_VALUE || num == Double.NEGATIVE_INFINITY || num == Double.POSITIVE_INFINITY
+				|| num == Double.NaN || Double.compare(num, 0.0) < 0 || Double.isInfinite(num) || Double.isNaN(num)) {
+			System.out.println("getRandomNumber : Is nan");
+		}
+
+		DecimalFormat df = new DecimalFormat("#.####");
+		df.setRoundingMode(RoundingMode.CEILING);
+		double d = Double.parseDouble(df.format(num));
+		return d;
+	}
+
+	Event getPredictatedEvent(Map<Double, Double> predictionDCRunLengthMap, Map<Double, Double> predictionValueMap,
+			Map<Double, Event> predictionEventMap, double[] individual, Type eventType) {
+
+		if (predictionDCRunLengthMap.size() != predictionValueMap.size()
+				&& predictionValueMap.size() != predictionEventMap.size()) {
+			System.out.println("Maps are not equal ");
+			System.exit(-1);
+		}
+		// individual.length - 2 is for selecting based on OS length or DC run
+		// length
+		// individual.length - 3 is for selecting based on on sorted or Unsorted
+		// Sort by value
+		Map<Double, Double> evaluatedMap = new LinkedHashMap<Double, Double>();
+		;
+
+		if (Double.compare(individual[individual.length - 3], 0.5) >= 0 && Double.compare(individual[individual.length - 2], 0.5) >= 0) {
+			evaluatedMap = predictionValueMap.entrySet().stream().sorted(Map.Entry.comparingByValue())
+					.collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue(), (e1, e2) -> e2, LinkedHashMap::new));
+		} else if (Double.compare(individual[individual.length - 3], 0.5) < 0 && Double.compare(individual[individual.length - 2], 0.5) >= 0) {
+			evaluatedMap.putAll(predictionValueMap);
+		} else if (Double.compare(individual[individual.length - 3], 0.5) >= 0 && Double.compare(individual[individual.length - 2], 0.5) < 0) {
+			evaluatedMap = predictionDCRunLengthMap.entrySet().stream().sorted(Map.Entry.comparingByValue())
+					.collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue(), (e1, e2) -> e2, LinkedHashMap::new));
+		} else if (Double.compare(individual[individual.length - 3], 0.5) < 0 && Double.compare(individual[individual.length - 2], 0.5) < 0) {
+			evaluatedMap.putAll(predictionDCRunLengthMap);
+		} else {
+			System.out.print("Should never get here. investigates");
+			System.exit(-1);
+		}
+
+		// indexesValue is the predicted overshoot length
+		List<Double> indexesValue = new ArrayList<Double>(evaluatedMap.values());
+		if (indexesValue.isEmpty() || indexesValue.isEmpty() || indexesValue == null ||
+				evaluatedMap.size() == 0 || evaluatedMap.isEmpty() ||  evaluatedMap == null){
+			System.out.print("Should never get here. investigates");
+			System.exit(-1);
+		}
+		Collections.reverse(indexesValue); // Reorder to DC with OS in front
+		double mostFrequent = HelperClass.mostFrequentElement(indexesValue);
+
+		List<Double> indexesKey = new ArrayList<Double>(evaluatedMap.keySet());
+		Collections.reverse(indexesKey);
+		int eventIndex = -1;
+
+		Event selectedEvent = null;
+		if (predictionValueMap.size() == 0)
+			System.exit(-1);
+		else if (predictionValueMap.size() == 1) {
+			eventIndex = 0;
+
+			selectedEvent = predictionEventMap.get(indexesKey.get(eventIndex));
+
+		} else if (predictionValueMap.size() == 2) {
+
+			if (Double.compare(individual[individual.length - 1], 0.1) <= 0) { // min
+				eventIndex = 0;
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.2) <= 0) { // max
+				Event event1 = predictionEventMap.get(indexesKey.get(1));
+
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.3) <= 0) { // average
+
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+				Event event2 = predictionEventMap.get(indexesKey.get(1));
+				Event eventNew = new Event(((event1.start + event2.start) / 2), ((event1.end + event2.end) / 2),
+						eventType);
+
+				selectedEvent = eventNew;
+			} else if (Double.compare(individual[individual.length - 1], 0.4) <= 0) { // mode
+
+				int start = 0;
+				int end = 0;
+
+				int numberOfElement = 0;
+				if (Double.compare(individual[individual.length - 2], 0.5) < 0){
+					
+					for (Map.Entry<Double, Double> pair : predictionDCRunLengthMap.entrySet()) {
+						
+						if (Double.compare(pair.getValue(), mostFrequent) == 0) {
+							Event event1 = predictionEventMap.get(pair.getKey());
+							start += event1.start;
+							end += event1.end;
+	
+							numberOfElement++;
+						}
+					}
+				}
+				else{
+					for (Map.Entry<Double, Double> pair : predictionValueMap.entrySet()) {
+	
+						if (Double.compare(pair.getValue(), mostFrequent) == 0) {
+							Event event1 = predictionEventMap.get(pair.getKey());
+							start += event1.start;
+							end += event1.end;
+	
+							numberOfElement++;
+						}
+					}
+				}
+
+				Event eventNew = new Event((start / numberOfElement), (end / numberOfElement), eventType);
+
+				selectedEvent = eventNew;
+			} else if (Double.compare(individual[individual.length - 1], 0.5) <= 0) { // median
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+				Event event2 = predictionEventMap.get(indexesKey.get(1));
+
+				Event eventNew = new Event(((event1.start + event2.start) / 2), ((event1.end + event2.end) / 2),
+						eventType);
+
+				selectedEvent = eventNew;
+
+			} else if (Double.compare(individual[individual.length - 1], 0.6) <= 0) { // first
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.7) <= 0) { // second
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.8) <= 0) { // third
+				Event event1 = predictionEventMap.get(indexesKey.get(1));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.9) <= 0) { // fourth
+				Event event1 = predictionEventMap.get(indexesKey.get(1));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 1.0) <= 0) { // fifth
+				Event event1 = predictionEventMap.get(indexesKey.get(1));
+				selectedEvent = event1;
+			}
+
+			numberOfEvenThresholds++;
+		} else if (predictionValueMap.size() == 3) {
+			if (Double.compare(individual[individual.length - 1], 0.1) <= 0) { // min
+				eventIndex = 0;
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.2) <= 0) { // max
+				Event event1 = predictionEventMap.get(indexesKey.get(2));
+
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.3) <= 0) { // average
+
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+				Event event2 = predictionEventMap.get(indexesKey.get(1));
+				Event event3 = predictionEventMap.get(indexesKey.get(2));
+				Event eventNew = new Event(((event1.start + event2.start + event3.start) / 3),
+						((event1.end + event2.end + event3.end) / 3), eventType);
+
+				selectedEvent = eventNew;
+			} else if (Double.compare(individual[individual.length - 1], 0.4) <= 0) { // mode
+
+				int start = 0;
+				int end = 0;
+
+				int numberOfElement = 0;
+				if (Double.compare(individual[individual.length - 2], 0.5) < 0){
+					
+					for (Map.Entry<Double, Double> pair : predictionDCRunLengthMap.entrySet()) {
+						
+						if (Double.compare(pair.getValue(), mostFrequent) == 0) {
+							Event event1 = predictionEventMap.get(pair.getKey());
+							start += event1.start;
+							end += event1.end;
+	
+							numberOfElement++;
+						}
+					}
+				}
+				else{
+					for (Map.Entry<Double, Double> pair : predictionValueMap.entrySet()) {
+	
+						if (Double.compare(pair.getValue(), mostFrequent) == 0) {
+							Event event1 = predictionEventMap.get(pair.getKey());
+							start += event1.start;
+							end += event1.end;
+	
+							numberOfElement++;
+						}
+					}
+				}
+
+				Event eventNew = new Event((start / numberOfElement), (end / numberOfElement), eventType);
+				selectedEvent = eventNew;
+			} else if (Double.compare(individual[individual.length - 1], 0.5) <= 0) { // median
+				Event event1 = predictionEventMap.get(indexesKey.get(1));
+
+				selectedEvent = event1;
+
+			} else if (Double.compare(individual[individual.length - 1], 0.6) <= 0) { // first
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.7) <= 0) { // second
+				Event event1 = predictionEventMap.get(indexesKey.get(1));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.8) <= 0) { // third
+				Event event1 = predictionEventMap.get(indexesKey.get(1));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.9) <= 0) { // fourth
+				Event event1 = predictionEventMap.get(indexesKey.get(2));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 1.0) <= 0) { // fifth
+				Event event1 = predictionEventMap.get(indexesKey.get(2));
+				selectedEvent = event1;
+			}
+
+		} else if (predictionValueMap.size() == 4) {
+
+			if (Double.compare(individual[individual.length - 1], 0.1) <= 0) { // min
+				eventIndex = 0;
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.2) <= 0) { // max
+				Event event1 = predictionEventMap.get(indexesKey.get(3));
+
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.3) <= 0) { // average
+
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+				Event event2 = predictionEventMap.get(indexesKey.get(1));
+				Event event3 = predictionEventMap.get(indexesKey.get(2));
+				Event event4 = predictionEventMap.get(indexesKey.get(3));
+				Event eventNew = new Event(((event1.start + event2.start + event3.start + event4.start) / 4),
+						((event1.end + event2.end + event3.end + event4.end) / 4), eventType);
+
+				selectedEvent = eventNew;
+			} else if (Double.compare(individual[individual.length - 1], 0.4) <= 0) { // mode
+
+				int start = 0;
+				int end = 0;
+
+				int numberOfElement = 0;
+				if (Double.compare(individual[individual.length - 2], 0.5) < 0){
+					
+					for (Map.Entry<Double, Double> pair : predictionDCRunLengthMap.entrySet()) {
+						
+						if (Double.compare(pair.getValue(), mostFrequent) == 0) {
+							Event event1 = predictionEventMap.get(pair.getKey());
+							start += event1.start;
+							end += event1.end;
+	
+							numberOfElement++;
+						}
+					}
+				}
+				else{
+					for (Map.Entry<Double, Double> pair : predictionValueMap.entrySet()) {
+	
+						if (Double.compare(pair.getValue(), mostFrequent) == 0) {
+							Event event1 = predictionEventMap.get(pair.getKey());
+							start += event1.start;
+							end += event1.end;
+	
+							numberOfElement++;
+						}
+					}
+				}
+
+				Event eventNew = new Event((start / numberOfElement), (end / numberOfElement), eventType);
+				selectedEvent = eventNew;
+			} else if (Double.compare(individual[individual.length - 1], 0.5) <= 0) { // median
+				Event event1 = predictionEventMap.get(indexesKey.get(1));
+				Event event2 = predictionEventMap.get(indexesKey.get(2));
+				Event eventNew = new Event(((event1.start + event2.start) / 2), ((event1.end + event2.end) / 2),
+						eventType);
+
+				selectedEvent = eventNew;
+
+			} else if (Double.compare(individual[individual.length - 1], 0.6) <= 0) { // first
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.7) <= 0) { // second
+				Event event1 = predictionEventMap.get(indexesKey.get(1));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.8) <= 0) { // third
+				Event event1 = predictionEventMap.get(indexesKey.get(2));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.9) <= 0) { // fourth
+				Event event1 = predictionEventMap.get(indexesKey.get(2));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 1.0) <= 0) { // fifth
+				Event event1 = predictionEventMap.get(indexesKey.get(3));
+				selectedEvent = event1;
+			}
+
+			numberOfEvenThresholds++;
+
+		} else if (predictionValueMap.size() == 5) {
+
+			if (Double.compare(individual[individual.length - 1], 0.1) <= 0) { // min
+				eventIndex = 0;
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.2) <= 0) { // max
+				Event event1 = predictionEventMap.get(indexesKey.get(4));
+
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.3) <= 0) { // average
+
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+				Event event2 = predictionEventMap.get(indexesKey.get(1));
+				Event event3 = predictionEventMap.get(indexesKey.get(2));
+				Event event4 = predictionEventMap.get(indexesKey.get(3));
+				Event event5 = predictionEventMap.get(indexesKey.get(4));
+				Event eventNew = new Event(
+						((event1.start + event2.start + event3.start + event4.start + event5.start) / 5),
+						((event1.end + event2.end + event3.end + event4.end + event5.end) / 5), eventType);
+
+				selectedEvent = eventNew;
+			} else if (Double.compare(individual[individual.length - 1], 0.4) <= 0) { // mode
+
+				int start = 0;
+				int end = 0;
+				int numberOfElement = 0;
+				if (Double.compare(individual[individual.length - 2], 0.5) < 0){
+					
+					for (Map.Entry<Double, Double> pair : predictionDCRunLengthMap.entrySet()) {
+						
+						if (Double.compare(pair.getValue(), mostFrequent) == 0) {
+							Event event1 = predictionEventMap.get(pair.getKey());
+							start += event1.start;
+							end += event1.end;
+	
+							numberOfElement++;
+						}
+					}
+				}
+				else{
+					for (Map.Entry<Double, Double> pair : predictionValueMap.entrySet()) {
+	
+						if (Double.compare(pair.getValue(), mostFrequent) == 0) {
+							Event event1 = predictionEventMap.get(pair.getKey());
+							start += event1.start;
+							end += event1.end;
+	
+							numberOfElement++;
+						}
+					}
+				}
+
+				Event eventNew = new Event((start / numberOfElement), (end / numberOfElement), eventType);
+				selectedEvent = eventNew;
+			} else if (Double.compare(individual[individual.length - 1], 0.5) <= 0) { // median
+				Event event1 = predictionEventMap.get(indexesKey.get(2));
+
+				selectedEvent = event1;
+
+			} else if (Double.compare(individual[individual.length - 1], 0.6) <= 0) { // first
+				Event event1 = predictionEventMap.get(indexesKey.get(0));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.7) <= 0) { // second
+				Event event1 = predictionEventMap.get(indexesKey.get(1));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.8) <= 0) { // third
+				Event event1 = predictionEventMap.get(indexesKey.get(2));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 0.9) <= 0) { // fourth
+				Event event1 = predictionEventMap.get(indexesKey.get(3));
+				selectedEvent = event1;
+			} else if (Double.compare(individual[individual.length - 1], 1.0) <= 0) { // fifth
+				Event event1 = predictionEventMap.get(indexesKey.get(4));
+				selectedEvent = event1;
+			}
+
+		}
+
+		return selectedEvent;
 	}
 
 }

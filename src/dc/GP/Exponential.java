@@ -323,17 +323,29 @@ public class Exponential  extends AbstractNode implements Cloneable{
 	@Override
 	public double eval(double inVal, double magnitude) {
 		if (this.children.get(0) != null ){
-			double evalValue = Math.exp((this.children.get(0)).eval(inVal,magnitude));
-			//System.out.println( evalValue );
+			
+			double var1 = (this.children.get(0)).eval(inVal,magnitude);
+
+			if  (   inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
+					  inVal == Double.NEGATIVE_INFINITY || inVal ==  Double.NaN ||
+					Double.isInfinite(inVal)  || Double.isNaN(inVal) ||
+					  var1 == Double.MAX_VALUE || var1 == Double.NEGATIVE_INFINITY ||
+					  var1 == Double.NEGATIVE_INFINITY || var1 ==  Double.NaN ||
+					  Double.isInfinite(var1)  || Double.isNaN(var1))
+					return Double.MAX_VALUE;
+			
+			double evalValue = Math.exp(var1);
+
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
-					evalValue == Double.NEGATIVE_INFINITY || evalValue ==  Double.NaN)
-				return 1000000000.0;
+				  evalValue == Double.NEGATIVE_INFINITY || evalValue ==  Double.NaN ||
+				Double.isInfinite(evalValue)  || Double.isNaN(evalValue))
+				return Double.MAX_VALUE;
 			else
 				return evalValue;
 		}
 		else {
 			System.out.println( "left not defined in exponential");
-			return 1000000000.0;
+			return Double.MAX_VALUE;
 		}
 	}
 	

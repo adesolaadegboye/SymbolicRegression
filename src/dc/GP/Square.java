@@ -300,20 +300,27 @@ square.perfScore =  this.perfScore;
 
 	@Override
 	public double eval(double inVal, double magnitude) {
-		if (this.children.get(0) != null ){
+if (this.children.get(0) != null ){
+			
 			double evalValue = (this.children.get(0)).eval(inVal,magnitude);
+			
+			if  ( inVal == Double.MAX_VALUE || inVal == Double.NEGATIVE_INFINITY ||
+					inVal == Double.POSITIVE_INFINITY || inVal ==  Double.NaN ||
+							inVal  < 0.0  || Double.isInfinite(inVal) || Double.isNaN(inVal))
+				return Double.MAX_VALUE;
+			
 			evalValue = evalValue * evalValue;
 		//	System.out.println( evalValue );
 			if  ( evalValue == Double.MAX_VALUE || evalValue == Double.NEGATIVE_INFINITY ||
-					evalValue == Double.POSITIVE_INFINITY|| evalValue ==  Double.NaN ||
-					evalValue  < 0.0)
-				return 1000000000.0;
+					evalValue == Double.POSITIVE_INFINITY || evalValue ==  Double.NaN ||
+					evalValue  < 0.0  || Double.isInfinite(evalValue) || Double.isNaN(evalValue))
+				return Double.MAX_VALUE;
 			else
 				return evalValue;
 		}
 		else {
-			System.out.println( "left not defined in square ");
-			return 1000000000.0;
+			System.out.println( "left not defined in square root");
+			return Double.MAX_VALUE;
 		}
 	}
 

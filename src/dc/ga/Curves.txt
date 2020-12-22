@@ -1,0 +1,6 @@
+0.010%: {length =  3115, meanRatio[up] = 1.79, meanRatio[down] = 2.03}
+0.013%: {length =  2030, meanRatio[up] = 1.83, meanRatio[down] = 2.05}
+0.015%: {length =  1382, meanRatio[up] = 1.90, meanRatio[down] = 1.93}
+0.018%: {length =  1050, meanRatio[up] = 1.81, meanRatio[down] = 1.90}
+0.020%: {length =   842, meanRatio[up] = 1.92, meanRatio[down] = 1.78}
+0.023%: {length =   692, meanRatio[up] = 1.84, meanRatio[down] = 1.74}

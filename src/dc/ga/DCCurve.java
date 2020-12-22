@@ -1043,7 +1043,7 @@ public class DCCurve {
 		Upturn, Downturn, UpwardOvershoot, DownwardOvershoot;
 	}
 
-	public static class Event {
+	public static class Event  implements Comparable<Event>{
 		public int start = 0;
 		public int end = 0;
 		public double low = 0.0;
@@ -1051,6 +1051,8 @@ public class DCCurve {
 		public Type type;
 		public Event overshoot;
 		public double DCValue = 0.0;
+		public double startPriceDbl = 0.0;
+		public double endPriceDbl = 0.0;
 		public String startPrice = "";
 		public String endPrice = "";
 		public String startDate = "";
@@ -1078,7 +1080,7 @@ public class DCCurve {
 		public String endAskPrice =  "";
 		public String endBidPrice =  "";
 		public int positionInPriceCurve=0;
-		
+		public ArrayList<Event> OvershootList = null;
 		
 		
 		//public String 
@@ -1101,6 +1103,7 @@ public class DCCurve {
 			this.startPrice = e.startPrice;
 			this.percentageDeltaDuration = e.percentageDeltaDuration;
 			this.percentageDeltaPrice = e.percentageDeltaPrice;
+			this.OvershootList =  new ArrayList<Event>(e.OvershootList);
 			
 		}
 
@@ -1110,6 +1113,7 @@ public class DCCurve {
 			this.type = type;
 			this.low = low;
 			this.high = high;
+			this.OvershootList =  new ArrayList<Event>();
 		}
 		
 		public Event(int start, int end, Type type, double value) {
@@ -1117,11 +1121,15 @@ public class DCCurve {
 			this.end = end;
 			this.type = type;
 			this.DCValue = value;
+			this.OvershootList =  new ArrayList<Event>();
 		}
 
 		@Override
 		public String toString() {
-			return String.format("%4d %4d   %s   %4f", start, end, type, DCValue);
+			return String.format("%4d %4d   %s %4d %4d   %s", start, end, type, 
+					(this.overshoot == null)? 0 : this.overshoot.start,
+							(this.overshoot == null)? 0 : this.overshoot.end ,
+									(this.overshoot == null)? "n" : this.overshoot.type);
 		}
 
 		public final int length() {
@@ -1146,11 +1154,41 @@ public class DCCurve {
 		        Event c = (Event) o;
 		         
 		        // Compare the data members and return accordingly
-		        if (c.start == this.start && c.end == this.end && c.type == this.type)
+		        if (c.start == this.start && c.end == this.end && c.type == this.type
+		        		&& ((c.overshoot == null )? c.overshoot == this.overshoot : c.overshoot.equals(this.overshoot)))
 		        	return true;
 		        else
 		        	return false;
 		    }
+		 
+		 public boolean equalLength(Object o) {
+			 
+		        // If the object is compared with itself then return true  
+		        if (o == this) {
+		            return true;
+		        }
+		 
+		        /* Check if o is an instance of Complex or not
+		          "null instanceof [type]" also returns false */
+		        if (!(o instanceof Event)) {
+		            return false;
+		        }
+		         
+		        // typecast o to Complex so that we can compare data members 
+		        Event c = (Event) o;
+		         
+		        // Compare the data members and return accordingly
+		        if (c.start == this.start && c.end == this.end
+		        		&& ((c.overshoot == null )? c.overshoot == this.overshoot : c.overshoot.equalLength(this.overshoot)))
+		        	return true;
+		        else
+		        	return false;
+		    }
+
+		@Override
+		public int compareTo(Event event) {
+	        return (this.length() < event.length() ) ? -1: (this.length() > event.length() ) ? 1:0;
+		}
 	}
 	
 	double trainingTrading(PreProcess preprocess){

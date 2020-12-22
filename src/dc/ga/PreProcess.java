@@ -213,7 +213,7 @@ public class PreProcess {
 		}
 		
 
-		System.out.println("Instance " + testInstances.numInstances() + " event count " + testEvents.length);
+		//System.out.println("Instance " + testInstances.numInstances() + " event count " + testEvents.length);
 		return true;
 	}
 	public void loadTestData() {
@@ -300,7 +300,7 @@ public class PreProcess {
 
 		trainingInstancesAuto = new Instances(trainingInstances, 0, trainingInstances.size());
 		trainingInstancesAuto.setClassIndex(trainingInstancesAuto.numAttributes() - 1);
-		System.out.println("Instance " + trainingInstances.numInstances() + " event count " + events.length);
+		//System.out.println("Instance " + trainingInstances.numInstances() + " event count " + events.length);
 
 	}
 
@@ -652,6 +652,7 @@ public class PreProcess {
 		} catch (IOException e2) {
 
 			e2.printStackTrace();
+			rtCode = false;
 		}
 		// System.out.println("File path : " + absolutePath);
 
@@ -669,7 +670,7 @@ public class PreProcess {
 			autoWEKAClassifierTemp.setParallelRuns(1);
 			autoWEKAClassifierTemp.setMemLimit(1024);
 			// autoWEKAClassifierTemp.setMemLimit(5);
-			autoWEKAClassifierTemp.setTimeLimit(1);
+			autoWEKAClassifierTemp.setTimeLimit(2);
 			//autoWEKAClassifierTemp.setSeed(123);
 			 // Default K-fold =  10 . Sample size is smaller we set to sample size
 			  if (trainingInstancesAutoTemp.size() < 3) {
@@ -1674,18 +1675,21 @@ public class PreProcess {
 	
 	public String classifyTestInstance(int instanceCount) {
 
-		Double clsLabel = 0.0;
+		double clsLabel = 0.0;
 		try {
 
 			if (useAuto) {
-				Instances cpy = testInstances;
+				//Instances cpy = testInstances;
 
 				//System.out.println("instance num " + testInstances.numInstances() + " counter" + instanceCount);
+				if (testInstances.instance(instanceCount) == null)
+					System.out.println("instance num " + testInstances.numInstances() + " counter" + instanceCount);
+				
 				clsLabel = autoWEKAClassifier.classifyInstance(testInstances.instance(instanceCount));
 			} else
 				clsLabel = DCCurveClassifier[0].classifyInstance(testInstances.instance(instanceCount));
 
-			clsLabel.toString();
+			//clsLabel.toString();
 
 			// System.out.println(
 			// DCCurveClassifier[0].classifyInstance(testInstances.instance(instanceCount))
@@ -1695,32 +1699,40 @@ public class PreProcess {
 			e.printStackTrace();
 		}
 
-		if (clsLabel.toString().compareToIgnoreCase("0.0") == 0) {
-			return "yes";
-		} else
-			return "no";
+		
+		String prediction=testInstances.classAttribute().value((int)clsLabel); 
+
+		return prediction;
+		//if (clsLabel.toString().compareToIgnoreCase("0.0") == 0) {
+		//	return "yes";
+		//} else
+		//	return "no";
 
 	}
 
 	public String classifyTrainingInstance(int instanceCount) {
 
-		Double clsLabel = 0.0;
+		double clsLabel = 0.0;
 		try {
 			if (useAuto)
 				clsLabel = autoWEKAClassifier.classifyInstance(trainingInstancesAuto.instance(instanceCount));
 			else
 				clsLabel = DCCurveClassifier[0].classifyInstance(trainingInstancesManual.instance(instanceCount));
-			clsLabel.toString();
+			//clsLabel.toString();
 		} catch (Exception e) {
 
 			e.printStackTrace();
 		}
 
+		String prediction=trainingInstancesAuto.classAttribute().value((int)clsLabel); 
+
+		return prediction;
+		
 		// System.out.println("Message classified as : " +clsLabel);
-		if (clsLabel.toString().compareToIgnoreCase("0.0") == 0) {
-			return "yes";
-		} else
-			return "no";
+	//	if (clsLabel.toString().compareToIgnoreCase("0.0") == 0) {
+	//		return "yes";
+	//	} else
+	//		return "no";
 
 	}
 

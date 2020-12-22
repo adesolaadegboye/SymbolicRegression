@@ -509,7 +509,7 @@ public class DCCurvePerformanceOld{
 
 	private void report(int generation, Fitness[] fitness)
 	{
-		double best = Double.MIN_VALUE;
+		double best = -Double.MAX_VALUE;
 		double worst = Double.MAX_VALUE;
 		double average = 0.0;
 

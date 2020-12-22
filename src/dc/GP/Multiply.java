@@ -311,13 +311,28 @@ public class Multiply  extends AbstractNode implements Cloneable {
 		if (this.children.get(0) != null && this.children.get(1) != null){
 			double value1 = (this.children.get(0)).eval(inVal,magnitude);
 			double value2 = (this.children.get(1)).eval(inVal,magnitude);
+			
+			if  (	value2 == Double.MAX_VALUE || value2 == Double.NEGATIVE_INFINITY ||
+					value2 == Double.POSITIVE_INFINITY || value2 ==  Double.NaN ||
+					Double.isInfinite(value2) || Double.isNaN(value2) ||
+					value1 == Double.MAX_VALUE || value1 == Double.NEGATIVE_INFINITY ||
+					value1 == Double.POSITIVE_INFINITY || value1 ==  Double.NaN ||
+					Double.isInfinite(value1) || Double.isNaN(value1)	)
+				return Double.MAX_VALUE;
+			
+			
 			double value3 = value1* value2;
 			//System.out.println( value1+ " " +value2  + " "+value3);
-			return value3;
+			if  ( value3 == Double.MAX_VALUE || value3 == Double.NEGATIVE_INFINITY ||
+					value3 == Double.POSITIVE_INFINITY || value3 ==  Double.NaN ||
+					 Double.isInfinite(value3) || Double.isNaN(value3))
+				return Double.MAX_VALUE;
+				else
+					return value3;
 		}
 		else {
 			System.out.println( "left and right not defined in Multiply");
-			return 1000000000000.0;
+			return Double.MAX_VALUE;
 		}
 	}
 	

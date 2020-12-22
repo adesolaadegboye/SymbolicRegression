@@ -716,6 +716,7 @@ public class TreeHelperClass {
 		
 		
 		treeToString = treeToString.replace("X0", Integer.toString(2));
+		treeToString = treeToString.replace("X1", Integer.toString(2));
 		Double javascriptValue = Double.MAX_VALUE;
 		double eval = 0.0;
 	/*	try {
@@ -738,7 +739,7 @@ public class TreeHelperClass {
 		*/
 	
 		
-		javascriptValue = new Double(tree.eval(1));
+		javascriptValue = new Double(tree.eval(1, 0.005));
 		if  ( javascriptValue == Double.MAX_VALUE || javascriptValue == Double.NEGATIVE_INFINITY ||
 				javascriptValue == Double.POSITIVE_INFINITY || javascriptValue ==  Double.NaN ||
 				Double.compare(javascriptValue, 0.0)  < 0  || Double.isInfinite(javascriptValue)  || Double.isNaN(javascriptValue)){
@@ -746,7 +747,7 @@ public class TreeHelperClass {
 		}
 		
 		
-		javascriptValue = new Double(tree.eval(30));
+		javascriptValue = new Double(tree.eval(30,0.067));
 		if  ( javascriptValue == Double.MAX_VALUE || javascriptValue == Double.NEGATIVE_INFINITY ||
 				javascriptValue == Double.POSITIVE_INFINITY || javascriptValue ==  Double.NaN ||
 				Double.compare(javascriptValue, 0.0)  < 0  || Double.isInfinite(javascriptValue)  || Double.isNaN(javascriptValue)){
@@ -756,9 +757,9 @@ public class TreeHelperClass {
 		
 		
 		for (Event e : directionChangesLength) {
-			if (Const.VARIABLE_EVALUATED == 0)
+		//	if (Const.VARIABLE_EVALUATED == 0)
 				variableSize = e.length();
-			else
+		/*	else
 			{
 				if (e.type == Type.Upturn)
 				{
@@ -766,14 +767,14 @@ public class TreeHelperClass {
 				}
 				else
 					variableSize = Double.parseDouble(FReader.dataRecordInFileArray.get(e.end).bidPrice);
-			}
+			}*/
 				 
 			os = 0.0; 
 			if (e.overshoot != null)
 			{
-				if (Const.VARIABLE_EVALUATED == 0)
+				//if (Const.VARIABLE_EVALUATED == 0)
 					os = e.overshoot.length();
-				else
+			/*	else
 				{
 					if (e.type == Type.Upturn)
 					{
@@ -781,10 +782,10 @@ public class TreeHelperClass {
 					}
 					else
 						os = Double.parseDouble(FReader.dataRecordInFileArray.get(e.overshoot.end).bidPrice);
-				}	
+				}	*/
 			}
 			//Double doubleObject = new Double(tree.eval(dc,magnitude)); // in order t
-			Double doubleObject = new Double(tree.eval(variableSize)); // in order to cast
+			Double doubleObject = new Double(tree.eval(variableSize,(Math.abs(e.startPriceDbl - e.endPriceDbl)+0.0000000001))); // in order to cast
 																// to int
 			treeEvaluation = doubleObject.doubleValue();
 
@@ -913,7 +914,7 @@ public class TreeHelperClass {
 
 		Calendar cal = Calendar.getInstance();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd  HH:mm:ss");
-        System.out.println( "Evolution of GP Started at :" +sdf.format(cal.getTime()) );
+        //System.out.println( "Evolution of GP Started at :" +sdf.format(cal.getTime()) );
 		//System.out.println("Evolution of GA Startedcapacity of random tree is" +
 		// gpTrees.capacity());
 		int size = (gpTrees.size());

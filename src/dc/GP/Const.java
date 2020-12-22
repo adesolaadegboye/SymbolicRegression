@@ -12,7 +12,7 @@ import dc.io.Logger;
 public final class Const {
 
 	 public static  int NUMBER_OF_INPUTS = 1;
-	// public static  int MAX_TREE_DEPTH = 2;
+	public static  int MAX_TREE_DEPTH = 5;
 	 public static int VARIABLE_EVALUATED= 0;
 	 public static final String MAGNITUDE_NODE_LABEL = "InputVal:X";
 	 public static final String DISTANCE_NODE_LABEL = "InputVal:Y";
@@ -21,9 +21,10 @@ public final class Const {
 	 public static int NEGATIVE_EXPRESSION_REPLACEMENT=2;
 	 public static boolean LINEAR_FUNCTIONALITY_ONLY=false;
 	 public static int POP_SIZE = 500;
-	 public static int NUMBER_OF_THRESHOLDS =  100;
-	 public static int ELISTISM_COUNT = 1;
+	 public static int NUMBER_OF_THRESHOLDS =  20;
+	// public static int ELISTISM_COUNT = 5;
 	 public static int MAX_GENERATIONS = 37;
+	 public static double OPEN_POSITION = 500000.0;
 	 public static int MAX_GP_GENERATIONS = 37;
 	 public static int TOURNAMENT_SIZE = 7;
 	 public static int NUM_OF_PROCESSORS = 5;

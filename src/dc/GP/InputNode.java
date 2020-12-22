@@ -26,6 +26,8 @@ public class InputNode extends AbstractNode implements Cloneable {
 		{
 			Random generator = new Random(); 
 			inputIndex = ThreadLocalRandom.current().nextInt(0, numPossibleInputs);
+			if (inputIndex ==  1)
+				inputIndex = 1;
 		}
 		setValues(inputIndex);
 	}
