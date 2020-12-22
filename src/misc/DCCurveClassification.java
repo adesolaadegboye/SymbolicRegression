@@ -1,29 +1,23 @@
 package misc;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Vector;
-import dc.GP.AbstractNode;
+
 import dc.GP.Const;
-import dc.GP.TreeHelperClass;
+import dc.ga.DCCurve.Event;
+import dc.ga.DCCurve.Type;
 import dc.ga.HelperClass;
 import dc.ga.PreProcess;
 import dc.io.FReader;
-import dc.io.FReader.FileMember2;
-import dc.ga.DCCurve.Event;
-import dc.ga.DCCurve.Type;
-import files.FWriter;
+
+
+
 
 public class DCCurveClassification extends DCCurveRegression {
+	
+	public Orders[] orderArray;
 	public DCCurveClassification() {
 		super();
 	}
@@ -81,32 +75,69 @@ public class DCCurveClassification extends DCCurveRegression {
 
 		testingEvents = Arrays.copyOf(testEvents, testEvents.length);
 		predictionWithClassifier = new double[testEvents.length];
+		orderArray =  new Orders[testEvents.length];
+		
 
-		for (int outputIndex = 0; outputIndex < testEvents.length - 1; outputIndex++) {
+		
+		for (int outputIndex = 0; outputIndex < testEvents.length; outputIndex++) {
 			String foo = "";
 			double eval = 0.0;
-				
+			
+			Orders gpOrder = new Orders() ;
 			String classificationStr = "no";
 			if (preprocess != null)
 				classificationStr = preprocess.classifyTestInstance(outputIndex);
 
+			gpOrder.eventConfirmationPoint = testingEvents[outputIndex].end;
 			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 				;// System.out.println("no");
+				gpOrder.isOSevent= false;
+				if (testingEvents[outputIndex].type == Type.Upturn) {
+					gpOrder.eventType =  Type.Upturn;
+					gpOrder.isSell = true;
+				}
+				else{
+					gpOrder.eventType =  Type.Downturn;
+					gpOrder.isSell = false;
+				}
 			} else {
 				if (testEvents[outputIndex].type == Type.Upturn) {
 					
-					eval = bestUpWardEventTree.eval(testEvents[outputIndex].length());
-				} else if (testEvents[outputIndex].type == Type.Downturn) {
-					eval = bestDownWardEventTree.eval(testEvents[outputIndex].length());
-
-				} else {
-					System.out.println("DCCurveClassification - DCCurveClassification - Invalid event");
-					continue;
+					eval =  bestUpWardEventTree.eval(testEvents[outputIndex].length());
+					if (Double.compare(eval, 0.0) < 0)
+						eval = 0.0;
+						
+					gpOrder.isSell = true;
+					gpOrder.isOSevent= true;
+					gpOrder.prediction =  eval;
+					gpOrder.eventType =  Type.Upturn;
+				} else  {
+					eval =  bestDownWardEventTree.eval(testEvents[outputIndex].length());
+					if (Double.compare(eval, 0.0) < 0)
+						eval = 0.0;
+						
+						
+					gpOrder.isSell = false;
+					gpOrder.isOSevent= true;
+					gpOrder.prediction =  eval;
+					gpOrder.eventType =  Type.Downturn;
+				
 				}
 			}
-
+			gpOrder.dcEventStart =  testingEvents[outputIndex].start;
+			gpOrder.dcEventEnd =  testingEvents[outputIndex].end;
+			gpOrder.threshold = thresholdValue;
+			if (testingEvents[outputIndex].overshoot != null){
+				if (testingEvents[outputIndex].overshoot.start == -1 ||testingEvents[outputIndex].overshoot.end == -1 )
+				{	System.out.println("I am here");
+					testingEvents[outputIndex].overshoot.start=0;
+					testingEvents[outputIndex].overshoot.end =0;
+				}
+				gpOrder.dcOsEventStart =  testingEvents[outputIndex].overshoot.start;
+				gpOrder.dcOsEventEnd =  testingEvents[outputIndex].overshoot.end;
+			}
+			orderArray[outputIndex] = gpOrder;
 			
-
 			predictionWithClassifier[outputIndex] = eval;
 		}
 	}
@@ -173,182 +204,7 @@ public class DCCurveClassification extends DCCurveRegression {
 
 	}
 
-	@Override
-	public
-	double trade(PreProcess preprocess) {
-		boolean isPositionOpen = false;
-		double myPrice = 0.0;
-		double transactionCost = 0.025 / 100;
-		simpleDrawDown.Calculate(OpeningPosition);
-		simpleSharpeRatio.addReturn(0);
-		//System.out.println("classification: current processor count " + SymbolicRegression.currentProcessorCounter);
 		
-		lastSellPrice = 0.0;
-		lastBuyPrice = 0.0;
-		List<FReader.FileMember2> bidAskprice = getMarketDataTest();  
-		double lastUpDCCend = 0.0;
-		for (int i = 1; i < testingEvents.length; i++) {
-
-			Double dcPt = new Double(predictionWithClassifier[i]);
-			Double zeroOs = new Double(0.0);
-			int tradePoint = 0;
-
-			if (dcPt.equals(zeroOs)) // Skip DC classified as not having
-										// overshoot
-				tradePoint = testingEvents[i].end;
-			else
-				tradePoint = testingEvents[i].end + (int) Math.floor(predictionWithClassifier[i]);
-
-	
-			if (testingEvents[i] == null)
-				continue;
-
-			if (i + 1 > testingEvents.length - 1)
-				continue;
-
-			if (testingEvents[i + 1] == null)
-				continue;
-			
-			int nextEventEndPOint = HelperClass.getNextDirectionaChangeEndPoint(testingEvents,  tradePoint);
-
-			if (tradePoint > nextEventEndPOint) // If a new DC is
-															// encountered
-															// before the
-															// estimation point
-															// skip trading
-				continue;
-
-			
-			if (tradePoint > bidAskprice.size()) {
-				System.out.println(" DCCurveClassification: predicted datapoint "
-						+ ((lastTrainingPrice - 1) + tradePoint) + " is beyond the size of price array  "
-						+ FReader.dataRecordInFileArray.size() + " . Trading ended");
-				break;
-			} else {
-				// I am opening my position in base currency
-				try {
-					
-
-					LinkedHashMap<Integer, Integer> anticipatedTrendMap = new LinkedHashMap<Integer, Integer>();
-					LinkedHashMap<Integer, Integer> actualTrendMap = new LinkedHashMap<Integer, Integer>();
-
-					if (testingEvents[i].type == Type.Upturn && !isPositionOpen) {
-						// Now position is in quote currency
-						// I sell base currency in bid price
-						double askQuantity = OpeningPosition;
-						double zeroTransactionCostAskQuantity = OpeningPosition;
-						double transactionCostPrice = 0.0;
-						myPrice = Double.parseDouble(bidAskprice.get(tradePoint).askPrice);
-						
-						
-						transactionCost = askQuantity * (0.025/100);
-						transactionCostPrice = transactionCost * myPrice;
-						askQuantity =  (askQuantity -transactionCost) *myPrice;
-						zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity *myPrice;
-						//transactionCost = trainingOpeningPosition * (0.025/100);
-						//trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) *myPrice;
-						
-						
-						if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){
-						
-							
-							lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + testingEvents[i].end).bidPrice);
-							
-							lastSellPrice = myPrice;
-							OpeningPosition = askQuantity;
-							isPositionOpen = true;
-							positionArrayQuote.add(new Double(OpeningPosition));
-							tradedPrice.add(new Double(myPrice));
-							anticipatedTrendMap.put(testingEvents[i].start, tradePoint);
-							anticipatedTrend.add(anticipatedTrendMap);
-							
-							if (testingEvents[i].overshoot == null || testingEvents[i].overshoot.length() < 1)
-								actualTrendMap.put(testingEvents[i].start, testingEvents[i].end );
-							else
-								actualTrendMap.put(testingEvents[i].start, testingEvents[i].overshoot.end );
-							
-							actualTrend.add(actualTrendMap);
-						}
-
-					} else if (testingEvents[i].type == Type.Downturn && isPositionOpen) {
-						// Now position is in base currency
-						// I buy base currency
-						double bidQuantity = OpeningPosition;
-						double zeroTransactionCostBidQuantity = OpeningPosition;
-						double transactionCostPrice = 0.0;
-						myPrice = Double.parseDouble(bidAskprice.get(tradePoint).bidPrice);
-
-						transactionCost = bidQuantity * (0.025 / 100);
-						transactionCostPrice = transactionCost * myPrice;
-						bidQuantity = (bidQuantity - transactionCost) * myPrice;
-						zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
-					
-						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-								&& myPrice < lastUpDCCend){
-										
-						
-							lastBuyPrice = myPrice;
-							OpeningPosition = (OpeningPosition - transactionCost) / myPrice;
-							
-							isPositionOpen = false;
-							positionArrayBase.add(new Double(OpeningPosition));
-							tradedPrice.add(new Double(myPrice));
-							anticipatedTrendMap.put(testingEvents[i].start, tradePoint);
-							anticipatedTrend.add(anticipatedTrendMap);
-
-							if (testingEvents[i].overshoot == null || testingEvents[i].overshoot.length() < 1)
-								actualTrendMap.put(testingEvents[i].start, testingEvents[i].end);
-							else
-								actualTrendMap.put(testingEvents[i].start, testingEvents[i].overshoot.end);
-
-							actualTrend.add(actualTrendMap);
-						}
-					}
-				} catch (ArrayIndexOutOfBoundsException exception) {
-					System.out.println(" DCCurveClassiifcation: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
-							+ " is beyond the size of price array  " + 
-							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
-					break;
-					
-				}
-				catch (IndexOutOfBoundsException exception ){
-					System.out.println(" DCCurveClassiifcation: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
-							+ " is beyond the size of price array  " + 
-							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
-					break;
-				}
-				catch (Exception exception ){
-					System.out.println(" DCCurveClassiifcation: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
-							+ " is beyond the size of price array  " + 
-							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
-					break;
-				}
-
-			}
-
-		}
-
-		if (isPositionOpen) {
-			tradedPrice.remove(tradedPrice.size() - 1);
-			anticipatedTrend.remove(anticipatedTrend.size() - 1);
-			actualTrend.remove(actualTrend.size() - 1);
-			if (!positionArrayBase.isEmpty())
-				OpeningPosition = positionArrayBase.get(positionArrayBase.size() - 1);
-			else
-				OpeningPosition = OpeningPositionHist;
-			
-			if (!positionArrayQuote.isEmpty())
-				positionArrayQuote.remove(positionArrayQuote.size() - 1);
-			
-			isPositionOpen = false;
-		}
-		
-		otherTradeCalculations();
-
-		return OpeningPosition;
-	}
-
-	
 	@Override
 	public String getDCCurveName() {
 
@@ -356,12 +212,35 @@ public class DCCurveClassification extends DCCurveRegression {
 	}
 
 	@Override
-	double trainingTrading(PreProcess preprocess) {
+	public void estimateTrainingUsingOutputData(PreProcess preprocess) {
+		trainingUsingOutputData = new double[trainingOutputEvents.length];
 		
-		return Double.MIN_VALUE;
+		
+		for (int outputIndex = 0; outputIndex < trainingOutputEvents.length; outputIndex++) {
+			
+			double eval=0.0;
+			String classificationStr = "no";
+
+			if (preprocess != null)
+				classificationStr = preprocess.classifyTrainingInstance(outputIndex);
+
+			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
+				;// System.out.println("no");
+			 
+			} else {
+				
+					if (trainingOutputEvents[outputIndex].type == Type.Upturn) {
+						eval = bestUpWardEventTree.eval(trainingOutputEvents[outputIndex].length());
+					} else if (trainingEvents[outputIndex].type == Type.Downturn) {
+						eval = bestDownWardEventTree.eval(trainingOutputEvents[outputIndex].length());
+					}
+			}
+
+			trainingUsingOutputData[outputIndex] = eval;
+		}
 
 	}
-
+	
 	@Override
 	public
 	void estimateTraining(PreProcess preprocess) {
@@ -447,5 +326,6 @@ public class DCCurveClassification extends DCCurveRegression {
 		upwardTrendTreeString = (String) inputArray[1];
 		
 	}
+
 }
 

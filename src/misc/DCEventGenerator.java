@@ -109,10 +109,25 @@ public class DCEventGenerator {
 
 			index++;
 		}
-	System.out.println(" generateEvents completed for " + delta);
+	//System.out.println(" generateEvents completed for " + delta);
+		//update with price change into	
+		events.get(0).startPriceDbl = 0.0;
+		events.get(0).endPriceDbl = 0.0;
+		for (index =1 ; index < events.size(); index++){
+			try{
+				events.get(index).startPriceDbl = values[events.get(index).start];
+				events.get(index).endPriceDbl = values[events.get(index).end-1];
+			}
+			catch(ArrayIndexOutOfBoundsException e){
+				events.get(index).startPriceDbl = 0.0;
+				events.get(index).endPriceDbl = 0.0;
+			}
+		}
 		generatedEvents = events.toArray(new Event[events.size()]); 
 		
-		//this.eventsClassifier = events.toArray(new Event[events.size()]);
+		
+	
+	
 		
 	}
 	 

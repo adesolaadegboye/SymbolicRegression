@@ -160,9 +160,9 @@ public class DCCurveRandomMF extends DCCurveRegression {
 				;// System.out.println("no");
 			} else {
 				if (testEvents[outputIndex].type == Type.Upturn) {
-					eval = meanRatio[1];
+					eval =  testEvents[outputIndex].length() * meanRatio[1];
 				} else
-					eval = meanRatio[0];
+					eval =  testEvents[outputIndex].length() *meanRatio[0];
 			}
 			predictionWithClassifier[outputIndex] = eval;
 		}
@@ -230,9 +230,9 @@ public class DCCurveRandomMF extends DCCurveRegression {
 	String report(Double[] values, double delta, String GPTreeFileName) {
 		return calculateRMSE_MF(testingEvents, delta, predictionWithClassifier);
 	}
-
+/*
 	@Override
-	double trade(PreProcess preprocess) {
+	public double trade(PreProcess preprocess) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
 		double transactionCost = 0.025 / 100;
@@ -424,85 +424,45 @@ public class DCCurveRandomMF extends DCCurveRegression {
 		
 		return OpeningPosition;
 	}
-
-	double getMddPeak() {
-		return simpleDrawDown.getPeak();
-	}
-
-	double getMddTrough() {
-		return simpleDrawDown.getTrough();
-	}
-
-	@Override
-	public 
-	double getMaxMddBase() {
-		return simpleDrawDown.getMaxDrawDown();
-	}
-
-	double getMddPeakQuote() {
-		return simpleDrawDownQuote.getPeak();
-	}
-
-	double getMddTroughQuote() {
-		return simpleDrawDownQuote.getTrough();
-	}
-
-	double getMaxMddQuote() {
-		return simpleDrawDownQuote.getMaxDrawDown();
-	}
-
-	int getNumberOfQuoteCcyTransactions() {
-
-		return positionArrayQuote.size() - 1;
-	}
-
-	int getNumberOfBaseCcyTransactions() {
-
-		return positionArrayBase.size() - 1;
-	}
-
-	double getBaseCCyProfit() {
-		double profit = 0.00;
-		ArrayList<Double> profitList = new ArrayList<Double>();
-		if (positionArrayBase.size() == 1)
-			return 0.00;
-		for (int profitLossCount = 1; profitLossCount < positionArrayBase.size(); profitLossCount++) {
-			double profitCalculation = positionArrayBase.get(profitLossCount)
-					- positionArrayBase.get(profitLossCount - 1) / positionArrayBase.get(profitLossCount - 1);
-			profitList.add(profitCalculation);
-		}
-		profit = profitList.stream().mapToDouble(i -> i.doubleValue()).sum();
-		return profit;
-	}
-
-	double getQuoteCCyProfit() {
-		double profit = 0.00;
-		ArrayList<Double> profitList = new ArrayList<Double>();
-		if (positionArrayQuote.size() == 1)
-			return 0.00;
-		// Start from 3rd element because first element is zero
-		for (int profitLossCount = 1; profitLossCount < positionArrayQuote.size(); profitLossCount++) {
-			double profitCalculation = positionArrayQuote.get(profitLossCount)
-					- positionArrayQuote.get(profitLossCount - 1) / positionArrayQuote.get(profitLossCount - 1);
-			profitList.add(profitCalculation);
-		}
-		profit = profitList.stream().mapToDouble(i -> i.doubleValue()).sum();
-		return profit;
-	}
-
+*/
+	
 	@Override
 	public String getDCCurveName() {
 
 		return "DCCurveRandomMF";
 	}
 
-	@Override
-	double trainingTrading(PreProcess preprocess) {
+	public void estimateTrainingUsingOutputData(PreProcess preprocess) {
+		trainingUsingOutputData = new double[trainingOutputEvents.length];
 		
-		return Double.MIN_VALUE;
+		
+		for (int outputIndex = 0; outputIndex < trainingOutputEvents.length; outputIndex++) {
+			
+			double eval=0.0;
+			String classificationStr = "no";
+			Random randomno = new Random();
+			double decisionNum =  randomno.nextDouble();
+			if (decisionNum >= 0.5)
+				classificationStr = "yes";
+
+
+			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
+				;// System.out.println("no");
+			 
+			}else {
+				
+				if (trainingOutputEvents[outputIndex].type == Type.Upturn) {
+					eval = trainingOutputEvents[outputIndex].length() * meanRatio[1];
+				} else
+					eval = trainingOutputEvents[outputIndex].length() * meanRatio[0];
+			}
+
+			trainingUsingOutputData[outputIndex] = eval;
+		}
 
 	}
-
+	
+	
 	@Override
 	void estimateTraining(PreProcess preprocess) {
 		;

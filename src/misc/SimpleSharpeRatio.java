@@ -15,13 +15,15 @@ public class SimpleSharpeRatio {
     
     private double returns=0;
     
-    private Vector<Double> returnsList = new Vector<Double>();
+    public Vector<Double> returnsList = new Vector<Double>();
     
     private Vector<Double> movingSharpRatioList= new Vector<Double>();
   
     private DescriptiveStatistics movingStats = new DescriptiveStatistics();
     
     private DescriptiveStatistics stats = new DescriptiveStatistics();
+    
+    private org.apache.commons.math3.stat.descriptive.rank.Median median = null;
     
     public double getReturns(){
     	return returns;

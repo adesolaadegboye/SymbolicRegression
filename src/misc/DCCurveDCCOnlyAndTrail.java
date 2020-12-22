@@ -73,7 +73,7 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 	}
 
 	@Override
-	double trade(PreProcess preprocess) {
+	public double trade(PreProcess preprocess) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
 		double transactionCost = 0.025 / 100;
@@ -83,19 +83,19 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 		lastBuyPrice = 0.0;
 		double lastUpDCCend = 0.0;
 		
-		for (int i = 1; i < testingEvents.length - 1; i++) {
-			int tradePoint = testingEvents[i].end;
+		for (int i = 1; i < trainingOutputEvents.length - 1; i++) {
+			int tradePoint = trainingOutputEvents[i].end;
 
-			if (testingEvents[i] == null)
+			if (trainingOutputEvents[i] == null)
 				continue;
 
-			if (i + 1 > testingEvents.length - 1)
+			if (i + 1 > trainingOutputEvents.length - 1)
 				continue;
 
-			if (testingEvents[i + 1] == null)
+			if (trainingOutputEvents[i + 1] == null)
 				continue;
 
-			if (tradePoint > testingEvents[i + 1].end) // If a new DC is
+			if (tradePoint > trainingOutputEvents[i + 1].end) // If a new DC is
 															// encountered
 															// before the
 															// estimation point
@@ -107,7 +107,7 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 
 			boolean isActionTaken = false;
 
-			for (int tradePointCointer = tradePoint; tradePointCointer < testingEvents[i
+			for (int tradePointCointer = tradePoint; tradePointCointer < trainingOutputEvents[i
 					+ 1].end; tradePointCointer++) {
 				if (tradePointCointer > FReader.dataRecordInFileArray.size()
 						|| ((lastTrainingPrice - 1) + tradePointCointer) > FReader.dataRecordInFileArray.size()) {
@@ -123,10 +123,10 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 					try {
 						// I am opening my position in base currency
 						fileMember2 = FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + tradePointCointer);
-						LinkedHashMap<Integer, Integer> anticipatedTrendMap = new LinkedHashMap<Integer, Integer>();
-						LinkedHashMap<Integer, Integer> actualTrendMap = new LinkedHashMap<Integer, Integer>();
+					//	LinkedHashMap<Integer, Integer> anticipatedTrendMap = new LinkedHashMap<Integer, Integer>();
+					//	LinkedHashMap<Integer, Integer> actualTrendMap = new LinkedHashMap<Integer, Integer>();
 
-						if (testingEvents[i].type == Type.Upturn && !isPositionOpen) {
+						if (trainingOutputEvents[i].type == Type.Upturn && !isPositionOpen) {
 							// Now position is in quote currency
 							// I sell base currency in bid price
 							double askQuantity = OpeningPosition;
@@ -144,23 +144,23 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 								lastSellPrice = myPrice;
 								OpeningPosition = askQuantity;
 								isPositionOpen = true;
-								positionArrayQuote.add(new Double(OpeningPosition));
+							//	positionArrayQuote.add(new Double(OpeningPosition));
 								lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + testingEvents[i].end).bidPrice);
 								
 								tradedPrice.add(new Double(myPrice));
-								anticipatedTrendMap.put(testingEvents[i].start, tradePointCointer);
-								anticipatedTrend.add(anticipatedTrendMap);
+							//	anticipatedTrendMap.put(trainingOutputEvents[i].start, tradePointCointer);
+							//	anticipatedTrend.add(anticipatedTrendMap);
 
-								if (testingEvents[i].overshoot == null || testingEvents[i].overshoot.length() < 1)
-									actualTrendMap.put(testingEvents[i].start, testingEvents[i].end);
-								else
-									actualTrendMap.put(testingEvents[i].start, testingEvents[i].overshoot.end);
+							//	if (trainingOutputEvents[i].overshoot == null || trainingOutputEvents[i].overshoot.length() < 1)
+							//		actualTrendMap.put(trainingOutputEvents[i].start, trainingOutputEvents[i].end);
+							//	else
+							//		actualTrendMap.put(trainingOutputEvents[i].start, trainingOutputEvents[i].overshoot.end);
 
-								actualTrend.add(actualTrendMap);
+							//	actualTrend.add(actualTrendMap);
 								isActionTaken = true;
 							}
 
-						} else if (testingEvents[i].type == Type.Downturn && isPositionOpen) {
+						} else if (trainingOutputEvents[i].type == Type.Downturn && isPositionOpen) {
 							// Now position is in base currency
 							// I buy base currency
 							double bidQuantity = OpeningPosition;
@@ -184,15 +184,15 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 								positionArrayBase.add(new Double(OpeningPosition));
 
 								tradedPrice.add(new Double(myPrice));
-								anticipatedTrendMap.put(testingEvents[i].start, tradePointCointer);
-								anticipatedTrend.add(anticipatedTrendMap);
+							//	anticipatedTrendMap.put(trainingOutputEvents[i].start, tradePointCointer);
+							//	anticipatedTrend.add(anticipatedTrendMap);
 
-								if (testingEvents[i].overshoot == null || testingEvents[i].overshoot.length() < 1)
-									actualTrendMap.put(testingEvents[i].start, testingEvents[i].end);
-								else
-									actualTrendMap.put(testingEvents[i].start, testingEvents[i].overshoot.end);
+							//	if (trainingOutputEvents[i].overshoot == null || trainingOutputEvents[i].overshoot.length() < 1)
+							//		actualTrendMap.put(trainingOutputEvents[i].start, trainingOutputEvents[i].end);
+							//	else
+							//		actualTrendMap.put(trainingOutputEvents[i].start, trainingOutputEvents[i].overshoot.end);
 
-								actualTrend.add(actualTrendMap);
+							//	actualTrend.add(actualTrendMap);
 								isActionTaken = true;
 							}
 						}
@@ -212,10 +212,10 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 
 		if (isPositionOpen) {
 			tradedPrice.remove(tradedPrice.size() - 1);
-			anticipatedTrend.remove(anticipatedTrend.size() - 1);
-			actualTrend.remove(actualTrend.size() - 1);
+			//anticipatedTrend.remove(anticipatedTrend.size() - 1);
+			//actualTrend.remove(actualTrend.size() - 1);
 			OpeningPosition = positionArrayBase.get(positionArrayBase.size() - 1);
-			positionArrayQuote.remove(positionArrayQuote.size() - 1);
+			//positionArrayQuote.remove(positionArrayQuote.size() - 1);
 			isPositionOpen = false;
 		}
 
@@ -223,70 +223,6 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 		return OpeningPosition;
 	}
 
-	double getMddPeak() {
-		return simpleDrawDown.getPeak();
-	}
-
-	double getMddTrough() {
-		return simpleDrawDown.getTrough();
-	}
-
-	@Override
-	public 
-	double getMaxMddBase() {
-		return simpleDrawDown.getMaxDrawDown();
-	}
-
-	double getMddPeakQuote() {
-		return simpleDrawDownQuote.getPeak();
-	}
-
-	double getMddTroughQuote() {
-		return simpleDrawDownQuote.getTrough();
-	}
-
-	double getMaxMddQuote() {
-		return simpleDrawDownQuote.getMaxDrawDown();
-	}
-
-	int getNumberOfQuoteCcyTransactions() {
-
-		return positionArrayQuote.size() - 1;
-	}
-
-	int getNumberOfBaseCcyTransactions() {
-
-		return positionArrayBase.size() - 1;
-	}
-
-	double getBaseCCyProfit() {
-		double profit = 0.00;
-		ArrayList<Double> profitList = new ArrayList<Double>();
-		if (positionArrayBase.size() == 1)
-			return 0.00;
-		for (int profitLossCount = 1; profitLossCount < positionArrayBase.size(); profitLossCount++) {
-			double profitCalculation = positionArrayBase.get(profitLossCount)
-					- positionArrayBase.get(profitLossCount - 1) / positionArrayBase.get(profitLossCount - 1);
-			profitList.add(profitCalculation);
-		}
-		profit = profitList.stream().mapToDouble(i -> i.doubleValue()).sum();
-		return profit;
-	}
-
-	double getQuoteCCyProfit() {
-		double profit = 0.00;
-		ArrayList<Double> profitList = new ArrayList<Double>();
-		if (positionArrayQuote.size() == 1)
-			return 0.00;
-		// Start from 3rd element because first element is zero
-		for (int profitLossCount = 1; profitLossCount < positionArrayQuote.size(); profitLossCount++) {
-			double profitCalculation = positionArrayQuote.get(profitLossCount)
-					- positionArrayQuote.get(profitLossCount - 1) / positionArrayQuote.get(profitLossCount - 1);
-			profitList.add(profitCalculation);
-		}
-		profit = profitList.stream().mapToDouble(i -> i.doubleValue()).sum();
-		return profit;
-	}
 
 	@Override
 	public String getDCCurveName() {
@@ -295,10 +231,10 @@ public class DCCurveDCCOnlyAndTrail extends DCCurveRegression {
 	}
 
 	@Override
-	double trainingTrading(PreProcess preprocess) {
+	public double trainingTrading(PreProcess preprocess) {
 		
 
-		return Double.MIN_VALUE;
+		return -Double.MAX_VALUE;
 
 	}
 
