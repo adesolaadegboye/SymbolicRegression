@@ -1,14 +1,10 @@
 package misc;
 
-import java.util.Vector;
-
 public class SimpleDrawDown {
 
 	private double Peak; 
     private double Trough; 
-    private double MaxDrawDown = 0.0; 
-    
-    private Vector<Double> returnsList = new Vector<Double>();
+    private double MaxDrawDown; 
 
     public double getPeak(){
     	return Peak;
@@ -60,37 +56,4 @@ public class SimpleDrawDown {
                 MaxDrawDown = tmpDrawDown;
         }
     }
-    
-    public void clearMDD(){
-    	Peak = 0.0; 
-        Trough = 0.0; 
-        MaxDrawDown = 0.0; 
-        
-    }
-    
-    public void addReturn(double rtn){
-    	returnsList.add(rtn);
-    }
-    
-    public void rmoveAllReturns(){
-    	returnsList.clear();
-    }
-    
-    public void recalculateMDD(){
-    
-    	Peak = 0.0;
-    	Trough = 0.0;
-    	MaxDrawDown = 0.0;
-    	for (int i =0; i < returnsList.size(); i++){
-    		Calculate(returnsList.get(i));
-    	}
-    		
-    	
-    }
-    public void removeLastElementFromreturnsList(){
-    	if(!returnsList.isEmpty())
-    	    returnsList.remove(returnsList.size()-1) ;
-    	
-    }
-    
 }

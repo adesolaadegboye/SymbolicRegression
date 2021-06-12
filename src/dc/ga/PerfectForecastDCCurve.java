@@ -12,6 +12,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Vector;
 
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 
 import dc.MyException;
 import dc.GP.AbstractNode;
@@ -52,13 +55,12 @@ public class PerfectForecastDCCurve extends DCCurve {
 	 *            the name of the file where GP tree is stored
 	 */
 	public void build(Double[] values, double delta, String GPTreeFileName, Event[] trainEvents,
-			Event[] trainOutput, PreProcess preprocess) {
+			PreProcess preprocess) {
 
 		if (trainEvents == null || trainEvents.length < 1)
 			return;
 
 		trainingEvents = Arrays.copyOf(trainEvents, trainEvents.length);
-		trainingOutputEvents = Arrays.copyOf(trainOutput, trainOutput.length);
 		//TreeHelperClass.treeStructurePostcreateObj = treeStructurePostcreate.ePrune;
 		
 		if (Const.OsFunctionEnum == Const.function_code.eGP)
@@ -257,47 +259,27 @@ public class PerfectForecastDCCurve extends DCCurve {
 		
 		double lastPurchasebid = 0.0;
 
-		for (int i = 1; i < trainingOutputEvents.length; i++) {
+		for (int i = 1; i < trainingEvents.length; i++) {
 
 			int tradePoint = 0;
-			double eval = 0.0;
-
-			if (trainingOutputEvents[i].overshoot == null
-					|| trainingOutputEvents[i].overshoot.end == trainingOutputEvents[i].overshoot.start) {
-				;
-			} else {
-				
-				if (trainingOutputEvents[i].type == Type.Upturn) {
-					
-					eval = bestUpWardEventTree.eval(trainingOutputEvents[i].length());
-				} else if (trainingOutputEvents[i].type == Type.Downturn) {
-					eval = bestDownWardEventTree.eval(trainingOutputEvents[i].length());
-
-				} else {
-					System.out.println("Invalid event");
-					System.exit(0);
-				}
-				
-			}
-
-			Double dcPt = new Double(eval);
+			Double dcPt = new Double(trainingPrediction[i]);
 			Double zeroOs = new Double(0.0);
 
-			if (trainingOutputEvents[i] == null)
+			if (trainingEvents[i] == null)
 				continue;
 
 			if (dcPt.equals(zeroOs)) 
-				tradePoint = trainingOutputEvents[i].end;
-			else
-				tradePoint = trainingOutputEvents[i].end + (int) Math.ceil(eval);
+				tradePoint = trainingEvents[i].end;
+			
+			tradePoint = trainingEvents[i].end + (int) Math.ceil(trainingPrediction[i]);
 
-			if (i + 1 > trainingOutputEvents.length - 1)
+			if (i + 1 > trainingEvents.length - 1)
 				continue;
 
-			if (trainingOutputEvents[i + 1] == null)
+			if (trainingEvents[i + 1] == null)
 				continue;
 
-			Event ev = getNextDirectionaChangeEndPoint(trainingOutputEvents,i);
+			Event ev = getNextDirectionaChangeEndPoint(trainingEvents,i);
 			if (ev == null)
 				continue ;
 			
@@ -323,7 +305,7 @@ public class PerfectForecastDCCurve extends DCCurve {
 				System.out.println(e.getMessage());
 				continue;
 			}
-			if (trainingOutputEvents[i].type == Type.Upturn && !isPositionOpen) {
+			if (trainingEvents[i].type == Type.Upturn && !isPositionOpen) {
 				// Now position is in quote currency
 				// I sell base currency in bid price
 				double askQuantity = trainingOpeningPosition;
@@ -342,12 +324,12 @@ public class PerfectForecastDCCurve extends DCCurve {
 				if (transactionCostPrice <= (zeroTransactionCostAskQuantity - askQuantity) ){
 					trainingOpeningPosition = askQuantity;
 
-					lastPurchasebid = Double.parseDouble(FReader.dataRecordInFileArray.get( trainingOutputEvents[i].end).bidPrice);
+					lastPurchasebid = Double.parseDouble(FReader.dataRecordInFileArray.get( trainingEvents[i].end).bidPrice);
 					
 					 
 					isPositionOpen = true;
 				}
-			} else if (trainingOutputEvents[i].type == Type.Downturn && isPositionOpen ) {
+			} else if (trainingEvents[i].type == Type.Downturn && isPositionOpen ) {
 				// Now position is in base currency
 				// I buy base currency
 				double bidQuantity = trainingOpeningPosition;
@@ -364,7 +346,7 @@ public class PerfectForecastDCCurve extends DCCurve {
 				//trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) /myPrice;
 				
 				
-				if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
+				if (Double.compare(transactionCostPrice, (zeroTransactionCostBidQuantity - bidQuantity)) < 0
 						&& myPrice < lastPurchasebid){
 					trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) /myPrice;
 					lastClosedPosition = trainingOpeningPosition;
@@ -386,7 +368,9 @@ public class PerfectForecastDCCurve extends DCCurve {
 	public
 	void estimateTraining(PreProcess preprocess) {
 		trainingPrediction = new double[trainingEvents.length];
-		
+		ScriptEngineManager mgr = new ScriptEngineManager();
+		ScriptEngine engine = mgr.getEngineByName("JavaScript");
+
 		for (int outputIndex = 0; outputIndex < trainingEvents.length - 2; outputIndex++) {
 			String foo = "";
 			if (Const.OsFunctionEnum == Const.function_code.eGP){
@@ -411,21 +395,27 @@ public class PerfectForecastDCCurve extends DCCurve {
 						|| trainingEvents[outputIndex].overshoot.end == trainingEvents[outputIndex].overshoot.start) {
 					;
 				} else {
-					
-					if (trainingEvents[outputIndex].type == Type.Upturn) {
-						
-						eval = bestUpWardEventTree.eval(trainingEvents[outputIndex].length());
-					} else if (trainingEvents[outputIndex].type == Type.Downturn) {
-						eval = bestDownWardEventTree.eval(trainingEvents[outputIndex].length());
-
-					} else {
-						System.out.println("Invalid event");
-						System.exit(0);
+					Double javascriptValue = Double.MAX_VALUE;
+					try {
+						javascriptValue = (Double) engine.eval(foo);
+						eval = javascriptValue.doubleValue();
+					} catch (ScriptException e) {
+						e.printStackTrace();
+					} catch (ClassCastException e) {
+						e.printStackTrace();
 					}
-					
 				}
 	
-
+				BigDecimal bd = null;
+				BigDecimal bd2 = null;
+				try {
+					bd = new BigDecimal(eval);
+					bd2 = new BigDecimal(Double.toString(eval));
+				} catch (NumberFormatException e) {
+					Integer integerObject = new Integer(trainingEvents[outputIndex].length());
+					eval = integerObject.doubleValue() * (double) Const.NEGATIVE_EXPRESSION_REPLACEMENT;
+				}
+	
 				trainingPrediction[outputIndex] = eval;
 			}
 			else if (Const.OsFunctionEnum == Const.function_code.eMichaelFernando){

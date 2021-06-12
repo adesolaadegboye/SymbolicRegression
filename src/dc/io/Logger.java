@@ -15,9 +15,17 @@ public class Logger {
 	/** Constructor. Creating files inside a folder related to the training and testing index of the data **/
 	public Logger(String fileName, String trainingIndex, String testingIndex){
 	
-		folder = fileName + "/i" + trainingIndex + "_" + testingIndex + "/";
-		File f = new File(folder);
+		File f = new File(fileName);
 		f.mkdirs();
+
+		folder = fileName + "/i" + trainingIndex + "_" + testingIndex + "/";
+
+		
+		f = new File(folder);
+		f.mkdirs();
+		System.out.println("Paths is " + f.toString());
+		if (f.canWrite())
+			System.out.println("Paths is writable" );
 		publicFolder = folder;
 		writer = new FWriter(folder + "Curves.txt");
 		writer = new FWriter(folder + "Results.txt");

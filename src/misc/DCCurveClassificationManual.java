@@ -19,16 +19,17 @@ import javax.script.ScriptException;
 import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.GP.TreeHelperClass;
-import dc.ga.PreProcess;
+import dc.ga.PreProcessManual;
 import dc.io.FReader;
 import dc.io.FReader.FileMember2;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
+import dc.ga.PreProcess;
 import files.FWriter;
 
-public class DCCurveClassification extends DCCurveRegression {
+public class DCCurveClassificationManual extends DCCurveRegression {
 
-	public DCCurveClassification() {
+	public DCCurveClassificationManual() {
 		super();
 	}
 
@@ -41,8 +42,8 @@ public class DCCurveClassification extends DCCurveRegression {
 	 * @param GPTreeFileName
 	 *            the name of the file where GP tree is stored
 	 */
-	public void build(Double[] values, double delta, String GPTreeFileName, Event[] trainingEvents,
-			PreProcess preprocess) {
+	public void buildManual(Double[] values, double delta, String GPTreeFileName, Event[] trainingEvents,
+			PreProcessManual preprocessJ48) {
 
 		String thresholdStr = String.format("%.8f", delta);
 		thresholdString = thresholdStr;
@@ -75,8 +76,8 @@ public class DCCurveClassification extends DCCurveRegression {
 
 					String classificationStr = "no";
 
-					if (preprocess != null)
-						classificationStr = preprocess.classifyTrainingInstance(i);
+					if (preprocessJ48 != null)
+						classificationStr = preprocessJ48.classifyTrainingInstance(i);
 					else {
 						System.out.println("DCCurveClassification preprocessor is null");
 						System.exit(-1);
@@ -168,7 +169,7 @@ public class DCCurveClassification extends DCCurveRegression {
 
 					String classificationStr = "no";
 
-					if (preprocess != null)
+					if (preprocessJ48 != null)
 					
 
 					if ((classificationStr.compareToIgnoreCase("no") == 0)) {
@@ -268,8 +269,8 @@ public class DCCurveClassification extends DCCurveRegression {
 	 *            the name of the file where GP tree is stored
 	 * @param
 	 */
-	public void testbuild(int lastTrainingPricePosition, Double[] values, double delta, Event[] testEvents,
-			PreProcess preprocess) {
+	public void testbuildManual(int lastTrainingPricePosition, Double[] values, double delta, Event[] testEvents,
+			PreProcessManual preprocessJ48) {
 		lastTrainingPrice = lastTrainingPricePosition;
 		if (testEvents == null || testEvents.length < 1)
 			return;
@@ -304,8 +305,8 @@ public class DCCurveClassification extends DCCurveRegression {
 			double eval = 0.0;
 
 			String classificationStr = "no";
-			if (preprocess != null)
-				classificationStr = preprocess.classifyTestInstance(outputIndex);
+			if (preprocessJ48 != null)
+				classificationStr = preprocessJ48.classifyTestInstance(outputIndex);
 
 			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 				;// System.out.println("no");
@@ -400,9 +401,9 @@ public class DCCurveClassification extends DCCurveRegression {
 		return calculateRMSEClassifier(testingEvents, delta, predictionWithClassifier);
 
 	}
-
-/*	@Override
-	double trade(PreProcess preprocess) {
+/*
+	@Override
+	double trade(PreProcessManual preprocessJ48) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
 		double transactionCost = 0.025 / 100;
@@ -455,8 +456,6 @@ public class DCCurveClassification extends DCCurveRegression {
 				continue;
 			} else {
 				// I am opening my position in base currency
-			//	baseTrade(FileMember2 fileMember2, int tradePoint, boolean isPositionOpen,
-				//		int i, double myPrice, double transactionCost, double lastUpDCCend)
 				try {
 					fileMember2 = FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + tradePoint);
 
@@ -624,7 +623,7 @@ public class DCCurveClassification extends DCCurveRegression {
 	}
 
 	@Override
-	double trainingTrading(PreProcess preprocess) {
+	double trainingTrading(PreProcessManual preprocessJ48) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
 		double lastClosedPosition = 0.0;
@@ -731,7 +730,7 @@ public class DCCurveClassification extends DCCurveRegression {
 	}
 
 	@Override
-	void estimateTraining(PreProcess preprocess) {
+	void estimateTraining(PreProcessManual preprocessJ48) {
 		trainingGpPrediction = new double[trainingEvents.length];
 		ScriptEngineManager mgr = new ScriptEngineManager();
 		ScriptEngine engine = mgr.getEngineByName("JavaScript");
@@ -758,8 +757,8 @@ public class DCCurveClassification extends DCCurveRegression {
 
 			String classificationStr = "no";
 
-			if (preprocess != null)
-				classificationStr = preprocess.classifyTrainingInstance(outputIndex);
+			if (preprocessJ48 != null)
+				classificationStr = preprocessJ48.classifyTrainingInstance(outputIndex);
 
 			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 				;// System.out.println("no");
@@ -832,6 +831,32 @@ public class DCCurveClassification extends DCCurveRegression {
 	public <E> void assignPerfectForesightRegressionModel(E[] inputArray) {
 		downwardTrendTreeString = (String) inputArray[0];
 		upwardTrendTreeString = (String) inputArray[1];
+		
+	}
+
+	/*
+	@Override
+	double trade(PreProcess preprocess) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+*/
+	@Override
+	double trainingTrading(PreProcess preprocess) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	void estimateTraining(PreProcess preprocess) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void testbuild(int lastTrainingPricePosition, Double[] values, double delta, Event[] testEvents,
+			PreProcess preprocess) {
+		// TODO Auto-generated method stub
 		
 	}
 }

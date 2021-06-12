@@ -15,15 +15,13 @@ public class SimpleSharpeRatio {
     
     private double returns=0;
     
-    public Vector<Double> returnsList = new Vector<Double>();
+    private Vector<Double> returnsList = new Vector<Double>();
     
     private Vector<Double> movingSharpRatioList= new Vector<Double>();
   
     private DescriptiveStatistics movingStats = new DescriptiveStatistics();
     
     private DescriptiveStatistics stats = new DescriptiveStatistics();
-    
-    private org.apache.commons.math3.stat.descriptive.rank.Median median = null;
     
     public double getReturns(){
     	return returns;
@@ -47,9 +45,6 @@ public class SimpleSharpeRatio {
     	returnsList.add(rtn);
     	returns =  rtn;
     }
-    
-   
-    
     
     public double getMovingSharpeRatio(){
     	if (returnsList.size() < 5){
@@ -105,10 +100,8 @@ public class SimpleSharpeRatio {
 
     }
     
-    public double calulateSharpeRatio(){
-    
-    	if (returnsList.size() < 2)
-    		return 0.0;
+public double calulateSharpeRatio(){
+    	
     	stats.clear();
     	for (int i =0; i < returnsList.size(); i++)
     	{
@@ -127,36 +120,6 @@ public class SimpleSharpeRatio {
         return sharpeRatio;
 
     }
-    
-    public void rmoveAllReturns(){
-    	returnsList.clear();
-    	returns = -1;
-    	
-    }
-    
-    public void removeLastElementFromreturnsList(){
-    	if(!returnsList.isEmpty())
-    	    returnsList.remove(returnsList.size()-1) ;
-    	
-    }
-    
-    
-    public double calulateVariance(){
-        
-    	if (returnsList.size() < 2)
-    		return 0.0;
-    	stats.clear();
-    	for (int i =0; i < returnsList.size(); i++)
-    	{
-    		stats.addValue(returnsList.get(i));
-    	}
-    	
-    
-        
-        return stats.getVariance();
-
-    }
-    
 
 }
 

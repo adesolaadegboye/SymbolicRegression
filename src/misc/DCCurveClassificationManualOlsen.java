@@ -6,134 +6,36 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 
 import dc.ga.PreProcess;
+import dc.ga.PreProcessManual;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
 import dc.io.FReader;
 import dc.io.FReader.FileMember2;
 
-public class DCCurveClassificationMF extends DCCurveRegression {
+public class DCCurveClassificationManualOlsen extends DCCurveRegression {
 
-	public DCCurveClassificationMF() {
+	public DCCurveClassificationManualOlsen() {
 		super();
-		meanRatio = new double[2];
+		meanRatio = new double[1];
 		meanRatio[0] = 0.0;
-		meanRatio[1] = 0.0;
+		
 		
 	}
 
-	
-	
-
-	/**
-	 * 
-	 * @param values
-	 *            The array with prices/tick data
-	 * @param delta
-	 *            The threshold value
-	 * @param GPTreeFileName
-	 *            the name of the file where GP tree is stored
-	 */
-	public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, PreProcess preprocess) {
-		
-		
+	public void buildManual(Double[] values, double delta, String GPTreeFileName, Event[] events, PreProcessManual preprocess) {
 		String thresholdStr = String.format("%.8f", delta);
 		thresholdString = thresholdStr;
 		
-		if (events == null || events.length < 1)
-			return;
-
-		trainingEvents = Arrays.copyOf(events, events.length);
-
-		if (meanRatio[0] > 0.0 && meanRatio[1] > 0.0)
+		meanRatio[0] = 2.0;
+		
+		if ( events == null || events.length <1)
 			return;
 		
-		
-		medianRatio[0] = 0.0;
-
-		double meanDownturn = 0.0;
-		double meanDownwardOvershoot = 0.0;
-
-		int downturn = 0;
-		// upward overshoots
-		
-		medianRatio[1] = 0.0;
-
-		double meanUpturn = 0.0;
-		double meanUpwardOvershoot = 0.0;
-
-		int upturn = 0;
-
-		ArrayList<Double> downwardRatio = new ArrayList<Double>();
-		ArrayList<Double> upwardRatio = new ArrayList<Double>();
-
-		for (int i = 0; i < events.length - 1; i++) {
-			// we ignore the first (artificial) event
-			if (events[i].start > 0) {
-				double ratio = 0.0;
-
-				if (events[i].overshoot != null) {
-					ratio = (events[i].overshoot.length() / (double) events[i].length());
-				}
-
-				if (events[i].type == Type.Upturn) {
-
-					String classificationStr = "no";
-
-					if (preprocess != null)
-						classificationStr = preprocess.classifyTrainingInstance(i);
-					else {
-						System.out.println("DCCurveClassificationMF preprocessor is null");
-						System.exit(-1);
-					}
-
-					// System.out.println("prediction
-					// "+training.instance(eventCount).stringValue(training.attribute(training.numAttributes()
-					// - 1)));
-					// System.out.println("Classification : " +
-					// classificationStr);
-
-					// Use classification to select DC trend to train GP
-					if ((classificationStr.compareToIgnoreCase("no") == 0)) {
-						continue;
-					}
-
-					upturn++;
-					meanRatio[1] += ratio;
-					upwardRatio.add(ratio);
-
-					meanUpturn += events[i].length();
-					meanUpwardOvershoot += (events[i].overshoot != null) ? events[i].overshoot.length() : 0;
-				} else if (events[i].type == Type.Downturn) {
-
-					String classificationStr = "no";
-
-					if (preprocess != null)
-						classificationStr = preprocess.classifyTrainingInstance(i);
-
-
-					// Use classification to select DC trend to trade MF
-					if ((classificationStr.compareToIgnoreCase("no") == 0)) {
-						continue;
-					}
-
-					downturn++;
-					meanRatio[0] += ratio;
-					downwardRatio.add(ratio);
-
-					meanDownturn += events[i].length();
-					meanDownwardOvershoot += (events[i].overshoot != null) ? events[i].overshoot.length() : 0;
-
-				}
-			}
-		}
-
-		meanRatio[0] = (meanDownwardOvershoot / downturn) / (meanDownturn / downturn);
-		meanRatio[1] = (meanUpwardOvershoot / upturn) / (meanUpturn / upturn);
-
+		trainingEvents =  Arrays.copyOf(events, events.length) ;
 	}
 
-	public void testbuild(int lastTrainingPricePosition, Double[] values, double delta, Event[] testEvents,
-			PreProcess preprocess) {
+	public void testbuildManual(int lastTrainingPricePosition, Double[] values, double delta, Event[] testEvents,
+			PreProcessManual preprocess) {
 		lastTrainingPrice = lastTrainingPricePosition;
 		if (testEvents == null || testEvents.length < 1)
 			return;
@@ -152,17 +54,14 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 				;// System.out.println("no");
 			} else {
-				if (testEvents[outputIndex].type == Type.Upturn) {
-					eval = meanRatio[1];
-				} else
-					eval = meanRatio[0];
+				eval = testEvents[outputIndex].length() * 2;
 			}
 			predictionWithClassifier[outputIndex] = eval;
 		}
 
 	}
 
-	private String calculateRMSE_MF(Event[] trendEvent, double delta, double[] runPrediction) {
+	private String calculateRMSE_Olsen(Event[] trendEvent, double delta, double[] runPrediction) {
 
 		double rmse = 0.0;
 		for (int eventCount = 0; eventCount < trendEvent.length; eventCount++) {
@@ -189,9 +88,9 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 			if (rmse == Double.MAX_VALUE || rmse == Double.NEGATIVE_INFINITY || rmse == Double.NEGATIVE_INFINITY
 					|| rmse == Double.NaN || Double.isNaN(rmse) || Double.isInfinite(rmse)
 					|| rmse == Double.POSITIVE_INFINITY) {
-				System.out.println("DCCurveClassificationMF - Invalid RMSE: " + rmse + ". discarding ");
+				System.out.println("DCCurveOlsen - Invalid RMSE: " + rmse + ". discarding ");
 				// predictionRmseClassifier= 10.0;
-				predictionRmse = 10.0;
+				predictionRmse = Double.MAX_VALUE;
 				return Double.toString(predictionRmse);
 			}
 		}
@@ -215,18 +114,18 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 
 	////
 
-	public String reportTestMF(Double[] values, double delta, String GPTreeFileName) {
-		return calculateRMSE_MF(testingEvents, delta, predictionWithClassifier);
+	public String reportTestOlsen(Double[] values, double delta, String GPTreeFileName) {
+		return calculateRMSE_Olsen(testingEvents, delta, predictionWithClassifier);
 
 	}
 
 	@Override
 	String report(Double[] values, double delta, String GPTreeFileName) {
-		return calculateRMSE_MF(testingEvents, delta, predictionWithClassifier);
+		return calculateRMSE_Olsen(testingEvents, delta, predictionWithClassifier);
 	}
 /*
 	@Override
-	double trade(PreProcess preprocess) {
+	double trade(PreProcessManual preprocess) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
 		double transactionCost = 0.025 / 100;
@@ -239,25 +138,24 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 			if (testingEvents[i].type == Type.Upturn) {
 				String classificationStr = "no";
 				classificationStr = preprocess.classifyTestInstance(i);
-				
-				// Use classification to select DC trend to trade MF
+
+				// Use classification to select DC trend to trade Olsen
 				if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 					tradePoint = (int) (testingEvents[i].end);
 				} else {
 
-					tradePoint = (int) (testingEvents[i].end + (testingEvents[i].length() * meanRatio[1]));
+					tradePoint = (int) (testingEvents[i].end + (testingEvents[i].length() * 2));
 				}
 			} else if (testingEvents[i].type == Type.Downturn) {
 
 				String classificationStr = "no";
 				classificationStr = preprocess.classifyTrainingInstance(i);
 
-				
-				// Use classification to select DC trend to trade MF
+				// Use classification to select DC trend to trade Olsen
 				if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 					tradePoint = (int) (testingEvents[i].end);
 				} else {
-					tradePoint = (int) (testingEvents[i].end + (testingEvents[i].length() * meanRatio[0]));
+					tradePoint = (int) (testingEvents[i].end + (testingEvents[i].length() * 2));
 				}
 
 			}
@@ -285,7 +183,7 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 
 			if (tradePoint > FReader.dataRecordInFileArray.size()
 					|| (lastTrainingPrice - 1) + tradePoint > FReader.dataRecordInFileArray.size()) {
-				System.out.println(" DCCurveClassificationMF: predicted datapoint "
+				System.out.println(" DCCurveClassificationOlsen: predicted datapoint "
 						+ ((lastTrainingPrice - 1) + tradePoint) + " is beyond the size of price array  "
 						+ FReader.dataRecordInFileArray.size() + " . Trading ended");
 				continue;
@@ -309,11 +207,9 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 						transactionCostPrice = transactionCost * myPrice;
 						askQuantity = (askQuantity - transactionCost) * myPrice;
 						zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity * myPrice;
-					
 						
 						if (Double.compare(transactionCostPrice, (zeroTransactionCostAskQuantity - askQuantity)) < 0){
-							
-							
+					
 							OpeningPosition = askQuantity;
 							isPositionOpen = true;
 							positionArrayQuote.add(new Double(OpeningPosition));
@@ -344,14 +240,11 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 						transactionCostPrice = transactionCost * myPrice;
 						bidQuantity = (bidQuantity - transactionCost) * myPrice;
 						zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
-						// transactionCost = trainingOpeningPosition *
-						// (0.025/100);
-						// trainingOpeningPosition = (trainingOpeningPosition
-						// -transactionCost) /myPrice;
-
+						
 						if (Double.compare(transactionCostPrice, (zeroTransactionCostBidQuantity - bidQuantity)) < 0){
-							//	&& myPrice < lastUpDCCend){
-				
+								//&& myPrice < lastUpDCCend){
+					
+									
 							OpeningPosition = (OpeningPosition - transactionCost) / myPrice;
 							
 							isPositionOpen = false;
@@ -370,7 +263,7 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 						}
 					}
 				} catch (ArrayIndexOutOfBoundsException exception) {
-					System.out.println(" DCCurveClassificationMF: Search for element "
+					System.out.println(" DCCurveClassificationOlsen: Search for element "
 							+ ((lastTrainingPrice - 1) + tradePoint) + " is beyond the size of price array  "
 							+ FReader.dataRecordInFileArray.size() + " . Trading ended");
 					break;
@@ -461,20 +354,19 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 	@Override
 	public String getDCCurveName() {
 
-		return "DCCurveClassificationMF";
+		return "DCCurveOlsen";
 	}
 
 	@Override
-	double trainingTrading(PreProcess preprocess) {
+	double trainingTrading(PreProcessManual preprocess) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
 		double DD = 0;// DrawDown
 		double lastClosedPosition = 0.0;
 		double transactionCost = 0.025 / 100;
 		
-		
 		for (int i = 1; i < trainingEvents.length; i++) {
-
+			
 			int tradePoint = 0;
 			
 			String classificationStr = "no";
@@ -487,9 +379,9 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 				tradePoint = (int) (trainingEvents[i].end );// System.out.println("no");
 			} else {
 				if (trainingEvents[i].type == Type.Upturn)
-					tradePoint = (int) (trainingEvents[i].end + (trainingEvents[i].length() * meanRatio[1]));
+					tradePoint = (int) (trainingEvents[i].end + (trainingEvents[i].length() * 2));
 				else if (trainingEvents[i].type == Type.Downturn)
-					tradePoint = (int) (trainingEvents[i].end + (trainingEvents[i].length() * meanRatio[0]));
+					tradePoint = (int) (trainingEvents[i].end + (trainingEvents[i].length() * 2));
 			}
 			if (trainingEvents[i] == null)
 				continue;
@@ -536,12 +428,10 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 				transactionCostPrice = transactionCost * myPrice;
 				askQuantity = (askQuantity - transactionCost) * myPrice;
 				zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity * myPrice;
-				// transactionCost = trainingOpeningPosition * (0.025/100);
-				// trainingOpeningPosition = (trainingOpeningPosition
-				// -transactionCost) *myPrice;
 
 				if (Double.compare(transactionCostPrice, (zeroTransactionCostAskQuantity - askQuantity)) < 0){
-					
+				
+				
 					trainingOpeningPosition = askQuantity;
 					isPositionOpen = true;
 				}
@@ -562,8 +452,7 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 				// -transactionCost) /myPrice;
 
 				if (Double.compare(transactionCostPrice, (zeroTransactionCostBidQuantity - bidQuantity)) < 0){
-						
-
+	
 					trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) /myPrice;
 					lastClosedPosition = trainingOpeningPosition;
 					isPositionOpen = false;
@@ -581,7 +470,7 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 	}
 
 	@Override
-	void estimateTraining(PreProcess preprocess) {
+	void estimateTraining(PreProcessManual preprocess) {
 		;
 	}
 
@@ -594,10 +483,10 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 	public String getPredictedTrend() {
 		return predictedTrendString;
 	}
-
+	
 	@Override
 	protected int getMaxTransactionSize() {
-	
+		// TODO Auto-generated method stub
 		return positionArrayBase.size();
 	}
 	
@@ -608,11 +497,10 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 		
 		return positionArrayBase.get(i);
 	}
-
+	
 	public  double calculateSD(){
 		return calculateBaseSD(positionArrayBase);
 	}
-	
 	
 	public  double getMaxValue(){
 		  
@@ -625,8 +513,25 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 
 	@Override
 	public <E> void assignPerfectForesightRegressionModel(E[] inputArray) {
-		meanRatio[0] =  ((Double) inputArray[0]).doubleValue();
-		meanRatio[1] =  ((Double)  inputArray[1]).doubleValue();
+		meanRatio[0] = ((Double) inputArray[0]).doubleValue();
+	}
+/*
+	@Override
+	double trade(PreProcess preprocess) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+*/
+	@Override
+	double trainingTrading(PreProcess preprocess) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	void estimateTraining(PreProcess preprocess) {
+		// TODO Auto-generated method stub
 		
 	}
+
 }

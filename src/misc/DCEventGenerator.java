@@ -15,7 +15,12 @@ public class DCEventGenerator {
 	 String thresholdString = "";
 	 Event[] output;
 	 Event[] generatedEvents;
-	
+	 int numberOfDCEvent =0;
+	 int numberOfOSEvent= 0;
+	 double osToDcEventRatio = 0.0;
+	 double averageDCRunLength = 0.0;
+	 double averageDownwardDCRunLength = 0.0;
+	 double averageUpwardDCRunLength = 0.0;
 	 
 	 
 	/**
@@ -109,32 +114,38 @@ public class DCEventGenerator {
 
 			index++;
 		}
-	//System.out.println(" generateEvents completed for " + delta);
-		//update with price change into	
-		events.get(0).startPriceDbl = 0.0;
-		events.get(0).endPriceDbl = 0.0;
-		for (index =1 ; index < events.size(); index++){
-			try{
-				events.get(index).startPriceDbl = values[events.get(index).start];
-				events.get(index).endPriceDbl = values[events.get(index).end-1];
+	System.out.println(" generateEvents completed for " + delta);
+		this.generatedEvents = events.toArray(new Event[events.size()]); 
+		
+		//this.eventsClassifier = events.toArray(new Event[events.size()]);
+		numberOfDCEvent = generatedEvents.length;
+		int downwardEventCount = 0;
+		int upwardEventCount = 0;
+		for (int i = 0; i< generatedEvents.length ; i++){
+			averageDCRunLength =  averageDCRunLength +  Double.valueOf(generatedEvents[i].length());
+			if (generatedEvents[i].type  == Type.Downturn){
+				averageDownwardDCRunLength = averageDownwardDCRunLength +  Double.valueOf(generatedEvents[i].length());
+				downwardEventCount++;
 			}
-			catch(ArrayIndexOutOfBoundsException e){
-				events.get(index).startPriceDbl = 0.0;
-				events.get(index).endPriceDbl = 0.0;
+			else
+			{
+				averageUpwardDCRunLength = averageUpwardDCRunLength +  Double.valueOf(generatedEvents[i].length());
+				upwardEventCount++;
+			}
+			if (generatedEvents[i].overshoot == null
+					|| generatedEvents[i].overshoot.end == generatedEvents[i].overshoot.start){
+				numberOfOSEvent++;
 			}
 		}
-		generatedEvents = events.toArray(new Event[events.size()]); 
 		
+		averageDCRunLength = averageDCRunLength/numberOfDCEvent;
+		osToDcEventRatio = Double.valueOf(numberOfOSEvent)/Double.valueOf(numberOfDCEvent);
 		
-	
-	
+		averageDownwardDCRunLength = averageDownwardDCRunLength/downwardEventCount;
+		averageUpwardDCRunLength = averageUpwardDCRunLength/upwardEventCount;
+		
 		
 	}
-	 
-	 public Event[] getOutput(){
-		 return output;
-		 
-	 }
 
 	 public Event[] getEvents(){
 		return generatedEvents;
@@ -181,6 +192,34 @@ public class DCEventGenerator {
 
 		return last;
 	}
+	
+	public int getNumberOfDCEvent(){
+		return numberOfDCEvent;
+	 }
+	 
+	 
+	 public int getNumberOfOSEvent(){
+		 
+			return numberOfOSEvent;
+	 }
+	
+	 public double getOsToDcEventRatio(){
+			return osToDcEventRatio;
+	 }
+	 
+	 public double getAverageDCRunLength(){
+			return averageDCRunLength;
+	 }
+	 
+	 
+	 public double getAverageDownwardDCRunLength(){
+			return averageDownwardDCRunLength;
+	 }
+	 
+	 public double getAverageUpwardDCRunLength(){
+			return averageUpwardDCRunLength;
+		 }
+		 
 
 
 }

@@ -81,7 +81,8 @@ public class ExponentialMovingAverageFX  extends TechnicalAnaysisBaseTrading{
 	            
 	       Rule entryRule1 = new CrossedUpIndicatorRule(emaBid5, emaBid20); // Trend
             
-	      
+	       Rule bidRule  = new AndRule(entryRule1, entryRule2); 
+	       
 	       
 	      // For a sell trade, sell when the five-period EMA crosses 
 	      //from above to below the 20-period EMA, and both EMAs and the 
@@ -93,7 +94,7 @@ public class ExponentialMovingAverageFX  extends TechnicalAnaysisBaseTrading{
 	                		.and(new UnderIndicatorRule(askPrice, emaAsk50)); // Signal
 	       
 	       
-	      
+	       Rule askRule  = new AndRule(exitRule1, exitRule2); 
 	       Strategy fxBuySellSignals = new BaseStrategy(
 	    		   entryRule1,
 	    		   exitRule1

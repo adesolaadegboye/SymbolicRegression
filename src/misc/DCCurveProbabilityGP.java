@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.Random;
 import java.util.Vector;
 
 import javax.script.ScriptEngine;
@@ -19,16 +20,17 @@ import javax.script.ScriptException;
 import dc.GP.AbstractNode;
 import dc.GP.Const;
 import dc.GP.TreeHelperClass;
+
 import dc.ga.PreProcess;
-import dc.io.FReader;
-import dc.io.FReader.FileMember2;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
+import dc.io.FReader;
+import dc.io.FReader.FileMember2;
 import files.FWriter;
 
-public class DCCurveClassification extends DCCurveRegression {
+public class DCCurveProbabilityGP  extends DCCurveRegression{
 
-	public DCCurveClassification() {
+	public DCCurveProbabilityGP()  {
 		super();
 	}
 
@@ -52,6 +54,13 @@ public class DCCurveClassification extends DCCurveRegression {
 
 		this.trainingEvents = Arrays.copyOf(trainingEvents, trainingEvents.length);
 		
+		
+		if (upwardTrendTreeString != null && !upwardTrendTreeString.isEmpty() && 
+				downwardTrendTreeString != null && !downwardTrendTreeString.isEmpty()){
+			return;
+			
+		}
+		
 		// if (SymbolicRegression.OsFunctionEnum ==
 		// SymbolicRegression.function_code.eGP) {
 		if (Const.splitDatasetByTrendType) {
@@ -62,11 +71,6 @@ public class DCCurveClassification extends DCCurveRegression {
 					+ "_preprocessed.txt";
 			String thisLine = null;
 
-			if (upwardTrendTreeString != null && !upwardTrendTreeString.isEmpty() && 
-					downwardTrendTreeString != null && !downwardTrendTreeString.isEmpty()){
-				return;
-				
-			}
 			Vector<Event> trendOfChoiceVecClassifier = new Vector<Event>();
 
 			for (int i = 0; i < trainingEvents.length - 1; i++) {
@@ -74,21 +78,14 @@ public class DCCurveClassification extends DCCurveRegression {
 					// Instance and event classifier object have the same size.
 
 					String classificationStr = "no";
+					Random randomno = new Random();
+					double decisionNum =  randomno.nextDouble();
+					if (decisionNum < osToDcEventRatio)
+						classificationStr = "yes";
+					
+					
 
-					if (preprocess != null)
-						classificationStr = preprocess.classifyTrainingInstance(i);
-					else {
-						System.out.println("DCCurveClassification preprocessor is null");
-						System.exit(-1);
-					}
-
-					// System.out.println("prediction
-					// "+training.instance(eventCount).stringValue(training.attribute(training.numAttributes()
-					// - 1)));
-					// System.out.println("Classification : " +
-					// classificationStr);
-
-					// Use classification to select DC trend to train GP
+					// Use decision from Random()
 					if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 						continue;
 					}
@@ -111,11 +108,19 @@ public class DCCurveClassification extends DCCurveRegression {
 						// System.out.println(thisLine);
 					}
 				} catch (FileNotFoundException fileNotFound) {
-					;
+					// System.out.println(SymbolicRegression.log.publicFolder
+					// + gpTreeName + " not found. Will rebuild GP tree.");
+					// fileNotFound.printStackTrace();
 				} catch (IOException io) {
-					;
+					// System.out.println("IO excption occured. Will
+					// loading" + SymbolicRegression.log.publicFolder +
+					// gpTreeName + ". Will rebuild GP tree.");
+					// io.printStackTrace();
 				} catch (Exception e) {
-					;
+					// System.out.println("Unknown error occured. Will
+					// loading" + SymbolicRegression.log.publicFolder +
+					// gpTreeName + ". Will rebuild GP tree.");
+					// e.printStackTrace();
 				}
 			} else {
 				FWriter writer = new FWriter(Const.log.publicFolder + gpTreeName);
@@ -153,7 +158,6 @@ public class DCCurveClassification extends DCCurveRegression {
 					Collections.copy(curve_bestTreesInRunsUpward, treeHelperClass.bestTreesInRuns);
 					Const.log.save(gpTreeName, treeAsInfixNotationString);
 				}
-
 			}
 
 			// Downward trend GP here
@@ -167,8 +171,11 @@ public class DCCurveClassification extends DCCurveRegression {
 				if (trainingEvents[i].type == Type.Downturn) {
 
 					String classificationStr = "no";
-
-					if (preprocess != null)
+					Random randomno = new Random();
+					double decisionNum =  randomno.nextDouble();
+					if (decisionNum < osToDcEventRatio)
+						classificationStr = "yes";
+					
 					
 
 					if ((classificationStr.compareToIgnoreCase("no") == 0)) {
@@ -216,9 +223,9 @@ public class DCCurveClassification extends DCCurveRegression {
 
 			if (Const.thresholdClassifcationBasedGPStringDownwardMap.containsKey(delta)) {
 				if (downwardTrendTreeString == null || downwardTrendTreeString.isEmpty()){
-					gpTreeInFixNotation = Const.thresholdClassifcationBasedGPStringDownwardMap.get(delta);
-					downwardTrendTreeString = gpTreeInFixNotation;
-					}
+				gpTreeInFixNotation = Const.thresholdClassifcationBasedGPStringDownwardMap.get(delta);
+				downwardTrendTreeString = gpTreeInFixNotation;
+				}
 			} else {
 				if (treeHelperClass.bestTreesInRuns != null)
 					treeHelperClass.bestTreesInRuns.clear();
@@ -232,8 +239,8 @@ public class DCCurveClassification extends DCCurveRegression {
 					System.exit(-1);
 				}
 
-				// get best tree
 				if (downwardTrendTreeString == null || downwardTrendTreeString.isEmpty()){
+					// get best tree
 					Comparator<AbstractNode> comparator = Collections.reverseOrder();
 					Collections.sort(treeHelperClass.bestTreesInRuns, comparator);
 					AbstractNode tree = treeHelperClass.bestTreesInRuns.get(treeHelperClass.bestTreesInRuns.size() - 1);
@@ -241,13 +248,9 @@ public class DCCurveClassification extends DCCurveRegression {
 	
 					bestclassifierBasedDownWardEventTree = treeHelperClass.bestTreesInRuns
 							.get(treeHelperClass.bestTreesInRuns.size() - 1);
-					// System.out.println("Best tree" + tree.getPerfScore() + "
-					// worst tree"+
-					// treeHelperClass.bestTreesInRuns.get(0).getPerfScore()) ;
+				
 					downwardTrendTreeString = bestclassifierBasedDownWardEventTree.printAsInFixFunction();
-				//	System.out.println("Best tree down:" + SymbolicRegression.file_Name + "->" + tree.getPerfScore());
-				//	System.out.println("Best tree structure" + treeAsInfixNotationString);
-	
+			
 					curve_bestTreesInRunsDownward.setSize(treeHelperClass.bestTreesInRuns.size());
 					Collections.copy(curve_bestTreesInRunsDownward, treeHelperClass.bestTreesInRuns);
 					Const.log.save(gpTreeName, treeAsInfixNotationString);
@@ -275,7 +278,7 @@ public class DCCurveClassification extends DCCurveRegression {
 			return;
 
 		testingEvents = Arrays.copyOf(testEvents, testEvents.length);
-		String thresholdStr = String.format("%.8f", delta);
+		
 
 		ScriptEngineManager mgr = new ScriptEngineManager();
 		ScriptEngine engine = mgr.getEngineByName("JavaScript");
@@ -304,9 +307,12 @@ public class DCCurveClassification extends DCCurveRegression {
 			double eval = 0.0;
 
 			String classificationStr = "no";
-			if (preprocess != null)
-				classificationStr = preprocess.classifyTestInstance(outputIndex);
-
+			Random randomno = new Random();
+			double decisionNum =  randomno.nextDouble();
+			if (decisionNum < osToDcEventRatio)
+				classificationStr = "yes";
+	
+			// Use decision from Random()
 			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 				;// System.out.println("no");
 			} else {
@@ -339,11 +345,12 @@ public class DCCurveClassification extends DCCurveRegression {
 		}
 	}
 
+	// RMSE cannot be calculated because it is random
 	private String calculateRMSEClassifier(Event[] trendEvent, double delta, double[] runPrediction) {
 		
 		double rmse = 0.0;
 		for (int eventCount = 1; eventCount < trendEvent.length; eventCount++) {
-			int os = 0;
+			double os = 0.0;
 
 			if (trendEvent.length != runPrediction.length) {
 				System.out.println("Event and prediction not equal");
@@ -352,11 +359,9 @@ public class DCCurveClassification extends DCCurveRegression {
 
 			if (trendEvent[eventCount].overshoot != null) {
 				os = trendEvent[eventCount].overshoot.length();
-				// numberOfTestOvershoot = numberOfTestOvershoot + 1;
 			}
 
-			// numberOfTestDC = trendEvent.length;
-
+			
 			double prediction = runPrediction[eventCount];
 
 			// System.out.println("DC:" + trendEvent[eventCount].length() + "
@@ -366,9 +371,9 @@ public class DCCurveClassification extends DCCurveRegression {
 			if (rmse == Double.MAX_VALUE || rmse == Double.NEGATIVE_INFINITY || rmse == Double.NEGATIVE_INFINITY
 					|| rmse == Double.NaN || Double.isNaN(rmse) || Double.isInfinite(rmse)
 					|| rmse == Double.POSITIVE_INFINITY) {
-				System.out.println("DCCurveClassification - Invalid RMSE: " + rmse + ". discarding ");
-				// predictionRmseClassifier= 10.0;
-				predictionRmse = 10.0;
+				System.out.println("DCCurveRandomGP -  Invalid RMSE: " + rmse + ". discarding ");
+				predictionRmse= 10.0;
+				//predictionRmse = Double.MAX_VALUE;
 				return Double.toString(predictionRmse);
 			}
 		}
@@ -401,19 +406,18 @@ public class DCCurveClassification extends DCCurveRegression {
 
 	}
 
-/*	@Override
+	/*
+	@Override
 	double trade(PreProcess preprocess) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
 		double transactionCost = 0.025 / 100;
 		simpleDrawDown.Calculate(OpeningPosition);
 		simpleSharpeRatio.addReturn(0);
-		//System.out.println("classification: current processor count " + SymbolicRegression.currentProcessorCounter);
-		
-		
 		double lastUpDCCend = 0.0;
 		for (int i = 1; i < testingEvents.length; i++) {
 
+			
 			Double dcPt = new Double(predictionWithClassifier[i]);
 			Double zeroOs = new Double(0.0);
 			int tradePoint = 0;
@@ -424,7 +428,7 @@ public class DCCurveClassification extends DCCurveRegression {
 			else
 				tradePoint = testingEvents[i].end + (int) Math.floor(predictionWithClassifier[i]);
 
-	
+			
 			if (testingEvents[i] == null)
 				continue;
 
@@ -443,20 +447,15 @@ public class DCCurveClassification extends DCCurveRegression {
 
 			FReader freader = new FReader();
 			FileMember2 fileMember2 = freader.new FileMember2();
-			// fileMember2.Day = GPtestEvents[i].endDate;
-			// fileMember2.time = GPtestEvents[i].endTime;
-			// fileMember2.price = GPtestEvents[i].endPrice;
 
 		
 			if (tradePoint > FReader.dataRecordInFileArray.size() || (lastTrainingPrice - 1) + tradePoint == FReader.dataRecordInFileArray.size()) {
-				System.out.println(" DCCurveClassification: predicted datapoint "
+				System.out.println(" DCCurveRandomClassification: predicted datapoint "
 						+ ((lastTrainingPrice - 1) + tradePoint) + " is beyond the size of price array  "
 						+ FReader.dataRecordInFileArray.size() + " . Trading ended");
 				continue;
 			} else {
 				// I am opening my position in base currency
-			//	baseTrade(FileMember2 fileMember2, int tradePoint, boolean isPositionOpen,
-				//		int i, double myPrice, double transactionCost, double lastUpDCCend)
 				try {
 					fileMember2 = FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + tradePoint);
 
@@ -476,18 +475,18 @@ public class DCCurveClassification extends DCCurveRegression {
 						transactionCostPrice = transactionCost * myPrice;
 						askQuantity =  (askQuantity -transactionCost) *myPrice;
 						zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity *myPrice;
-					
+						
 						
 						if (Double.compare(transactionCostPrice, (zeroTransactionCostAskQuantity - askQuantity)) < 0){
-							lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + testingEvents[i].end).bidPrice);
 								
 							OpeningPosition = askQuantity;
 							isPositionOpen = true;
 							positionArrayQuote.add(new Double(OpeningPosition));
+							
 							tradedPrice.add(new Double(myPrice));
 							anticipatedTrendMap.put(testingEvents[i].start, tradePoint);
 							anticipatedTrend.add(anticipatedTrendMap);
-							
+							lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + testingEvents[i].end).bidPrice);
 							if (testingEvents[i].overshoot == null || testingEvents[i].overshoot.length() < 1)
 								actualTrendMap.put(testingEvents[i].start, testingEvents[i].end );
 							else
@@ -508,14 +507,16 @@ public class DCCurveClassification extends DCCurveRegression {
 						transactionCostPrice = transactionCost * myPrice;
 						bidQuantity = (bidQuantity - transactionCost) * myPrice;
 						zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
-					
-						if (Double.compare(transactionCostPrice, (zeroTransactionCostBidQuantity - bidQuantity)) < 0	){
+						
+						if (Double.compare(transactionCostPrice, (zeroTransactionCostBidQuantity - bidQuantity)) < 0 ){
 								//&& myPrice < lastUpDCCend){
-			
+									
+									
 							OpeningPosition = (OpeningPosition - transactionCost) / myPrice;
 							
 							isPositionOpen = false;
 							positionArrayBase.add(new Double(OpeningPosition));
+
 							tradedPrice.add(new Double(myPrice));
 							anticipatedTrendMap.put(testingEvents[i].start, tradePoint);
 							anticipatedTrend.add(anticipatedTrendMap);
@@ -532,12 +533,9 @@ public class DCCurveClassification extends DCCurveRegression {
 					System.out.println(" DCCurveClassiifcation: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
 							+ " is beyond the size of price array  " + 
 							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
-					break;
-					
+					break;	
 				}
-
 			}
-
 		}
 
 		if (isPositionOpen) {
@@ -620,7 +618,7 @@ public class DCCurveClassification extends DCCurveRegression {
 	@Override
 	public String getDCCurveName() {
 
-		return "DCCurveClassification";
+		return "DCCurveRandomGP";
 	}
 
 	@Override
@@ -629,8 +627,7 @@ public class DCCurveClassification extends DCCurveRegression {
 		double myPrice = 0.0;
 		double lastClosedPosition = 0.0;
 		double transactionCost = 0.025 / 100;
-		double DD = 0;// DrawDown
-		double lastUpDCCend = 0.0;
+		
 		
 		for (int i = 1; i < trainingEvents.length; i++) {
 
@@ -674,6 +671,8 @@ public class DCCurveClassification extends DCCurveRegression {
 				System.out.println(e.getMessage());
 				continue;
 			}
+			
+
 			if (trainingEvents[i].type == Type.Upturn && !isPositionOpen) {
 				// Now position is in quote currency
 				// I sell base currency in bid price
@@ -689,9 +688,9 @@ public class DCCurveClassification extends DCCurveRegression {
 				askQuantity =  (askQuantity -transactionCost) *myPrice;
 				zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity *myPrice;
 				
-				if (Double.compare(transactionCostPrice, (zeroTransactionCostAskQuantity - askQuantity)) < 0){
-					
-					
+				
+				if (Double.compare(transactionCostPrice, (zeroTransactionCostAskQuantity - askQuantity)) < 0 ){
+//				
 					trainingOpeningPosition = askQuantity;
 					isPositionOpen = true;
 				}
@@ -710,9 +709,7 @@ public class DCCurveClassification extends DCCurveRegression {
 				bidQuantity =  (bidQuantity -transactionCost) *myPrice;
 				zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity *myPrice;
 				
-				
 				if (Double.compare(transactionCostPrice, (zeroTransactionCostBidQuantity - bidQuantity)) < 0){
-					
 
 					trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) /myPrice;
 					lastClosedPosition = trainingOpeningPosition;
@@ -754,13 +751,18 @@ public class DCCurveClassification extends DCCurveRegression {
 			}
 
 			foo = foo.replace("X0", Integer.toString(trainingEvents[outputIndex].length()));
+			foo = foo.replace("X1", Double.toString(trainingEvents[outputIndex].high - trainingEvents[outputIndex].low) );
 			double eval = 0.0;
 
 			String classificationStr = "no";
+			Random randomno = new Random();
+			double decisionNum =  randomno.nextDouble();
+			if (decisionNum < osToDcEventRatio)
+				classificationStr = "yes";
+			
+			
 
-			if (preprocess != null)
-				classificationStr = preprocess.classifyTrainingInstance(outputIndex);
-
+			// Use decision from Random()
 			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
 				;// System.out.println("no");
 			} else {
@@ -834,5 +836,5 @@ public class DCCurveClassification extends DCCurveRegression {
 		upwardTrendTreeString = (String) inputArray[1];
 		
 	}
-}
 
+}

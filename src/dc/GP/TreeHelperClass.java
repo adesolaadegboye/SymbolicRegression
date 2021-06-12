@@ -26,9 +26,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
+
 
 import dc.GP.Const.treeStructurePostcreate;
 import dc.ga.DCCurve.Event;
@@ -38,7 +36,7 @@ import dc.io.FReader;
 import dc.io.Logger;
 import dc.io.FReader.FileMember2;
 import files.FWriter;
-
+import misc.SymbolicRegression;
 
 public class TreeHelperClass {
 
@@ -47,18 +45,16 @@ public class TreeHelperClass {
 	private static ExecutorService threadPool;
 	private static int Number_Of_Trees = 0;
 	private static Event[] Directional_changes_length;
-	//private static boolean SPLIT_DATASET;
+	private static boolean SPLIT_DATASET;
 	private static int number_of_generations = 0;
-	
 
-	//private static trend_type_code datasetTrend = trend_type_code.enumUnknown;
+	private static trend_type_code datasetTrend = trend_type_code.enumUnknown;
 
 	public  Vector<AbstractNode> bestTreesInRuns = new Vector<AbstractNode>();
 
 	static Map<String, List<FitnessClass>> fitnessList = new HashMap<String, List<FitnessClass>>();
-	public static treeStructurePostcreate treeStructurePostcreateObj = treeStructurePostcreate.ePrune;
-	 ScriptEngineManager mgr = new ScriptEngineManager();
-	ScriptEngine engine = mgr.getEngineByName("JavaScript");
+	public static treeStructurePostcreate treeStructurePostcreateObj;
+	
 	public enum trend_type_code {
 		enumUnknown, enumUptrend, enumDowntrend,
 	}
@@ -686,7 +682,7 @@ public class TreeHelperClass {
 		return treeString;
 	}
 
-	public  double evaluateRegressionTree(AbstractNode tree, Event[] directionChangesLength) {
+	public static double evaluateRegressionTree(AbstractNode tree, Event[] directionChangesLength) {
 		double treeEvaluation = 0.0;
 		double err = 0.0;
 		double sumSquaredErr = 0.0;
@@ -708,58 +704,12 @@ public class TreeHelperClass {
 		if (!hasConstant)
 			return Double.MAX_VALUE;
 		
-		if(!treeAsString.contains(Const.VARIABLE_1))
-			return Double.MAX_VALUE;
-		
-		String treeToString = tree.printAsInFixFunction();
-		
-		
-		
-		treeToString = treeToString.replace("X0", Integer.toString(2));
-		treeToString = treeToString.replace("X1", Integer.toString(2));
-		Double javascriptValue = Double.MAX_VALUE;
-		double eval = 0.0;
-	/*	try {
-			javascriptValue = (Double) engine.eval(treeToString);
-			
-			if  ( javascriptValue == Double.MAX_VALUE || javascriptValue == Double.NEGATIVE_INFINITY ||
-					javascriptValue == Double.POSITIVE_INFINITY || javascriptValue ==  Double.NaN ||
-					Double.compare(javascriptValue, 0.0)  < 0  || Double.isInfinite(javascriptValue)  || Double.isNaN(javascriptValue)){
-				return Double.MAX_VALUE;
-			}
-			else{
-				eval = javascriptValue.doubleValue();
-			}
-			
-		} catch (ScriptException e) {
-			return Double.MAX_VALUE;
-		} catch (ClassCastException e) {
-			return Double.MAX_VALUE;
-		}
-		*/
-	
-		
-		javascriptValue = new Double(tree.eval(1, 0.005));
-		if  ( javascriptValue == Double.MAX_VALUE || javascriptValue == Double.NEGATIVE_INFINITY ||
-				javascriptValue == Double.POSITIVE_INFINITY || javascriptValue ==  Double.NaN ||
-				Double.compare(javascriptValue, 0.0)  < 0  || Double.isInfinite(javascriptValue)  || Double.isNaN(javascriptValue)){
-			return Double.MAX_VALUE;
-		}
-		
-		
-		javascriptValue = new Double(tree.eval(30,0.067));
-		if  ( javascriptValue == Double.MAX_VALUE || javascriptValue == Double.NEGATIVE_INFINITY ||
-				javascriptValue == Double.POSITIVE_INFINITY || javascriptValue ==  Double.NaN ||
-				Double.compare(javascriptValue, 0.0)  < 0  || Double.isInfinite(javascriptValue)  || Double.isNaN(javascriptValue)){
-			return Double.MAX_VALUE;
-		}
-		
-		
-		
+		FReader freader = new FReader();
+		FileMember2 fileMember3 = freader.new FileMember2();
 		for (Event e : directionChangesLength) {
-		//	if (Const.VARIABLE_EVALUATED == 0)
+			if (Const.VARIABLE_EVALUATED == 0)
 				variableSize = e.length();
-		/*	else
+			else
 			{
 				if (e.type == Type.Upturn)
 				{
@@ -767,14 +717,14 @@ public class TreeHelperClass {
 				}
 				else
 					variableSize = Double.parseDouble(FReader.dataRecordInFileArray.get(e.end).bidPrice);
-			}*/
+			}
 				 
 			os = 0.0; 
 			if (e.overshoot != null)
 			{
-				//if (Const.VARIABLE_EVALUATED == 0)
+				if (Const.VARIABLE_EVALUATED == 0)
 					os = e.overshoot.length();
-			/*	else
+				else
 				{
 					if (e.type == Type.Upturn)
 					{
@@ -782,11 +732,16 @@ public class TreeHelperClass {
 					}
 					else
 						os = Double.parseDouble(FReader.dataRecordInFileArray.get(e.overshoot.end).bidPrice);
-				}	*/
+				}	
 			}
 			//Double doubleObject = new Double(tree.eval(dc,magnitude)); // in order t
-			Double doubleObject = new Double(tree.eval(variableSize,(Math.abs(e.startPriceDbl - e.endPriceDbl)+0.0000000001))); // in order to cast
+			Double doubleObject = new Double(tree.eval(variableSize)); // in order to cast
 																// to int
+			
+			if (Double.compare(Double.MAX_VALUE, doubleObject) == 0){
+				
+				return Double.MAX_VALUE;
+			}
 			treeEvaluation = doubleObject.doubleValue();
 
 			err = os - treeEvaluation;
@@ -815,7 +770,7 @@ public class TreeHelperClass {
 				|| Double.compare(evalTotal, Double.valueOf(0.0)) < 0) {
 			return Double.MAX_VALUE;
 
-			// err = e.length() * GA.NEGATIVE_EXPRESSION_REPLACEMENT;
+			// err = e.length() * Const.NEGATIVE_EXPRESSION_REPLACEMENT;
 
 		}
 		if ( evalTotal != Double.NaN &&  !Double.isNaN(evalTotal) && !Double.isInfinite(evalTotal) && Double.compare(evalTotal, Double.valueOf(0.0)) > 0) {
@@ -869,7 +824,7 @@ public class TreeHelperClass {
 		return bestTree;
 	}
 
-	public  AbstractNode getbestTreeForThreshold(Event[] directionChangesLength, int NumberOfTrees, int run,
+	public static AbstractNode getbestTreeForThreshold(Event[] directionChangesLength, int NumberOfTrees, int run,
 			String thresholdStr) {
 
 		// GenerateInitialTrees
@@ -909,7 +864,7 @@ public class TreeHelperClass {
 		return bestTree;
 	}
 
-	AbstractNode evolve(Event[] directionChangesLength, Vector<AbstractNode> gpTrees, double evolutionRate,
+	static AbstractNode evolve(Event[] directionChangesLength, Vector<AbstractNode> gpTrees, double evolutionRate,
 			double crossoverRatio, int numberOfGenerations, int run, String thresholdStr) {
 
 		Calendar cal = Calendar.getInstance();
@@ -1206,7 +1161,7 @@ public class TreeHelperClass {
 		                        }
 	                        }
 	                        catch (ArrayIndexOutOfBoundsException  e) {
-	                        	;//System.out.println("ArrayIndexOutOfBoundsException handled" );
+	                        	System.out.println("ArrayIndexOutOfBoundsException handled" );
 	                        }
 
 	                    }

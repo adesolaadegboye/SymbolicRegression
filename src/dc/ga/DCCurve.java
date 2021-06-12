@@ -39,11 +39,9 @@ import dc.io.FReader;
 import dc.io.FReader.FileMember2;
 import misc.DCEventGenerator;
 import misc.SimpleDrawDown;
-import misc.SimpleSharpeRatio;
 import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
-import weka.core.matrix.Maths;
 
 
 
@@ -69,8 +67,8 @@ public class DCCurve {
 	protected double[] GpDownwardoutput;
 
 	protected double[] gpprediction;
-	public double[] predictionUpward;
-	public double[] predictionDownward;
+	double[] predictionUpward;
+	double[] predictionDownward;
 	
 	int numberOfUpwardEvent;
 	int numberOfDownwardEvent;
@@ -80,11 +78,8 @@ public class DCCurve {
 	double rmseResult = Double.MAX_VALUE;
 	
 	
-	double lastUpDCCend = 0.0;
+	
 	Event[] trainingEvents;
-	Event[] trainingOutputEvents;
-	
-	
 	String upwardTrendTreeString = null;
 	String downwardTrendTreeString = null;
 	String trendTreeString = null;
@@ -110,8 +105,6 @@ public class DCCurve {
 	public double threshold = -0.1;
 	Map<Integer, double[]> runsPrediction = new HashMap<Integer, double[]>();
 	SimpleDrawDown simpleDrawDown = new SimpleDrawDown();
-	SimpleSharpeRatio simpleSharpeRatio = new SimpleSharpeRatio();
-	
 	boolean isUpwardEvent = true;
 	Instances testInstance;
 	Instances trainingInstance;
@@ -122,19 +115,14 @@ public class DCCurve {
 	public double tradingBudget = 0.0;
 	public boolean isPositionOpen = false;
 	public double lastClosedPosition = 0.0;
-	public double previousMdd = 0.0;
-	public double currentMdd = 0.0;
 	public double lastOpenPrice = 0.0;
 	public int noOfTransactions = 0;
 	
-	 
 	public double tradingBudgetQuoteCCy = 0.0;
 	public int numberOfOpenPositions = 0;
 	public double lastUpDCEndTraded = 0.0;
 	public double percentageOfBudgetTraded = 0.0;
 	public double maxNumberOfOpenPositions = 0;
-	
-	public ThresholdStats  thresholdStats =  new ThresholdStats();
 
 	String gpTreeInFixNotation = null;
 
@@ -150,7 +138,6 @@ public class DCCurve {
 	String[] gpRatio = new String[2];
 	double[] meanOvershoot = new double[1];
 	double[] splitmeanOvershoot = new double[2];
-	AbstractNode[] bestGPs = new AbstractNode[2];
 	
 	/**
 	 * 0 = downward event length 1 = upward event length
@@ -523,9 +510,9 @@ public class DCCurve {
 				preprocess.loadTestData(this.events);
 				
 				preprocess.classifyTestData();
-			//	if(GA.hasPrint){ TODO seperate upward classifier from down classifiers
+			//	if(Const.hasPrint){ TODO seperate upward classifier from down classifiers
 			//	String classificationResult = GPTreeFileName + "\t" + String.format("%.5f", delta) + "\t" + preprocess.printPreprocessClassification(this.events);
-			//	GA.log.save("ClassificationAnalysis.txt",classificationResult);
+			//	Const.log.save("ClassificationAnalysis.txt",classificationResult);
 			//	}
 			}
 			
@@ -588,41 +575,41 @@ public class DCCurve {
 						treeHelperClass.bestTreesInRuns.clear();
 				try {
 					if (Const.REUSE_EXISTING_TREE == false && isTraining){
-						GA.thresholdGPStringUpwardMap.clear();
+						Const.thresholdGPStringUpwardMap.clear();
 						throw new MyException("Run Configured not to reuse old GP trees. Will rebuild");
 					}
 						// open input stream test.txt for reading purpose.
-					BufferedReader br = new BufferedReader(new FileReader(GA.log.publicFolder + gpTreeName));
+					BufferedReader br = new BufferedReader(new FileReader(Const.log.publicFolder + gpTreeName));
 					while ((thisLine = br.readLine()) != null) {
-						if (GA.thresholdGPStringUpwardMap.containsKey(delta)) 
+						if (Const.thresholdGPStringUpwardMap.containsKey(delta)) 
 							break;
 						else
-							GA.thresholdGPStringUpwardMap.put(delta, thisLine);
+							Const.thresholdGPStringUpwardMap.put(delta, thisLine);
 						
 					}
 				}catch (MyException myException) {
-					System.out.println(GA.log.publicFolder + gpTreeName + " " + myException);
+					System.out.println(Const.log.publicFolder + gpTreeName + " " + myException);
 				}
 				catch (FileNotFoundException fileNotFound) {
-					System.out.println(GA.log.publicFolder + gpTreeName + " not found. Will rebuild GP tree.");
+					System.out.println(Const.log.publicFolder + gpTreeName + " not found. Will rebuild GP tree.");
 					
 				} catch (IOException io) {
-					System.out.println("IO exception occured. Will loading" + GA.log.publicFolder + gpTreeName
+					System.out.println("IO exception occured. Will loading" + Const.log.publicFolder + gpTreeName
 							+ ". Will rebuild GP tree.");
 					// io.printStackTrace();
 				} catch (Exception e) {
-					System.out.println("Unknown error occured. Will loading" + GA.log.publicFolder + gpTreeName
+					System.out.println("Unknown error occured. Will loading" + Const.log.publicFolder + gpTreeName
 							+ ". Will rebuild GP tree.");
 					
 					// e.printStackTrace();
 				}
 
-				if (GA.thresholdGPStringUpwardMap.containsKey(delta)) {
-					gpTreeInFixNotation = GA.thresholdGPStringUpwardMap.get(delta);
+				if (Const.thresholdGPStringUpwardMap.containsKey(delta)) {
+					gpTreeInFixNotation = Const.thresholdGPStringUpwardMap.get(delta);
 				} else {
 					if (treeHelperClass.bestTreesInRuns != null)
 						treeHelperClass.bestTreesInRuns.clear();
-					//GA.log.save("Testing.txt", "test");
+					//Const.log.save("Testing.txt", "test");
 					treeHelperClass.getBestTreesForThreshold(uptrendEvent, Const.POP_SIZE, 1, Const.MAX_GENERATIONS, thresholdStr);
 					Comparator<AbstractNode> comparator = Collections.reverseOrder();
 					Collections.sort(treeHelperClass.bestTreesInRuns, comparator);
@@ -636,15 +623,15 @@ public class DCCurve {
 					String treeAsInfixNotationString = tree.printAsInFixFunction();
 					treeAsInfixNotationString = treeAsInfixNotationString.replaceAll("\n", "").replaceAll("\r", "");
 					treeAsInfixNotationString = treeAsInfixNotationString.replaceAll("\\r|\\n", "");
-					// FWriter writer = new FWriter(GA.log.publicFolder +
+					// FWriter writer = new FWriter(Const.log.publicFolder +
 					// gpTreeName); used this if fails
-					GA.log.delete(gpTreeName);
-					GA.log.save(gpTreeName, treeAsInfixNotationString);
-					// writer.openToAppend(new File(GA.log.publicFolder +
+					Const.log.delete(gpTreeName);
+					Const.log.save(gpTreeName, treeAsInfixNotationString);
+					// writer.openToAppend(new File(Const.log.publicFolder +
 					// gpTreeName));
 					// writer.write(treeAsInfixNotationString);
 					// writer.closeFile();
-					GA.thresholdGPStringUpwardMap.put(delta, treeAsInfixNotationString);
+					Const.thresholdGPStringUpwardMap.put(delta, treeAsInfixNotationString);
 					gpTreeInFixNotation = treeAsInfixNotationString;
 				}
 
@@ -779,41 +766,41 @@ public class DCCurve {
 				 
 				try {
 					if (Const.REUSE_EXISTING_TREE == false && isTraining){
-						GA.thresholdGPStringDownwardMap.clear();
+						Const.thresholdGPStringDownwardMap.clear();
 						throw new MyException("Run Configured not to reuse old GP trees. Will rebuild");
 					}
 					// open input stream test.txt for reading purpose.
-					BufferedReader br = new BufferedReader(new FileReader(GA.log.publicFolder + gpTreeName));
+					BufferedReader br = new BufferedReader(new FileReader(Const.log.publicFolder + gpTreeName));
 					while ((thisLine = br.readLine()) != null) {
-						if (GA.thresholdGPStringDownwardMap.containsKey(delta))
+						if (Const.thresholdGPStringDownwardMap.containsKey(delta))
 							break;
 						else
-						GA.thresholdGPStringDownwardMap.put(delta, thisLine);
+						Const.thresholdGPStringDownwardMap.put(delta, thisLine);
 						//System.out.println(thisLine);
 					}
 				}catch (MyException myException) {
-					System.out.println(GA.log.publicFolder + gpTreeName + " " + myException);
+					System.out.println(Const.log.publicFolder + gpTreeName + " " + myException);
 					if (treeHelperClass.bestTreesInRuns != null)
 						treeHelperClass.bestTreesInRuns.clear();
 					
 						
 					// fileNotFound.printStackTrace();
 				} catch (FileNotFoundException fileNotFound) {
-					System.out.println(GA.log.publicFolder + gpTreeName + " not found. Will rebuild GP tree.");
+					System.out.println(Const.log.publicFolder + gpTreeName + " not found. Will rebuild GP tree.");
 					if (treeHelperClass.bestTreesInRuns != null)
 						treeHelperClass.bestTreesInRuns.clear();
 				} catch (IOException io) {
-					System.out.println("IO excption occured. Will loading" + GA.log.publicFolder + gpTreeName
+					System.out.println("IO excption occured. Will loading" + Const.log.publicFolder + gpTreeName
 							+ ". Will rebuild GP tree.");
 					
 				} catch (Exception e) {
-					System.out.println("Unknown error occured. Will loading" + GA.log.publicFolder + gpTreeName
+					System.out.println("Unknown error occured. Will loading" + Const.log.publicFolder + gpTreeName
 							+ ". Will rebuild GP tree.");
 					
 				}
 
-				if (GA.thresholdGPStringDownwardMap.containsKey(delta)) {
-					gpTreeInFixNotation = GA.thresholdGPStringDownwardMap.get(delta);
+				if (Const.thresholdGPStringDownwardMap.containsKey(delta)) {
+					gpTreeInFixNotation = Const.thresholdGPStringDownwardMap.get(delta);
 				} else {
 					if (treeHelperClass.bestTreesInRuns != null)
 						treeHelperClass.bestTreesInRuns.clear();
@@ -831,15 +818,15 @@ public class DCCurve {
 					treeAsInfixNotationString = treeAsInfixNotationString.replaceAll("\n", "").replaceAll("\r", "");
 					treeAsInfixNotationString = treeAsInfixNotationString.replaceAll("\\r|\\n", "");
 					treeAsInfixNotationString = treeAsInfixNotationString.replaceAll("\\n", "");
-					// FWriter writer = new FWriter(GA.log.publicFolder +
+					// FWriter writer = new FWriter(Const.log.publicFolder +
 					// gpTreeName); used this if fails
-					GA.log.delete(gpTreeName);
-					GA.log.save(gpTreeName, treeAsInfixNotationString);
-					// writer.openToAppend(new File(GA.log.publicFolder +
+					Const.log.delete(gpTreeName);
+					Const.log.save(gpTreeName, treeAsInfixNotationString);
+					// writer.openToAppend(new File(Const.log.publicFolder +
 					// gpTreeName));
 					// writer.write(treeAsInfixNotationString);
 					// writer.closeFile();
-					GA.thresholdGPStringDownwardMap.put(delta, treeAsInfixNotationString);
+					Const.thresholdGPStringDownwardMap.put(delta, treeAsInfixNotationString);
 					gpTreeInFixNotation = treeAsInfixNotationString;
 				}
 
@@ -1043,7 +1030,7 @@ public class DCCurve {
 		Upturn, Downturn, UpwardOvershoot, DownwardOvershoot;
 	}
 
-	public static class Event  implements Comparable<Event>{
+	public static class Event {
 		public int start = 0;
 		public int end = 0;
 		public double low = 0.0;
@@ -1051,8 +1038,6 @@ public class DCCurve {
 		public Type type;
 		public Event overshoot;
 		public double DCValue = 0.0;
-		public double startPriceDbl = 0.0;
-		public double endPriceDbl = 0.0;
 		public String startPrice = "";
 		public String endPrice = "";
 		public String startDate = "";
@@ -1080,7 +1065,7 @@ public class DCCurve {
 		public String endAskPrice =  "";
 		public String endBidPrice =  "";
 		public int positionInPriceCurve=0;
-		public ArrayList<Event> OvershootList = null;
+		
 		
 		
 		//public String 
@@ -1103,7 +1088,6 @@ public class DCCurve {
 			this.startPrice = e.startPrice;
 			this.percentageDeltaDuration = e.percentageDeltaDuration;
 			this.percentageDeltaPrice = e.percentageDeltaPrice;
-			this.OvershootList =  new ArrayList<Event>(e.OvershootList);
 			
 		}
 
@@ -1113,7 +1097,6 @@ public class DCCurve {
 			this.type = type;
 			this.low = low;
 			this.high = high;
-			this.OvershootList =  new ArrayList<Event>();
 		}
 		
 		public Event(int start, int end, Type type, double value) {
@@ -1121,15 +1104,11 @@ public class DCCurve {
 			this.end = end;
 			this.type = type;
 			this.DCValue = value;
-			this.OvershootList =  new ArrayList<Event>();
 		}
 
 		@Override
 		public String toString() {
-			return String.format("%4d %4d   %s %4d %4d   %s", start, end, type, 
-					(this.overshoot == null)? 0 : this.overshoot.start,
-							(this.overshoot == null)? 0 : this.overshoot.end ,
-									(this.overshoot == null)? "n" : this.overshoot.type);
+			return String.format("%4d %4d   %s   %4f", start, end, type, DCValue);
 		}
 
 		public final int length() {
@@ -1154,41 +1133,11 @@ public class DCCurve {
 		        Event c = (Event) o;
 		         
 		        // Compare the data members and return accordingly
-		        if (c.start == this.start && c.end == this.end && c.type == this.type
-		        		&& ((c.overshoot == null )? c.overshoot == this.overshoot : c.overshoot.equals(this.overshoot)))
+		        if (c.start == this.start && c.end == this.end && c.type == this.type)
 		        	return true;
 		        else
 		        	return false;
 		    }
-		 
-		 public boolean equalLength(Object o) {
-			 
-		        // If the object is compared with itself then return true  
-		        if (o == this) {
-		            return true;
-		        }
-		 
-		        /* Check if o is an instance of Complex or not
-		          "null instanceof [type]" also returns false */
-		        if (!(o instanceof Event)) {
-		            return false;
-		        }
-		         
-		        // typecast o to Complex so that we can compare data members 
-		        Event c = (Event) o;
-		         
-		        // Compare the data members and return accordingly
-		        if (c.start == this.start && c.end == this.end
-		        		&& ((c.overshoot == null )? c.overshoot == this.overshoot : c.overshoot.equalLength(this.overshoot)))
-		        	return true;
-		        else
-		        	return false;
-		    }
-
-		@Override
-		public int compareTo(Event event) {
-	        return (this.length() < event.length() ) ? -1: (this.length() > event.length() ) ? 1:0;
-		}
 	}
 	
 	double trainingTrading(PreProcess preprocess){
@@ -1204,7 +1153,7 @@ public class DCCurve {
 		return Double.MIN_VALUE; 
 	}
 
-	 public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, Event[] output, PreProcess preprocess){
+	 public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, PreProcess preprocess){
 		 try
 	        { 
 	            throw new NullPointerException("Invalid Call"); 
@@ -1297,13 +1246,13 @@ public class DCCurve {
 						outputTestInstance.add(e, testInstance.get(eventIndex));
 					}catch(IndexOutOfBoundsException inErr){
 						System.out.println("An error occured" + e );
-						System.out.println("An error occured" + e );
 					}
 					
 				}
 			}
-			else{
-				System.out.println("An error occured while copying instance");
+			else
+			{
+				System.out.print("An error occured while copying instance");
 				System.exit(0);
 			}
 
@@ -1372,18 +1321,16 @@ public class DCCurve {
 			BigDecimal bd2 = null;
 			if (output[i].type == Type.Upturn){
 				if (Const.OsFunctionEnum == Const.function_code.eGP ){
+					foo = gpRatio[1];
+					foo = foo.replace("X0", Integer.toString(output[i].length()));
 					
-					eval = bestUpWardEventTree.eval(output[i].length());
-					//foo = gpRatio[1];
-					//foo = foo.replace("X0", Integer.toString(output[i].length()));
-					/*
 					try {
 						javascriptValue = (Double) engine.eval(foo);
 						eval = javascriptValue.doubleValue();
 						
 						if ( Double.isInfinite(eval) || Double.isNaN(eval))
 						{
-							;//System.out.println("I am here 1");
+							System.out.println("I am here");
 						}
 					} catch (ScriptException e) {
 						eval = output[i].length();
@@ -1393,7 +1340,7 @@ public class DCCurve {
 						;
 					}catch (Exception e) {
 						System.out.println(e.toString());
-					}*/
+					}
 					if  ( eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY ||
 							eval == Double.POSITIVE_INFINITY || eval ==  Double.NaN ||
 							Double.compare(eval, 0.0)  < 0  || Double.isInfinite(eval)  || Double.isNaN(eval)){
@@ -1422,8 +1369,7 @@ public class DCCurve {
 			}
 			else if (output[i].type == Type.Downturn){
 				if (Const.OsFunctionEnum == Const.function_code.eGP ){
-					eval = bestDownWardEventTree.eval(output[i].length());
-					/*foo = gpRatio[0];
+					foo = gpRatio[0];
 					foo = foo.replace("X0", Integer.toString(output[i].length()));
 					eval = 0.0;
 					javascriptValue = Double.MAX_VALUE;
@@ -1439,7 +1385,7 @@ public class DCCurve {
 						eval = output[i].length();
 						if ( Double.isInfinite(eval) || Double.isNaN(eval))
 						{
-							;//System.out.println("I am here 2");
+							System.out.println("I am here");
 						}
 					} catch (ClassCastException e) {
 						eval = output[i].length();
@@ -1454,7 +1400,6 @@ public class DCCurve {
 						Integer integerObject = new Integer(output[i].length());
 						eval = integerObject.doubleValue() * (double) GA_new.NEGATIVE_EXPRESSION_REPLACEMENT;
 					}
-					*/
 				}
 				else if (Const.OsFunctionEnum == Const.function_code.eMichaelFernando ||
 						 Const.OsFunctionEnum == Const.function_code.eOlsen ){
@@ -1551,112 +1496,5 @@ public class DCCurve {
 		System.out.println("estimateRMSEs : This must never be called");
 		System.exit(-1);
 	}
-	
-	protected void estimateTestRMSEAndClassification() {
-		System.out.println("estimateRMSEs : This must never be called");
-		System.exit(-1);
-	}
-	
-	
-	public  class ThresholdStats{
-		double upwardFitness = 0.0;
-		double downwardFitness = 0.0;
-		double    score  = 0.0;
-		double threshold =0.0;
-		double difference = 0.0;
-		double sum =  0.0;
-		double numberOfEvents = 0.0;
-		double numberOfOSEvents = 0.0;
-		double numberOfDataPts = 0.0;
-		double budget = 0.0;
-		double totalReturn = 0.0;
-		double[] gpMeanRatio = new double[2];
-		//DCCurve dcCurve ;
-		 
-		 Vector<Event> upwardEventVector = new Vector<Event>();
-		 Vector<Event> downwardEventVector = new Vector<Event>();
-		 Vector<Double> predictedUpwardLengthVector = new Vector<Double>(); 
-		 Vector<Double> predictedDownwardLengthVector = new Vector<Double>(); 
-		 Vector<Double> actualUpwardLengthVector = new Vector<Double>(); 
-		 Vector<Double> actualDownwardLengthVector = new Vector<Double>();
-		 
-		//public setupwardRatio
-		
-	//	void setOuterClass(DCCurve dcCurve){
-	//		this.dcCurve = dcCurve;
-	//	}
-		
-		void computeUpwardRMSE(String upwardTreeString){
-			for (int outputIndex = 0; outputIndex < events.length; outputIndex++) {
-				if (events[outputIndex].type  == Type.Upturn){
-					upwardEventVector.add(new  Event(events[outputIndex]));
-					if (events[outputIndex].overshoot ==  null)
-						actualUpwardLengthVector.add(0.0);
-					else
-						actualUpwardLengthVector.add(Double.valueOf(events[outputIndex].overshoot.length()));
-				}
-				
-			}
-			String foo = gpRatio[1];
-			
-			Double eval = Double.MAX_VALUE;
-			for (int outputIndex = 0; outputIndex < upwardEventVector.size(); outputIndex++) {
-				if (events[outputIndex].type  == Type.Upturn){
-					foo = foo.replace("X0", Integer.toString(events[outputIndex].length()));
-					try {
-						eval = (Double) engine.eval(foo);	
-						if  ( eval == Double.MAX_VALUE || eval == Double.NEGATIVE_INFINITY ||
-								eval == Double.POSITIVE_INFINITY || eval ==  Double.NaN ||
-								Double.compare(eval, 0.0)  < 0  || Double.isInfinite(eval)  || Double.isNaN(eval)){
-							eval = 0.0;
-						}
-						
-						predictedUpwardLengthVector.add(eval);
-						
-					} catch (ScriptException e) {
-						predictedUpwardLengthVector.add(0.0);
-					} catch (ClassCastException e) {
-						predictedUpwardLengthVector.add(0.0);
-					}
-				
-				}
-				else{
-					
-					predictedUpwardLengthVector.add(events[outputIndex].length() * meanRatio[1]);
-				}
-			}
-			
-		}
-		
-		void computeDownwardRMSE(String upwardTreeString){
-			for (int outputIndex = 0; outputIndex < events.length; outputIndex++) {
-				if (events[outputIndex].type  == Type.Downturn){
-					;//actualOSDownwardLengthVector.add(new  Event(events[outputIndex]));
-				}
-				
-			}
-			
-		}
-		
-		double getUpwardDownwardRMSEdiference (){
-			
-			
-			return 0.0; //(Maths.square(upwardRMSE-downwardRMSE));
-		}
-		
-		double getUpwardDownwardRMSESum(){
-			return  0.0; //(Maths.square(upwardRMSE+downwardRMSE));
-		}
-		
-		double getScore(){
-			return ((totalReturn - budget)/budget) + Math.abs(upwardFitness-downwardFitness) + ( (numberOfEvents/numberOfDataPts)/ (numberOfOSEvents/numberOfEvents) ) ;
-		}
-		
-		double getOvershootRatio(){
-			return numberOfEvents/numberOfDataPts;
-		}
-		
-	}
-	
 
 }

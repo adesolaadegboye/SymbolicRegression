@@ -6,14 +6,15 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 
 import dc.ga.PreProcess;
+import dc.ga.PreProcessManual;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
 import dc.io.FReader;
 import dc.io.FReader.FileMember2;
 
-public class DCCurveClassificationMF extends DCCurveRegression {
+public class DCCurveClassificationManualMF extends DCCurveRegression {
 
-	public DCCurveClassificationMF() {
+	public DCCurveClassificationManualMF() {
 		super();
 		meanRatio = new double[2];
 		meanRatio[0] = 0.0;
@@ -33,7 +34,7 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 	 * @param GPTreeFileName
 	 *            the name of the file where GP tree is stored
 	 */
-	public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, PreProcess preprocess) {
+	public void buildManual(Double[] values, double delta, String GPTreeFileName, Event[] events, PreProcessManual preprocess) {
 		
 		
 		String thresholdStr = String.format("%.8f", delta);
@@ -132,8 +133,8 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 
 	}
 
-	public void testbuild(int lastTrainingPricePosition, Double[] values, double delta, Event[] testEvents,
-			PreProcess preprocess) {
+	public void testbuildManual(int lastTrainingPricePosition, Double[] values, double delta, Event[] testEvents,
+			PreProcessManual preprocess) {
 		lastTrainingPrice = lastTrainingPricePosition;
 		if (testEvents == null || testEvents.length < 1)
 			return;
@@ -226,7 +227,7 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 	}
 /*
 	@Override
-	double trade(PreProcess preprocess) {
+	double trade(PreProcessManual preprocess) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
 		double transactionCost = 0.025 / 100;
@@ -465,7 +466,7 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 	}
 
 	@Override
-	double trainingTrading(PreProcess preprocess) {
+	double trainingTrading(PreProcessManual preprocess) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
 		double DD = 0;// DrawDown
@@ -581,7 +582,7 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 	}
 
 	@Override
-	void estimateTraining(PreProcess preprocess) {
+	void estimateTraining(PreProcessManual preprocess) {
 		;
 	}
 
@@ -627,6 +628,33 @@ public class DCCurveClassificationMF extends DCCurveRegression {
 	public <E> void assignPerfectForesightRegressionModel(E[] inputArray) {
 		meanRatio[0] =  ((Double) inputArray[0]).doubleValue();
 		meanRatio[1] =  ((Double)  inputArray[1]).doubleValue();
+		
+	}
+
+
+
+/*
+	@Override
+	double trade(PreProcess preprocess) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+*/
+
+
+	@Override
+	double trainingTrading(PreProcess preprocess) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+
+
+
+	@Override
+	void estimateTraining(PreProcess preprocess) {
+		// TODO Auto-generated method stub
 		
 	}
 }

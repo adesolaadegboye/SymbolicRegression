@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Random;
 
-import dc.ga.HelperClass;
 import dc.ga.PreProcess;
 import dc.ga.DCCurve.Event;
 import dc.ga.DCCurve.Type;
@@ -22,16 +21,7 @@ public class DCCurveRandomMF extends DCCurveRegression {
 		meanRatio[1] = 0.0;
 	}
 
-	/**
-	 * 0 = downward overshoot 1 = upward overshoot
-	 */
-	double[] meanRatio = new double[2];
-
-	/**
-	 * 0 = downward overshoot 1 = upward overshoot
-	 */
-	double[] medianRatio = new double[2];
-
+	
 	/**
 	 * 
 	 * @param values
@@ -41,8 +31,7 @@ public class DCCurveRandomMF extends DCCurveRegression {
 	 * @param GPTreeFileName
 	 *            the name of the file where GP tree is stored
 	 */
-	public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, 
-			Event[] trainingOutput,PreProcess preprocess) {
+	public void build(Double[] values, double delta, String GPTreeFileName, Event[] events, PreProcess preprocess) {
 		
 		String thresholdStr = String.format("%.8f", delta);
 		thresholdString = thresholdStr;
@@ -51,7 +40,6 @@ public class DCCurveRandomMF extends DCCurveRegression {
 			return;
 
 		trainingEvents = Arrays.copyOf(events, events.length);
-		this.trainingOutputEvents =  Arrays.copyOf(trainingOutput, trainingOutput.length);
 
 		if (meanRatio[0] > 0.0 && meanRatio[1] > 0.0)
 			return;
@@ -95,7 +83,7 @@ public class DCCurveRandomMF extends DCCurveRegression {
 					}
 
 					upturn++;
-					meanRatio[1] += ratio;
+					meanRatio[1] = ratio;
 					upwardRatio.add(ratio);
 
 					meanUpturn += events[i].length();
@@ -119,7 +107,7 @@ public class DCCurveRandomMF extends DCCurveRegression {
 					}
 
 					downturn++;
-					meanRatio[0] += ratio;
+					meanRatio[0] = ratio;
 					downwardRatio.add(ratio);
 
 					meanDownturn += events[i].length();
@@ -160,15 +148,16 @@ public class DCCurveRandomMF extends DCCurveRegression {
 				;// System.out.println("no");
 			} else {
 				if (testEvents[outputIndex].type == Type.Upturn) {
-					eval =  testEvents[outputIndex].length() * meanRatio[1];
+					eval = meanRatio[1];
 				} else
-					eval =  testEvents[outputIndex].length() *meanRatio[0];
+					eval = meanRatio[0];
 			}
 			predictionWithClassifier[outputIndex] = eval;
 		}
 
 	}
 
+	// RMSE cannot be calculated because it is random
 	private String calculateRMSE_MF(Event[] trendEvent, double delta, double[] runPrediction) {
 
 		double rmse = 0.0;
@@ -196,7 +185,7 @@ public class DCCurveRandomMF extends DCCurveRegression {
 			if (rmse == Double.MAX_VALUE || rmse == Double.NEGATIVE_INFINITY || rmse == Double.NEGATIVE_INFINITY
 					|| rmse == Double.NaN || Double.isNaN(rmse) || Double.isInfinite(rmse)
 					|| rmse == Double.POSITIVE_INFINITY) {
-				System.out.println("Invalid RMSE: " + rmse + ". discarding ");
+				System.out.println("DCCurveRandomMF - Invalid RMSE: " + rmse + ". discarding ");
 				predictionRmse = 10.00;
 				return Double.toString(predictionRmse);
 			}
@@ -232,14 +221,12 @@ public class DCCurveRandomMF extends DCCurveRegression {
 	}
 /*
 	@Override
-	public double trade(PreProcess preprocess) {
+	double trade(PreProcess preprocess) {
 		boolean isPositionOpen = false;
 		double myPrice = 0.0;
 		double transactionCost = 0.025 / 100;
 		simpleDrawDown.Calculate(OpeningPosition);
 		simpleSharpeRatio.addReturn(0);
-		lastSellPrice = 0.0;
-		lastBuyPrice = 0.0;
 		double lastUpDCCend = 0.0;
 		for (int i = 1; i < testingEvents.length - 1; i++) {
 			int tradePoint = 0;
@@ -247,7 +234,7 @@ public class DCCurveRandomMF extends DCCurveRegression {
 				String classificationStr = "no";
 				Random randomno = new Random();
 				double decisionNum =  randomno.nextDouble();
-				if (decisionNum >= 0.5)
+				if (decisionNum < osToDcEventRatio)
 					classificationStr = "yes";
 				
 				// Use decision from Random()
@@ -284,9 +271,7 @@ public class DCCurveRandomMF extends DCCurveRegression {
 			if (testingEvents[i + 1] == null)
 				continue;
 
-			int nextEventEndPOint = HelperClass.getNextDirectionaChangeEndPoint(testingEvents,  tradePoint);
-
-			if (tradePoint > nextEventEndPOint) // If a new DC is
+			if (tradePoint > testingEvents[i + 1].end) // If a new DC is
 															// encountered
 															// before the
 															// estimation point
@@ -304,7 +289,7 @@ public class DCCurveRandomMF extends DCCurveRegression {
 				System.out.println(" DCCurveClassificationMF: predicted datapoint "
 						+ ((lastTrainingPrice - 1) + tradePoint) + " is beyond the size of price array  "
 						+ FReader.dataRecordInFileArray.size() + " . Trading ended");
-				break;
+				continue;
 			} else {
 				// I am opening my position in base currency
 				try {
@@ -325,15 +310,10 @@ public class DCCurveRandomMF extends DCCurveRegression {
 						transactionCostPrice = transactionCost * myPrice;
 						askQuantity = (askQuantity - transactionCost) * myPrice;
 						zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity * myPrice;
-						// transactionCost = trainingOpeningPosition *
-						// (0.025/100);
-						// trainingOpeningPosition = (trainingOpeningPosition
-						// -transactionCost) *myPrice;
 
-						if (transactionCostPrice < (zeroTransactionCostAskQuantity - askQuantity)){
-//						
-							
-							lastSellPrice = myPrice;
+						if (Double.compare(transactionCostPrice, (zeroTransactionCostAskQuantity - askQuantity)) < 0){
+								
+									
 							OpeningPosition = askQuantity;
 							isPositionOpen = true;
 							positionArrayQuote.add(new Double(OpeningPosition));
@@ -342,7 +322,6 @@ public class DCCurveRandomMF extends DCCurveRegression {
 							anticipatedTrendMap.put(testingEvents[i].start, tradePoint);
 							anticipatedTrend.add(anticipatedTrendMap);
 							lastUpDCCend = Double.parseDouble(FReader.dataRecordInFileArray.get((lastTrainingPrice - 1) + testingEvents[i].end).bidPrice);
-							
 							if (testingEvents[i].overshoot == null || testingEvents[i].overshoot.length() < 1)
 								actualTrendMap.put(testingEvents[i].start, testingEvents[i].end);
 							else
@@ -365,11 +344,10 @@ public class DCCurveRandomMF extends DCCurveRegression {
 						zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
 						
 						
-						if (transactionCostPrice < (zeroTransactionCostBidQuantity - bidQuantity)
-								&&  myPrice < lastUpDCCend){	
-
+						if (Double.compare(transactionCostPrice, (zeroTransactionCostBidQuantity - bidQuantity)) < 0 ){
+								//&& myPrice < lastUpDCCend){
+										
 									
-							lastBuyPrice = myPrice;
 							OpeningPosition = (OpeningPosition - transactionCost) / myPrice;
 							
 							isPositionOpen = false;
@@ -388,23 +366,11 @@ public class DCCurveRandomMF extends DCCurveRegression {
 						}
 					}
 				} catch (ArrayIndexOutOfBoundsException exception) {
-					System.out.println(" DCCurveRandomMF: Search for element "
+					System.out.println(" DCCurveClassificationMF: Search for element "
 							+ ((lastTrainingPrice - 1) + tradePoint) + " is beyond the size of price array  "
 							+ FReader.dataRecordInFileArray.size() + " . Trading ended");
 					break;
 
-				}
-				catch (IndexOutOfBoundsException exception ){
-					System.out.println(" DCCurveRandomMF: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
-							+ " is beyond the size of price array  " + 
-							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
-					break;
-				}
-				catch (Exception exception ){
-					System.out.println(" DCCurveRandomMF: Search for element " + ((lastTrainingPrice - 1) + tradePoint)
-							+ " is beyond the size of price array  " + 
-							FReader.dataRecordInFileArray.size() + " . Trading ended") ;
-					break;
 				}
 
 			}
@@ -425,44 +391,189 @@ public class DCCurveRandomMF extends DCCurveRegression {
 		return OpeningPosition;
 	}
 */
-	
+	double getMddPeak() {
+		return simpleDrawDown.getPeak();
+	}
+
+	double getMddTrough() {
+		return simpleDrawDown.getTrough();
+	}
+
+	double getMaxMddBase() {
+		return simpleDrawDown.getMaxDrawDown();
+	}
+
+	double getMddPeakQuote() {
+		return simpleDrawDownQuote.getPeak();
+	}
+
+	double getMddTroughQuote() {
+		return simpleDrawDownQuote.getTrough();
+	}
+
+	double getMaxMddQuote() {
+		return simpleDrawDownQuote.getMaxDrawDown();
+	}
+
+	int getNumberOfQuoteCcyTransactions() {
+
+		return positionArrayQuote.size() - 1;
+	}
+
+	int getNumberOfBaseCcyTransactions() {
+
+		return positionArrayBase.size() - 1;
+	}
+
+	double getBaseCCyProfit() {
+		double profit = 0.00;
+		ArrayList<Double> profitList = new ArrayList<Double>();
+		if (positionArrayBase.size() == 1)
+			return 0.00;
+		for (int profitLossCount = 1; profitLossCount < positionArrayBase.size(); profitLossCount++) {
+			double profitCalculation = positionArrayBase.get(profitLossCount)
+					- positionArrayBase.get(profitLossCount - 1) / positionArrayBase.get(profitLossCount - 1);
+			profitList.add(profitCalculation);
+		}
+		profit = profitList.stream().mapToDouble(i -> i.doubleValue()).sum();
+		return profit;
+	}
+
+	double getQuoteCCyProfit() {
+		double profit = 0.00;
+		ArrayList<Double> profitList = new ArrayList<Double>();
+		if (positionArrayQuote.size() == 1)
+			return 0.00;
+		// Start from 3rd element because first element is zero
+		for (int profitLossCount = 1; profitLossCount < positionArrayQuote.size(); profitLossCount++) {
+			double profitCalculation = positionArrayQuote.get(profitLossCount)
+					- positionArrayQuote.get(profitLossCount - 1) / positionArrayQuote.get(profitLossCount - 1);
+			profitList.add(profitCalculation);
+		}
+		profit = profitList.stream().mapToDouble(i -> i.doubleValue()).sum();
+		return profit;
+	}
+
 	@Override
 	public String getDCCurveName() {
 
 		return "DCCurveRandomMF";
 	}
 
-	public void estimateTrainingUsingOutputData(PreProcess preprocess) {
-		trainingUsingOutputData = new double[trainingOutputEvents.length];
+	@Override
+	double trainingTrading(PreProcess preprocess) {
+		boolean isPositionOpen = false;
+		double myPrice = 0.0;
 		
+		double lastClosedPosition = 0.0;
+		double transactionCost = 0.025 / 100;
 		
-		for (int outputIndex = 0; outputIndex < trainingOutputEvents.length; outputIndex++) {
+		for (int i = 1; i < trainingEvents.length; i++) {
+
+			int tradePoint = 0;
 			
-			double eval=0.0;
 			String classificationStr = "no";
 			Random randomno = new Random();
 			double decisionNum =  randomno.nextDouble();
 			if (decisionNum >= 0.5)
 				classificationStr = "yes";
+			
+			
 
-
+			// Use decision from Random()
 			if ((classificationStr.compareToIgnoreCase("no") == 0)) {
-				;// System.out.println("no");
-			 
-			}else {
-				
-				if (trainingOutputEvents[outputIndex].type == Type.Upturn) {
-					eval = trainingOutputEvents[outputIndex].length() * meanRatio[1];
-				} else
-					eval = trainingOutputEvents[outputIndex].length() * meanRatio[0];
+				tradePoint = (int) (trainingEvents[i].end );// System.out.println("no");
+			} else {
+				if (trainingEvents[i].type == Type.Upturn)
+					tradePoint = (int) (trainingEvents[i].end + (trainingEvents[i].length() * meanRatio[1]));
+				else if (trainingEvents[i].type == Type.Downturn)
+					tradePoint = (int) (trainingEvents[i].end + (trainingEvents[i].length() * meanRatio[0]));
+			}
+			if (trainingEvents[i] == null)
+				continue;
+
+			if (i + 1 > trainingEvents.length - 1)
+				continue;
+
+			if (trainingEvents[i + 1] == null)
+				continue;
+
+			if (tradePoint > trainingEvents[i + 1].start) // If a new DC is
+															// encountered
+															// before the
+															// estimation point
+															// skip trading
+				continue;
+
+			FReader freader = new FReader();
+			FileMember2 fileMember2 = freader.new FileMember2();
+
+			if (tradePoint >= FReader.dataRecordInFileArray.size()) {
+				continue;
 			}
 
-			trainingUsingOutputData[outputIndex] = eval;
+			// I am opening my position in base currency
+			try {
+			fileMember2 = FReader.dataRecordInFileArray.get(tradePoint);
+			}
+			catch (ArrayIndexOutOfBoundsException e){
+				System.out.println(e.getMessage());
+				continue;
+			}
+			
+
+			if (trainingEvents[i].type == Type.Upturn && !isPositionOpen) {
+				// Now position is in quote currency
+				
+				// I sell base currency in bid price
+				double askQuantity = trainingOpeningPosition;
+				double zeroTransactionCostAskQuantity = trainingOpeningPosition;
+				double transactionCostPrice = 0.0;
+				myPrice = Double.parseDouble(fileMember2.askPrice);
+
+				transactionCost = askQuantity * (0.025 / 100);
+				transactionCostPrice = transactionCost * myPrice;
+				askQuantity = (askQuantity - transactionCost) * myPrice;
+				zeroTransactionCostAskQuantity = zeroTransactionCostAskQuantity * myPrice;
+				
+				
+				if (Double.compare(transactionCostPrice, (zeroTransactionCostAskQuantity - askQuantity)) < 0){
+
+					trainingOpeningPosition = askQuantity;
+					isPositionOpen = true;
+				}
+			} else if (trainingEvents[i].type == Type.Downturn && isPositionOpen) {
+				// Now position is in base currency
+				// I buy base currency
+				double bidQuantity = trainingOpeningPosition;
+				double zeroTransactionCostBidQuantity = trainingOpeningPosition;
+				double transactionCostPrice = 0.0;
+				myPrice = Double.parseDouble(fileMember2.bidPrice);
+
+				transactionCost = bidQuantity * (0.025 / 100);
+				transactionCostPrice = transactionCost * myPrice;
+				bidQuantity = (bidQuantity - transactionCost) * myPrice;
+				zeroTransactionCostBidQuantity = zeroTransactionCostBidQuantity * myPrice;
+				
+				
+				if (Double.compare(transactionCostPrice, (zeroTransactionCostBidQuantity - bidQuantity)) < 0){
+	
+					trainingOpeningPosition =  (trainingOpeningPosition -transactionCost) /myPrice;
+					lastClosedPosition = trainingOpeningPosition;
+					isPositionOpen = false;
+				}
+			}
+
 		}
 
+		if (isPositionOpen) {
+			trainingOpeningPosition = lastClosedPosition;
+		}
+
+		return trainingOpeningPosition;
+
 	}
-	
-	
+
 	@Override
 	void estimateTraining(PreProcess preprocess) {
 		;

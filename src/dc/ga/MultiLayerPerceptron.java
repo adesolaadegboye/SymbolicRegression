@@ -39,6 +39,7 @@ import weka.classifiers.bayes.BayesNet;
 import weka.classifiers.bayes.NaiveBayes;
 import weka.classifiers.evaluation.Evaluation;
 import weka.classifiers.functions.Logistic;
+import weka.classifiers.functions.MultilayerPerceptron;
 import weka.classifiers.functions.SMO;
 import weka.classifiers.lazy.IBk;
 import weka.classifiers.lazy.KStar;
@@ -47,6 +48,7 @@ import weka.classifiers.rules.JRip;
 import weka.classifiers.rules.PART;
 import weka.classifiers.trees.DecisionStump;
 import weka.classifiers.trees.J48;
+import weka.classifiers.trees.RandomForest;
 import weka.core.Attribute;
 import weka.core.DenseInstance;
 import weka.core.FastVector;
@@ -54,7 +56,7 @@ import weka.core.Instance;
 import weka.core.Instances;
 import weka.classifiers.meta.AutoWEKAClassifier;
 import weka.core.converters.ConverterUtils.DataSource;
-public class PreProcess {
+public class MultiLayerPerceptron {
 
 	Classifier[] classifierArray;
 	String[] bestAutoWekaExperimentPaths;
@@ -94,20 +96,21 @@ public class PreProcess {
 	double bestAccuracy = 0.0;
 	int processTestDataCount = 0;
 
-	public PreProcess(double delta, String filename, String regressionAlgoName) {
+	public MultiLayerPerceptron(double delta, String filename, String regressionAlgoName) {
 
 		// this.trainingData = Arrays.copyOf(trainingDate, trainingDate.length);
 		// this.testingData = Arrays.copyOf(testingData, testingData.length);
 		processTestDataCount = 0;
-		Classifier[] classifiers = { new J48(), // a decision tree
+		/*Classifier[] classifiers = { new J48(), // a decision tree
 				new PART(), new DecisionTable(), // decision table majority
 													// classifier
 				new DecisionStump(), // one-level decision tree
 				new JRip(), new Logistic(), new KStar(), new IBk(), new NaiveBayes(), new BayesNet(), new SMO()
 
 				// csc
-		};
+		};*/
 
+		Classifier[] classifiers = {new J48(), new NaiveBayes() , new RandomForest(), new MultilayerPerceptron(), new PART()};
 		classifierArray = Arrays.copyOf(classifiers, classifiers.length);
 		thresholdDbl = delta;
 		this.thresholdString = String.format("%.8f", delta);
@@ -664,7 +667,7 @@ public class PreProcess {
 			autoWEKAClassifierTemp.setMemLimit(1024);
 			// autoWEKAClassifierTemp.setMemLimit(5);
 			autoWEKAClassifierTemp.setTimeLimit(1);
-			//autoWEKAClassifierTemp.setSeed(123);
+			autoWEKAClassifierTemp.setSeed(123);
 			 // Default K-fold =  10 . Sample size is smaller we set to sample size
 			  if (trainingInstancesAutoTemp.size() < 3) {
 				  autoWEKAClassifierTemp.setResamplingArgs(trainingInstancesAutoTemp.size()-3);
@@ -1653,7 +1656,7 @@ public class PreProcess {
 
 		String classificationresult = filename + "\t" +  thresholdString + "\t" +  totalMissedOvershoot + "\t" + overshootLength + "\t" + totalAssumedOvershoot
 				+ "\t" + possibleovershootLength + "\t" + foundOvershootLength + "\t" + totalFoundOvershoot + "\t"
-				+ testInstances.numInstances() + "\t" + (eval.pctCorrect()/100) + "\t" + precision + "\t"
+				+ testInstances.numInstances() + "\t" + eval.pctCorrect() + "\t" + precision + "\t"
 				+ recall  + "\t" + fmeasure;
 
 		return classificationresult;
@@ -1765,7 +1768,7 @@ public class PreProcess {
 				absolutePath.length() - 4);
 
 		int autoWekaCount = 0;
-		while (autoWekaCount < 10) {
+		while (autoWekaCount < 3) {
 			SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
 			Date date = new Date();
 			System.out.println("starting run " + autoWekaCount + " autoweka for thresholdString" + thresholdString

@@ -28,6 +28,7 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.Map.Entry;
 
+import dc.GP.Const;
 import dc.ga.DCCurve.Event;
 import dc.io.FReader;
 import dc.io.FReader.FileMember2;
@@ -39,6 +40,7 @@ import weka.classifiers.bayes.BayesNet;
 import weka.classifiers.bayes.NaiveBayes;
 import weka.classifiers.evaluation.Evaluation;
 import weka.classifiers.functions.Logistic;
+import weka.classifiers.functions.MultilayerPerceptron;
 import weka.classifiers.functions.SMO;
 import weka.classifiers.lazy.IBk;
 import weka.classifiers.lazy.KStar;
@@ -47,6 +49,7 @@ import weka.classifiers.rules.JRip;
 import weka.classifiers.rules.PART;
 import weka.classifiers.trees.DecisionStump;
 import weka.classifiers.trees.J48;
+import weka.classifiers.trees.RandomForest;
 import weka.core.Attribute;
 import weka.core.DenseInstance;
 import weka.core.FastVector;
@@ -54,10 +57,9 @@ import weka.core.Instance;
 import weka.core.Instances;
 import weka.classifiers.meta.AutoWEKAClassifier;
 import weka.core.converters.ConverterUtils.DataSource;
-public class PreProcess {
+public class PreProcessManual {
 
 	Classifier[] classifierArray;
-	String[] bestAutoWekaExperimentPaths;
 	double thresholdDbl;
 	String thresholdString = "";
 	public Event lastTrainingEvent = null;
@@ -69,14 +71,11 @@ public class PreProcess {
 
 	static public ArrayList<String[]> eventFeatures = new ArrayList<String[]>();
 
-	Instances trainingInstancesAuto = null;
+	
 	Instances trainingInstancesManual = null;
 	Instances testInstances = null;
 	Instances data = null;
-	public myAutoWeka autoWEKAClassifier = null;
-	ArrayList<myAutoWeka> autoWEKAClassifierList = null;
-	String autoWEKAClassifierListEvalString = "";
-	double AutoWekafmeasure = 0.0;
+	
 
 	int trainingCount = -1;
 	Classifier currentModel = null;
@@ -94,20 +93,18 @@ public class PreProcess {
 	double bestAccuracy = 0.0;
 	int processTestDataCount = 0;
 
-	public PreProcess(double delta, String filename, String regressionAlgoName) {
+	public PreProcessManual(double delta, String filename, String regressionAlgoName, String FullclassifierName ) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
 
+	//	super(delta, filename, regressionAlgoName);
 		// this.trainingData = Arrays.copyOf(trainingDate, trainingDate.length);
 		// this.testingData = Arrays.copyOf(testingData, testingData.length);
 		processTestDataCount = 0;
-		Classifier[] classifiers = { new J48(), // a decision tree
-				new PART(), new DecisionTable(), // decision table majority
-													// classifier
-				new DecisionStump(), // one-level decision tree
-				new JRip(), new Logistic(), new KStar(), new IBk(), new NaiveBayes(), new BayesNet(), new SMO()
+		
+		
+		Class<?> clazz = Class.forName(FullclassifierName);
+		Object date = clazz.newInstance();
 
-				// csc
-		};
-
+		Classifier[] classifiers = {(Classifier) date};
 		classifierArray = Arrays.copyOf(classifiers, classifiers.length);
 		thresholdDbl = delta;
 		this.thresholdString = String.format("%.8f", delta);
@@ -118,8 +115,8 @@ public class PreProcess {
 
 	public void buildTraining(Event[] events) {
 
-		extractTrainingDCfeatures(events);
-		printTrainingFeatures(filename, thresholdString, events);
+		//extractTrainingDCfeatures(events);
+		//printTrainingFeatures(filename, thresholdString, events);
 
 		//now in user After reviewers comment. 
 		  for (int classifierCount = 0; classifierCount < classifierArray.length; classifierCount++) {
@@ -292,8 +289,6 @@ public class PreProcess {
 		trainingInstancesManual = new Instances(trainingInstances, 0, trainingInstances.size());
 		trainingInstancesManual.setClassIndex(trainingInstancesManual.numAttributes() - 1);
 
-		trainingInstancesAuto = new Instances(trainingInstances, 0, trainingInstances.size());
-		trainingInstancesAuto.setClassIndex(trainingInstancesAuto.numAttributes() - 1);
 		System.out.println("Instance " + trainingInstances.numInstances() + " event count " + events.length);
 
 	}
@@ -504,191 +499,7 @@ public class PreProcess {
 
 	}
 
-	void getBestAutoClassifier() {
-		// Using same record unchanged
-		Instances trainingInstancesAutoTemp = new Instances(trainingInstancesAuto, 0, trainingInstancesAuto.size());
-		trainingInstancesAutoTemp.setClassIndex(trainingInstancesAutoTemp.numAttributes() - 1);
-		
 
-		for (int i = 0; i < autoWEKAClassifierList.size(); i++) {
-
-			String detailResult = autoWEKAClassifierList.get(i).detailString();
-			String lines[] = detailResult.split("\\r?\\n");
-			String precision = "";
-			String recall = "";
-			double fmeasure = 0.0;
-			for (int detailClassResultCount = 0 ; detailClassResultCount< lines.length; detailClassResultCount++){
-				if (detailClassResultCount == 0 || detailClassResultCount ==1 
-						|| detailClassResultCount==2 || detailClassResultCount==4 ||
-						detailClassResultCount==5)
-					continue;
-				
-				if (detailClassResultCount==3){
-					String after = lines[detailClassResultCount].trim().replaceAll(" +", ",");
-					String DCWithOSClassification[] = after.split(",");
-					precision = DCWithOSClassification[2];
-					recall = DCWithOSClassification[3];
-					fmeasure = 2*((Double.parseDouble(precision) * Double.parseDouble(recall))
-							/ (Double.parseDouble(precision) + Double.parseDouble(recall) ));
-				}
-			}
-			if (autoWEKAClassifierList.isEmpty())
-				return;
-			if (autoWEKAClassifier == null) {
-				if (autoWEKAClassifier == null)
-					autoWEKAClassifier = new myAutoWeka();
-
-			}
-			if (bestRecall.isEmpty()) {
-				try {
-					autoWEKAClassifier = (myAutoWeka) AbstractClassifier.makeCopy(autoWEKAClassifierList.get(i));
-					bestRecall = recall;
-					bestPrecision = precision;
-					bestFMeasure = fmeasure; 
-					Evaluation eval = null;
-					try {
-						eval = new Evaluation(trainingInstancesAuto);
-						eval.evaluateModel(autoWEKAClassifier, trainingInstancesAuto);
-						
-						
-				
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-					
-					bestAccuracy =  eval.pctCorrect();
-				} catch (Exception e) {
-					
-					e.printStackTrace();
-				}
-			} 
-			//else if (Double.parseDouble(precision) > Double.parseDouble(bestPrecision)){
-			else if (fmeasure > bestFMeasure){
-				try {
-					autoWEKAClassifier = (myAutoWeka) AbstractClassifier.makeCopy(autoWEKAClassifierList.get(i));
-					bestRecall = recall;
-					bestPrecision = precision;
-					bestFMeasure = fmeasure; 
-					Evaluation eval = null;
-					try {
-						eval = new Evaluation(trainingInstancesAuto);
-						eval.evaluateModel(autoWEKAClassifier, trainingInstancesAuto);
-						
-						
-				
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-					
-					bestAccuracy =  eval.pctCorrect();
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-		}
-		autoWEKAClassifierList.clear();
-		autoWEKAClassifierList.add(autoWEKAClassifier);
-		bestAutoWekaExperimentPaths = Arrays.copyOf(autoWEKAClassifier.getmsExperimentPathsArray(),
-				autoWEKAClassifier.getmsExperimentPathsArray().length);
-		
-	}
-	
-	void getAutoWekaClassifierDetailResult(){
-		
-		String detailResult = autoWEKAClassifier.detailString();
-
-		//BufferedReader bufReader = new BufferedReader(new StringReader(detailResult));
-		String lines[] = detailResult.split("\\r?\\n");
-		
-		String DCWithOSClassificationDetail = "TrendWithOS";
-		String DCWithoutOSClassificationDetail= "TrendWithoutOS";
-		String AverageDCClassificationDetail = "WeightedAverage";
-		
-		 
-		for (int i = 0 ; i< lines.length; i++){
-			if (i == 0 || i ==1)
-				continue;
-			if (i==2){
-				String after = lines[i].trim().replaceAll(" +", ",");
-				//String commas = ",";
-				//after = after.substring(commas.length());
-				//autoWEKAClassifierListEvalString = autoWEKAClassifierListEvalString+ "," + filename+ "," + this.thresholdString + "," + after+ "," + "\n";
-			}
-			if (i==3){
-				String after = lines[i].trim().replaceAll(" +", "\t");
-				
-				autoWEKAClassifierListEvalString = autoWEKAClassifierListEvalString + filename+ "\t" + this.thresholdString + "\t"+ DCWithOSClassificationDetail+ "\t" +  autoWEKAClassifier.accuracy()+ "\t" + after  +  "\n";
-			}
-			if (i==4){
-				String after = lines[i].trim().trim().replaceAll(" +", "\t");
-			
-				autoWEKAClassifierListEvalString = autoWEKAClassifierListEvalString + filename+ "\t" + this.thresholdString + "\t" + DCWithoutOSClassificationDetail+ "\t" +  autoWEKAClassifier.accuracy()+"\t" + after  + "\n";
-			}
-			if (i==5){
-				String prefix ="Weighted Avg.    ";
-				String substr = lines[i].substring(prefix.length());
-				String after = substr.trim().trim().replaceAll(" +", "\t");
-				
-				autoWEKAClassifierListEvalString = autoWEKAClassifierListEvalString  + filename + "\t" + this.thresholdString+ "\t"  + AverageDCClassificationDetail+ "\t"  + autoWEKAClassifier.accuracy()+ "\t" + after;
-			}
-		}
-		return;
-	}
-
-	boolean autoClassifyTraining(int counter) {
-
-		File f = new File(filename);
-		boolean rtCode = false;
-		String absolutePath = "";
-		try {
-			absolutePath = f.getCanonicalPath();
-		} catch (IOException e2) {
-
-			e2.printStackTrace();
-		}
-		// System.out.println("File path : " + absolutePath);
-
-		String fileNames = absolutePath.substring(absolutePath.lastIndexOf(File.separator) + 1,
-				absolutePath.length() - 4);
-
-		myAutoWeka autoWEKAClassifierTemp = new myAutoWeka();
-
-		Instances trainingInstancesAutoTemp = new Instances(trainingInstancesAuto, 0, trainingInstancesAuto.size());
-		trainingInstancesAutoTemp.setClassIndex(trainingInstancesAutoTemp.numAttributes() - 1);
-	//	if (trainingInstancesAutoTemp.size() <15)
-		//	return rtCode;
-		try {
-			
-			autoWEKAClassifierTemp.setParallelRuns(1);
-			autoWEKAClassifierTemp.setMemLimit(1024);
-			// autoWEKAClassifierTemp.setMemLimit(5);
-			autoWEKAClassifierTemp.setTimeLimit(1);
-			//autoWEKAClassifierTemp.setSeed(123);
-			 // Default K-fold =  10 . Sample size is smaller we set to sample size
-			  if (trainingInstancesAutoTemp.size() < 3) {
-				  autoWEKAClassifierTemp.setResamplingArgs(trainingInstancesAutoTemp.size()-3);
-			  }
-			 
-			// System.out.println(autoWEKAClassifierTemp.getOptions().toString());
-			autoWEKAClassifierTemp.setDoNotCheckCapabilities(false);
-			autoWEKAClassifierTemp.setBespokePath(fileNames+"_" + regressionAlgoName + "_" + thresholdString + counter + "_");
-			autoWEKAClassifierTemp.buildClassifier(trainingInstancesAutoTemp);
-
-			autoWEKAClassifierList.add(autoWEKAClassifierTemp);
-
-			tempFilePath.add(autoWEKAClassifierTemp.getmsExperimentPaths());
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println("An error occured");
-			rtCode = false;
-		}
-
-		String[] msExperimentPath = Arrays.copyOf(autoWEKAClassifierTemp.getmsExperimentPathsArray(),
-				autoWEKAClassifierTemp.getmsExperimentPathsArray().length);
-		System.out.println("msExperimentPath[0]" + msExperimentPath[0]);
-		return rtCode;
-	}
 
 	public void classifyTraining(String filename, String thresholdString, String kfold) {
 
@@ -779,43 +590,6 @@ public class PreProcess {
 		}
 
 		return inputReader;
-	}
-
-	public void deleteTemporaryFiles(String filename, String thresholdString2) {
-		File f = new File(filename);
-
-		String absolutePath = f.getAbsolutePath();
-		// System.out.println("File path : " + absolutePath);
-
-		String folderName = absolutePath.substring(0, absolutePath.lastIndexOf(File.separator));
-		String fileName = absolutePath.substring(absolutePath.lastIndexOf(File.separator) + 1,
-				absolutePath.length() - 4);
-
-		// System.out.println("File path : " + folderName);
-
-		File file = new File(folderName + "/" + fileName+regressionAlgoName + "_CompleteEventFeatures_" + thresholdString + ".arff");
-
-		if (file.delete()) {
-			;// System.out.println("File deleted successfully");
-		} else {
-			System.out.println("Failed to delete the file :" + file.getAbsolutePath());
-		}
-
-		File file2 = new File(folderName + "/" + fileName+regressionAlgoName + "_Features_" + thresholdString + "_training.arff");
-
-		if (file2.delete()) {
-			;// System.out.println("File2 deleted successfully");
-		} else {
-			System.out.println("Failed to delete the file: " + file2.getAbsolutePath());
-		}
-
-		File file3 = new File(folderName + "/" + fileName+regressionAlgoName + "_Features_" + thresholdString + "_test.arff");
-
-		if (file3.delete()) {
-			;// System.out.println("File3 deleted successfully");
-		} else {
-			System.out.println("Failed to delete the file3: " + file3.getAbsolutePath());
-		}
 	}
 
 	String getWekaString(int k, Event event) {
@@ -1258,69 +1032,36 @@ public class PreProcess {
 	public void selectBestClassifier() {
 		double fmeasure = 0.0;
 		Iterator<Entry<Classifier[], Evaluation[]>> it = classifierEvaluationMap.entrySet().iterator();
-		while (it.hasNext()) {
 
-			Map.Entry<Classifier[], Evaluation[]> pair = (Map.Entry<Classifier[], Evaluation[]>) it.next();
-			// System.out.println(pair.getKey() + " = " + pair.getValue());
-			Evaluation eval = (Evaluation) pair.getValue()[0];
-			Classifier classifier = (Classifier) pair.getKey()[0];
-			// (Person)entry.getValue()[i]
-			// Evaluation[] evalArray
-			// it.remove(); // avoids a ConcurrentModificationException
-			double pricisionDouble = 0.0;
+		
+		 Map.Entry<Classifier[], Evaluation[]> entry = classifierEvaluationMap.entrySet().iterator().next();
+		 
+		 
 
-			if (eval.numTruePositives(0) != 0.0)
-				pricisionDouble = ((eval.numTruePositives(0)
-						/ (eval.numTruePositives(0) + eval.numFalsePositives(0))) == Double.NaN) ? 0.0
-								: (eval.numTruePositives(0) / (eval.numTruePositives(0) + eval.numFalsePositives(0)));
-			else
-				pricisionDouble = 0.0;
-			if (Double.isNaN(pricisionDouble))
-				System.out.println("XXX" + " " + eval.numTruePositives(0));
-
-			// System.out.println(eval.confusionMatrix()[0][0]); // TP
-			// System.out.println(eval.confusionMatrix()[0][1]); // FN
-			// System.out.println(eval.confusionMatrix()[1][0]); // FP
-			// System.out.println(eval.confusionMatrix()[1][1]); // TN
-
-			double accuracy = ((eval.confusionMatrix()[0][0] + eval.confusionMatrix()[1][1])
-					/ (eval.confusionMatrix()[0][1] + eval.confusionMatrix()[1][0] + eval.confusionMatrix()[0][0]
-							+ eval.confusionMatrix()[1][1]));
-			if (Double.isNaN(accuracy))
-				accuracy = 0.0;
-
-			double precision = (eval.confusionMatrix()[0][0])
-					/ (eval.confusionMatrix()[0][0] + eval.confusionMatrix()[1][0]);
-			if (Double.isNaN(precision))
-				precision = 0.0;
-
-			double recall = (eval.confusionMatrix()[0][0])
-					/ (eval.confusionMatrix()[0][0] + eval.confusionMatrix()[0][1]);
-
-			if (Double.isNaN(recall))
-				recall = 0.0;
-			// System.out.println(eval.toSummaryString());
-
-			/*
-			 * try { System.out.println(eval.toMatrixString()); } catch
-			 * (Exception e) {
-			 * 
-			 * e.printStackTrace(); }
-			 */
-
-			double fmeasureCopy = 5.0 * (((precision) * (recall)) / ((4 * precision) + (recall)));// ((2*((pricisionDouble*
-																									// recall)/(pricisionDouble+
-																									// recall))
-																									// *0.7)
-																									// +
-																									// (0.3*
-																									// filterAccuracyDbl));
-			if (fmeasureCopy > fmeasure) {
-				fmeasure = fmeasureCopy;
-				DCCurveClassifier = new Classifier[] { (Classifier) pair.getKey()[0] };
-				DCCurveEvaluation = new Evaluation[] { (Evaluation) pair.getValue()[0] };
+		DCCurveClassifier = new Classifier[] { (Classifier) entry.getKey()[0] };
+		DCCurveEvaluation = new Evaluation[] { (Evaluation) entry.getValue()[0] };
+			
+			//manualClassifierRankingMap  = manualClassifierTempMap.entrySet().stream().sorted(Map.Entry.comparingByKey())
+			//.collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue(), (e1, e2) -> e2, LinkedHashMap::new));
+			
+			//Double[] aKeys
+	       // = manualClassifierRankingMap.keySet().toArray(new Double[manualClassifierRankingMap.size()]);
+			
+			
+			// If 
+				
+			
+			
+			String modelName = "Unknown";
+			try{
+				modelName = DCCurveClassifier[0].getClass().getName();
 			}
-		}
+			catch(Exception e){
+				System.out.println("Exception occured");
+			}
+			System.out.println(" model for "+ filename+ " threshold " +thresholdString + " is:" + modelName);
+
+			
 
 		// String modelName = DCCurveClassifier[0].getClass().getName();
 		// System.out.println("Best model for "+ filename+ " threshold " +
@@ -1333,12 +1074,9 @@ public class PreProcess {
 
 			Double clsLabel = 0.0;
 			try {
-				if (autoWEKAClassifier == null)
-					clsLabel =0.0;
-				else
-					clsLabel = autoWEKAClassifier.classifyInstance(testInstances.instance(eventCount));
-				// clsLabel =
-				// DCCurveClassifier[0].classifyInstance(testInstances.instance(eventCount));
+				
+				clsLabel =
+				 DCCurveClassifier[0].classifyInstance(testInstances.instance(eventCount));
 			} catch (Exception e) {
 
 				e.printStackTrace();
@@ -1346,20 +1084,13 @@ public class PreProcess {
 			System.out.println(clsLabel.toString());
 			testInstances.instance(eventCount).setClassValue(clsLabel);
 			testInstances.instance(eventCount).stringValue(testInstances.attribute(testInstances.numAttributes() - 1));
-			// System.out.println(test.attribute(test.numAttributes() - 3) + " "
-			// + test.attribute(test.numAttributes() - 2) + " " +"prediction
-			// "+test.instance(eventCount).stringValue(test.attribute(test.numAttributes()
-			// - 1)));
+			
 		}
 	}
 
 	public String printPreprocessClassificationTraining(Event[] trendEvent) {
 
-		if (autoWEKAClassifier == null)
-		{
-			System.out.print("classifier not generated");
-			return "";
-		}
+		
 		int totalMissedOvershoot = 0;
 		double possibleovershootLength = 0.0;
 		double overshootLength = 0.0;
@@ -1411,9 +1142,9 @@ public class PreProcess {
 
 			double clsLabel = 0.0;
 			try {
-				clsLabel = autoWEKAClassifier.classifyInstance(trainingInstances1.instance(eventCount));
-				// clsLabel =
-				// DCCurveClassifier[0].classifyInstance(testInstances.instance(eventCount));
+				
+				 clsLabel =
+				 DCCurveClassifier[0].classifyInstance(trainingInstances1.instance(eventCount));
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -1421,13 +1152,7 @@ public class PreProcess {
 					.stringValue(trainingInstances1.attribute(trainingInstances1.numAttributes() - 1));
 			trainingInstances1.instance(eventCount).setClassValue(clsLabel);
 			trainingInstances1.instance(eventCount).stringValue(trainingInstances1.attribute(trainingInstances1.numAttributes() - 1));
-			// System.out.println("Before prediction," + beforePredict + ","+
-			// "After
-			// prediction,"+testInstances.instance(eventCount).stringValue(testInstances.attribute(testInstances.numAttributes()
-			// - 1))
-			// + ",fresh from DB," +
-			// testInstances1.instance(eventCount).stringValue(testInstances.attribute(testInstances.numAttributes()
-			// - 1)) );
+			
 		}
 
 		for (int eventCount = 1; eventCount < trainingInstances1.numInstances(); eventCount++) {
@@ -1536,9 +1261,9 @@ public class PreProcess {
 
 			double clsLabel = 0.0;
 			try {
-				clsLabel = autoWEKAClassifier.classifyInstance(testInstances.instance(eventCount));
-				// clsLabel =
-				// DCCurveClassifier[0].classifyInstance(testInstances.instance(eventCount));
+				
+				 clsLabel =
+				 DCCurveClassifier[0].classifyInstance(testInstances.instance(eventCount));
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -1607,7 +1332,7 @@ public class PreProcess {
 		
 		try {
 			eval = new Evaluation(testInstances1);
-			eval.evaluateModel(autoWEKAClassifier, testInstances1);
+			eval.evaluateModel(DCCurveClassifier[0],testInstances1);
 			evalString = eval.toClassDetailsString();
 			
 	
@@ -1666,13 +1391,9 @@ public class PreProcess {
 		Double clsLabel = 0.0;
 		try {
 
-			if (useAuto) {
-				Instances cpy = testInstances;
-
-				//System.out.println("instance num " + testInstances.numInstances() + " counter" + instanceCount);
-				clsLabel = autoWEKAClassifier.classifyInstance(testInstances.instance(instanceCount));
-			} else
-				clsLabel = DCCurveClassifier[0].classifyInstance(testInstances.instance(instanceCount));
+		
+			
+			clsLabel = DCCurveClassifier[0].classifyInstance(testInstances.instance(instanceCount));
 
 			clsLabel.toString();
 
@@ -1695,10 +1416,8 @@ public class PreProcess {
 
 		Double clsLabel = 0.0;
 		try {
-			if (useAuto)
-				clsLabel = autoWEKAClassifier.classifyInstance(trainingInstancesAuto.instance(instanceCount));
-			else
-				clsLabel = DCCurveClassifier[0].classifyInstance(trainingInstancesManual.instance(instanceCount));
+			
+			clsLabel = DCCurveClassifier[0].classifyInstance(trainingInstancesManual.instance(instanceCount));
 			clsLabel.toString();
 		} catch (Exception e) {
 
@@ -1725,11 +1444,7 @@ public class PreProcess {
 
 	}
 
-	public Instances getTrainingInstanceAuto() {
-
-		return trainingInstancesAuto;
-
-	}
+	
 
 	public void evaluateModel() {
 		try {
@@ -1746,213 +1461,7 @@ public class PreProcess {
 		}
 	}
 
-	public void runAutoWeka() {
-		autoWEKAClassifierList = new ArrayList<myAutoWeka>(3);
-
-		File f = new File(filename);
-		Instances trainingInstancesCompare = null;
-		String absolutePath = "";
-		try {
-			absolutePath = f.getCanonicalPath();
-		} catch (IOException e3) {
-
-			e3.printStackTrace();
-		}
-		// System.out.println("File path : " + absolutePath);
-
-		String folderName = absolutePath.substring(0, absolutePath.lastIndexOf(File.separator));
-		String fileName = absolutePath.substring(absolutePath.lastIndexOf(File.separator) + 1,
-				absolutePath.length() - 4);
-
-		int autoWekaCount = 0;
-		while (autoWekaCount < 10) {
-			SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-			Date date = new Date();
-			System.out.println("starting run " + autoWekaCount + " autoweka for thresholdString" + thresholdString
-					+ "at:" + formatter.format(date));
-			
-		
-			autoClassifyTraining(autoWekaCount);
-			
-				
-				
-			if (autoWekaCount > 3) {
-				getBestAutoClassifier();
-				deleteAllTempFilesExceptBestAutoClassifier(fileName);
-			}
-
-			autoWekaCount++;
-		}
-
-		getBestAutoClassifier();
-		getAutoWekaClassifierDetailResult();
-		System.out.println("Number of auto weka models" + autoWEKAClassifierList.size());
-
-		BufferedReader breader = null;
-		try {
-			breader = new BufferedReader(
-					new FileReader(folderName + "/" + fileName+regressionAlgoName + "_Features_" + thresholdString + "_training.arff"));
-		} catch (FileNotFoundException e2) {
-			e2.printStackTrace();
-		}
-
-		try {
-			trainingInstancesCompare = new Instances(breader);
-			breader.close();
-		} catch (IOException e1) {
-
-			e1.printStackTrace();
-		}
-
-		trainingInstancesCompare.setClassIndex(trainingInstancesCompare.numAttributes() - 1);
-
-		Instances trainingInstancesAuto = new Instances(trainingInstancesCompare, 0, trainingInstancesCompare.size());
-		trainingInstancesAuto.setClassIndex(trainingInstancesAuto.numAttributes() - 1);
-		
-		String tempFolderName = tempFilePath.get(0).substring(0, tempFilePath.get(0).lastIndexOf(File.separator));
-		System.out.println("delete file path is: " + fileName);
-
-		File dir = new File(tempFolderName);
-		if (!dir.isDirectory())
-			return;
-
-		File[] tempFile = dir.getParentFile().listFiles(new FilenameFilter() {
-			public boolean accept(File dir, String name) {
-				return name.startsWith("autoweka" + fileName);
-			}
-		});
-
-		for (int tempFileCount = 0; tempFileCount < tempFile.length; tempFileCount++) {
-			try {
-				deleteDirectoryRecursionJava6(tempFile[tempFileCount]);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				System.out.println("Unable to delete one of the directory");
-			}
-		}
-	}
-
-	public String printAutoWekaVsManualClassifierComparison() {
-		return comparisonResult;
-	}
-
-	public String getAutoWEKAClassifierListEvalString() {
-		return autoWEKAClassifierListEvalString;
-	}
-
-	public void clearAutoWEKAClassifierListEvalString() {
-		autoWEKAClassifierListEvalString = "";
-	}
-
-	public void cleanupAutoWekaTemp(String tempPath, int position) {
-
-		String folderName = tempPath.substring(0, tempPath.lastIndexOf(File.separator));
-		System.out.println(folderName);
-
-		tempPath = tempPath.substring(0, tempPath.length() - 1);
-		System.out.println("Deleting Weka tmp files at" + tempPath);
-		System.out.println(" 1 Number of auto weka models" + autoWEKAClassifierList.size());
-		Process p1 = null;
-		Path directoryPath = null;
-		if (System.getProperty("os.name").contains("Windows")) {
-			// Runtime.getRuntime().exec("cmd.exe /c for /d %i in
-			// (c:\\Users\\atna3\\AppData\\Local\\Temp\\autoweka*) do echo %i
-			// ");
-			try {
-				String path = tempPath.replaceAll("\\\\", "\\\\\\\\"); // need
-																		// to
-																		// double
-																		// up to
-																		// work
-				directoryPath = Paths.get(path);
-				// if (Files.exists(directoryPath,new
-				// LinkOption[]{LinkOption.NOFOLLOW_LINKS}))
-				// p1 = Runtime.getRuntime().exec("cmd.exe /c for /d %x in
-				// ("+path+"*) do rd /s /q \"%x\" ");
-				p1 = Runtime.getRuntime().exec("cmd.exe /c rd /s /q " + path);
-
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		} else {
-			String[] cmd = { "/bin/sh", "-c", "rm -rf " + tempPath };
-			try {
-				p1 = Runtime.getRuntime().exec(cmd);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-
-		}
-		try {
-			p1.waitFor();
-			// IF successfully deleted remove element
-			// if (Files.notExists(directoryPath,new
-			// LinkOption[]{LinkOption.NOFOLLOW_LINKS}))
-			// tempFilePath.remove(position);
-		} catch (InterruptedException e) {
-			System.out.println("tmp file has been deleted");
-		} catch (NullPointerException e) {
-			System.out.println("tmp file has been deleted");
-		}
-
-	}
-
-	/*
-	 * public void updatetempFilePathArrayList(String tempPath, int position){
-	 * tempPath = tempPath.substring(0,tempPath.length()-1); System.out.println(
-	 * "Removing element:" + position + " from tempFilePath ArrayList" +
-	 * " current tempFilePathArray size is :" + tempFilePath.get(position));
-	 * Path directoryPath = null; if
-	 * (System.getProperty("os.name").contains("Windows")){
-	 * //Runtime.getRuntime().exec(
-	 * "cmd.exe /c for /d %i in (c:\\Users\\atna3\\AppData\\Local\\Temp\\autoweka*) do echo %i "
-	 * );
-	 * 
-	 * String path = tempPath.replaceAll("\\\\", "\\\\\\\\"); // need to double
-	 * up to work directoryPath = Paths.get(path); if
-	 * (Files.notExists(directoryPath,new
-	 * LinkOption[]{LinkOption.NOFOLLOW_LINKS})) tempFilePath.remove(position);
-	 * 
-	 * } else { directoryPath = Paths.get(tempPath); if
-	 * (Files.notExists(directoryPath,new
-	 * LinkOption[]{LinkOption.NOFOLLOW_LINKS})) tempFilePath.remove(position);
-	 * }
-	 * 
-	 * System.out.println("TempFilePathArray size now is :" + tempFilePath); }
-	 */
-	public void removeTempFiles() {
-		// Clear up any residue;
-		int tmpFolderCount = tempFilePath.size() - 1;
-		for (tmpFolderCount = tempFilePath.size() - 1; tmpFolderCount >= 0; tmpFolderCount--) {
-
-			cleanupAutoWekaTemp(tempFilePath.get(tmpFolderCount), tmpFolderCount);
-		}
-		/*
-		 * for (tmpFolderCount= tempFilePath.size()-1; tmpFolderCount>=0;
-		 * tmpFolderCount--){
-		 * updatetempFilePathArrayList(tempFilePath.get(tmpFolderCount),
-		 * tmpFolderCount); }
-		 */
-
-	}
-
-	public void deleteDirectoryRecursionJava6(File file) throws IOException {
-		if (file.isDirectory()) {
-			File[] entries = file.listFiles();
-			if (entries != null) {
-				for (File entry : entries) {
-					// System.out.println(" Deleting "+ file.getAbsolutePath());
-					deleteDirectoryRecursionJava6(entry);
-				}
-			}
-		}
-		if (!file.delete()) {
-			throw new IOException("Failed to delete " + file);
-		}
-	}
-
+	
 	public Instances getCopyOfTestInstances() {
 		return new Instances(testInstances);
 	}
@@ -1961,56 +1470,7 @@ public class PreProcess {
 		testInstances = new Instances(instances);
 	}
 	
-	public Instances getCopyOfTrainingInstancesAuto() {
-		return new Instances(trainingInstancesAuto);
-	}
 	
-	public void setCopyOfTrainingInstancesAuto(Instances instances) {
-		trainingInstancesAuto = new Instances(instances);
-	}
 
-	String getBestAutoWekaTempFolderPrefix() {
-		String prefix = "";
-		bestAutoWekaExperimentPaths = Arrays.copyOf(autoWEKAClassifier.getmsExperimentPathsArray(),
-				autoWEKAClassifier.getmsExperimentPathsArray().length);
-		File file = new File(bestAutoWekaExperimentPaths[0]);
-		String simpleFileName = file.getName();
-
-		String fileNameStringprefix[] = simpleFileName.split("_");
-		for (int i = 0; i <= 5; ++i) {
-			prefix = prefix + fileNameStringprefix[i] + "_";
-		}
-
-		return prefix;
-	}
-
-	void deleteAllTempFilesExceptBestAutoClassifier(String fileName) {
-
-		String tempFolderName = tempFilePath.get(0).substring(0, tempFilePath.get(0).lastIndexOf(File.separator));
-		String bestClassiferTempFilePrefix = getBestAutoWekaTempFolderPrefix();
-
-		System.out.println("delete file path is: " + fileName);
-
-		File dir = new File(tempFolderName);
-		if (!dir.isDirectory())
-			return;
-
-		File[] tempFile = dir.getParentFile().listFiles(new FilenameFilter() {
-			public boolean accept(File dir, String name) {
-				return (name.startsWith("autoweka" + fileName) && !name.startsWith(bestClassiferTempFilePrefix));
-			}
-		});
-
-		for (int tempFileCount = 0; tempFileCount < tempFile.length; tempFileCount++) {
-			try {
-				deleteDirectoryRecursionJava6(tempFile[tempFileCount]);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				System.out.println("Unable to delete one of the directory");
-			}
-		}
-
-	}
-	
 	
 }
